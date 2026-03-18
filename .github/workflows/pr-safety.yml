@@ -1,0 +1,109 @@
+name: PR Safety
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate PR guardrails
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce source branch naming
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [[ -z "$HEAD_REF" ]]; then
+            echo "Missing pull request source branch."
+            exit 1
+          fi
+
+          if [[ "$HEAD_REF" == "master" || "$HEAD_REF" == "main" ]]; then
+            echo "Pull requests must come from a feature branch, not $HEAD_REF."
+            exit 1
+          fi
+
+          if [[ ! "$HEAD_REF" =~ ^(codex|feature|fix|hotfix|chore|docs|refactor|release)/.+$ ]]; then
+            echo "Branch '$HEAD_REF' must use a protected naming prefix such as codex/, feature/, fix/, docs/, or release/."
+            exit 1
+          fi
+
+      - name: Verify required repo structure
+        run: |
+          required_paths=(
+            "README.md"
+            "AGENTS.md"
+            "docs/README.md"
+            "docs/phases/00-foundation/README.md"
+            "docs/phases/09-hardening-load-release/README.md"
+            "apps/web/README.md"
+            "apps/server/README.md"
+            "packages/contracts/README.md"
+            "packages/game-engine/README.md"
+          )
+
+          for path in "${required_paths[@]}"; do
+            if [[ ! -e "$path" ]]; then
+              echo "Missing required path: $path"
+              exit 1
+            fi
+          done
+
+      - name: Run docs-first repo verification
+        run: |
+          git status --short --branch
+          git diff --stat --exit-code
+          find docs -maxdepth 3 -type f | sort
+
+      - name: Set up Node and pnpm when workspace exists
+        if: ${{ hashFiles('package.json', 'pnpm-workspace.yaml') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies when lockfile exists
+        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Require clean-merge scripts when workspace exists
+        if: ${{ hashFiles('package.json') != '' }}
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const scripts = pkg.scripts || {};
+          const required = ['lint', 'typecheck', 'test', 'build'];
+          const missing = required.filter((name) => typeof scripts[name] !== 'string');
+
+          if (missing.length > 0) {
+            console.error(`Missing required package.json scripts for PR safety: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+
+          fs.writeFileSync(process.env.GITHUB_OUTPUT, `commands=${required.join(' ')}\n`, { flag: 'a' });
+          EOF
+        shell: bash
+        id: package_scripts
+
+      - name: Execute required clean-merge scripts
+        if: ${{ steps.package_scripts.outputs.commands != '' }}
+        run: |
+          corepack enable
+          for script in ${{ steps.package_scripts.outputs.commands }}; do
+            echo "Running pnpm ${script}"
+            pnpm "${script}"
+          done
+
