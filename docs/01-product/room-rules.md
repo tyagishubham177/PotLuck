@@ -1,4 +1,4 @@
-﻿# Room Rules
+# Room Rules
 
 ## Room Configuration
 | Setting | Type | Default | Validation | Editable Between Hands |
@@ -16,14 +16,19 @@
 | Rake enabled | Boolean | false | play-money only | Yes |
 | Rake percent | Percent | 0 | 0 to 10 | Yes |
 | Rake cap | Chips | 0 | `>= 0` | Yes |
-| Odd chip rule | Enum | `LEFT_OF_BUTTON` | `LEFT_OF_BUTTON`, `HIGH_CARD_SUIT`, `HOUSE_RULE` | Yes |
+| Odd chip rule | Enum | `LEFT_OF_BUTTON` | `LEFT_OF_BUTTON` only in v1 | Yes |
 | Spectators allowed | Boolean | false | n/a | Yes |
-| Chat allowed | Boolean | true | n/a | Yes |
-| Emoji reactions | Boolean | true | n/a | Yes |
 | Straddle allowed | Boolean | false | UTG only in v1 | Yes |
 | Seat reservation timeout | Seconds | 120 | 30 to 300 | Yes |
 | Join code expiry | Minutes | 120 | 30 to 1440 | Yes |
 | Waiting list enabled | Boolean | true | n/a | Yes |
+| Room max duration | Minutes | 720 | fixed in v1 | No |
+
+## Room Status Lifecycle
+- `CREATED`: config accepted, room code assigned, lobby not yet open.
+- `OPEN`: joins, seating, and gameplay allowed subject to normal rules.
+- `PAUSED`: room visible but no new hand actions are accepted until resumed.
+- `CLOSED`: room ended manually or by max-duration timeout; no new joins or gameplay.
 
 ## Seat Rules
 - Seats are indexed clockwise from `0`.
@@ -34,17 +39,20 @@
 
 ## Join Rules
 - Guest players join with room code + nickname.
-- Nickname must be unique within the room for the life of the active session.
+- Nickname must be unique among active room occupants and guest sessions.
+- A nickname becomes available again after the player fully leaves the room or the guest session expires.
 - If the room is full and waiting list is enabled, the guest is offered queue entry instead of a seat.
 - If waiting list is disabled and no seat is free, the join request is rejected with `ERR_ROOM_FULL`.
+- One admin may own only one active room at a time in v1.
 
 ## Table Rules
 - A player may not change seats during an active hand.
 - Top-up and rebuy are only allowed between hands.
 - Sit-out takes effect immediately if not in hand, otherwise next-hand by default.
 - Spectators cannot see hole cards unless the room explicitly enables open training mode.
+- A room auto-closes after `12` hours from creation even if still paused or idle.
 
 ## Settlement Rules
 - Table stakes apply: only the chips on the table at hand start are live for that hand.
 - Folded players keep contributed chips in eligible pots but are excluded from awards.
-- Odd chips are distributed per room rule, defaulting to the first winning seat left of the button.
+- Odd chips are distributed to the first winning seat left of the button, then clockwise through the winning set for additional remainder chips.

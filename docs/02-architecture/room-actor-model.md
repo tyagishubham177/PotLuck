@@ -1,4 +1,4 @@
-﻿# Room Actor Model
+# Room Actor Model
 
 ## Actor Responsibilities
 - Own the authoritative in-memory state for one room.
@@ -6,6 +6,12 @@
 - Invoke pure game-engine functions for legal actions, dealing, and settlement.
 - Persist committed transitions and emit diffs to clients.
 - Manage timers, reconnect grace, queue auto-seating, and between-hand admin edits.
+
+## Actor Lifecycle
+- Create the room actor immediately after room creation succeeds.
+- Keep one actor per active room for the entire `CREATED`, `OPEN`, and `PAUSED` lifecycle.
+- Garbage-collect the actor after room close completes or after `12` hours of idle retention for archival export work.
+- Single-process actor hosting is sufficient for v1 because expected concurrency is `1` to `2` active rooms.
 
 ## Actor Inputs
 | Input | Source | Validation |
@@ -20,7 +26,7 @@
 | --- | --- |
 | Room diff | connected clients |
 | Durable event record | Postgres |
-| Presence update | Redis |
+| Presence update | connected clients and optional future coordination layer |
 | Metric/log event | observability stack |
 | History export job | admin endpoints |
 

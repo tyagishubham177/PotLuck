@@ -1,4 +1,4 @@
-﻿# Settlement Spec
+# Settlement Spec
 
 ## Inputs Required Per Hand
 - `contributionTotal[playerId]`: chips committed across the entire hand.
@@ -23,9 +23,9 @@
    - eligible winners are contributors for that segment who have not folded
    - folded players still count toward contributed amount but cannot win
 6. Evaluate each pot independently using the best showdown rank among eligible players.
-7. Split the pot evenly among winners.
-8. If the split leaves remainder chips, distribute odd chips according to room rule.
-9. Apply rake once per hand before payout by default in v1, subject to configured cap.
+7. Apply rake to each eligible pot before winner splitting, subject to the configured per-hand cap.
+8. Split the remaining pot evenly among winners.
+9. If the split leaves remainder chips, distribute odd chips according to `LEFT_OF_BUTTON`.
 10. Write settlement records and matching ledger entries transactionally.
 
 ## Payout Order
@@ -35,9 +35,8 @@
 - Display side-pot badges in the same ascending order used for settlement.
 
 ## Odd Chip Rule
-- Default: `LEFT_OF_BUTTON`.
+- v1 uses `LEFT_OF_BUTTON` only.
 - When a pot split produces remainder chips, distribute one chip at a time to winners starting from the first winning occupied seat left of the button and moving clockwise across the winning set.
-- `HIGH_CARD_SUIT` and `HOUSE_RULE` are reserved options but must still return deterministic recipients.
 
 ## Worked Example 1: Four-Way All-In
 | Player | Contribution | Status | Showdown Result |

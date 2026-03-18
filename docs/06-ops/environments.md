@@ -1,9 +1,10 @@
-﻿# Environments
+# Environments
 
 ## Local
 - Single developer machine.
 - One web process and one server process.
-- Managed dev Postgres/Redis allowed to avoid heavy local ops.
+- Managed dev Postgres is preferred to avoid heavy local ops.
+- Optional managed Redis is acceptable only if later coordination experiments need it.
 - Seed script creates sample room configs and test users.
 
 ## Staging

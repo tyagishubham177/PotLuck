@@ -1,4 +1,4 @@
-﻿# PotLuck Overview
+# PotLuck Overview
 
 ## Product Shape
 - PotLuck is a room-based realtime poker web app for private friend groups.
@@ -17,7 +17,7 @@
 - Real-money payments or withdrawals
 - Run-it-twice
 - Hand replay viewer in v1
-- Multi-variant support beyond future-ready seams
+- Multi-variant support beyond Texas Hold'em
 - Global matchmaking or discovery
 
 ## Launch Defaults
@@ -29,13 +29,13 @@
 | Odd chip rule | Left of button |
 | Rake | Off |
 | Region | Single primary region |
-| Hosting | Vercel + Fly.io + Neon + Upstash |
+| Hosting | Vercel + Fly.io + Neon + optional Redis later |
 
 ## Core Roles
 | Role | Capabilities |
 | --- | --- |
-| Admin | Create room, edit config between hands, pause/resume, moderate, export history |
-| Player | Join by code, seat, buy in, act in hand, top up between hands, chat if enabled |
+| Admin | Create room, edit config between hands, pause/resume, remove disruptive players, export history |
+| Player | Join by code, seat, buy in, act in hand, top up between hands |
 | Spectator | Subscribe to public table state only, no hidden cards before showdown |
 | Moderator | Same as admin for the room in v1 |
 
@@ -57,11 +57,12 @@
 | Realtime server | Fastify + Socket.IO | Strong TypeScript ergonomics and websocket fallback model |
 | Shared validation | Zod | Runtime validation and inferred types |
 | Persistence | Drizzle + Neon Postgres | Typed schema control with low-cost managed Postgres |
-| Coordination | Upstash Redis | Cheap managed pub/sub and reconnect support |
+| Coordination | In-process room actors, optional Redis later | Single-process v1 is sufficient for 1 to 2 concurrent rooms |
 | Mail | Resend | Simple admin OTP |
 | Observability | Sentry + OpenTelemetry + Grafana Cloud | Error tracking plus traces and metrics |
 
 ## Document Map
+- `glossary.md`: shared project terminology and cross-doc vocabulary
 - `01-product/`: room rules, player lifecycle, feature boundaries, journey specs
 - `02-architecture/`: topology, actors, state machines, data model, ADRs
 - `03-contracts/`: REST, realtime, errors, versioning

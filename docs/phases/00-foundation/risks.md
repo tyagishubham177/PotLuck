@@ -1,7 +1,8 @@
-﻿# Phase 00: Foundation Risks
+# Phase 00: Foundation Risks
 
 ## Assumptions
-- Managed dev Postgres and Redis are acceptable in early local setup.
+- Managed dev Postgres is acceptable in early local setup.
+- Optional managed Redis can stay out of scope until multi-instance coordination is needed.
 - CI runs on GitHub Actions.
 
 ## Risks

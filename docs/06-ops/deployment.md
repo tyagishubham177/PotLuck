@@ -1,4 +1,4 @@
-﻿# Deployment
+# Deployment
 
 ## Production Targets
 | Surface | Platform |
@@ -6,7 +6,7 @@
 | Web | Vercel |
 | Authoritative server | Fly.io |
 | Database | Neon Postgres |
-| Cache and pub/sub | Upstash Redis |
+| Optional coordination cache | Upstash Redis later if needed |
 | Email | Resend |
 | Observability | Sentry + Grafana Cloud |
 
@@ -26,5 +26,5 @@
 
 ## Secret Ownership
 - Web envs: public client config only.
-- Server envs: DB URLs, Redis URL, mail key, signing keys, Sentry DSN.
+- Server envs: DB URLs, mail key, signing keys, Sentry DSN, and optional Redis URL if enabled later.
 - OTP and guest-session signing secrets rotate independently.

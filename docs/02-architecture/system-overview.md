@@ -1,7 +1,7 @@
-﻿# System Overview
+# System Overview
 
 ## Architectural Style
-- Server-authoritative, room-sharded realtime application.
+- Server-authoritative realtime application with room-scoped actors.
 - Monorepo with thin apps and rich shared packages.
 - Single writer per room to guarantee deterministic action ordering and settlement.
 - Append-only audit and ledger records for all financially meaningful events.
@@ -11,10 +11,10 @@
 flowchart LR
   Browser["Web Client\nNext.js + React"] --> Edge["HTTPS + WebSocket Gateway"]
   Edge --> Server["Authoritative Room Service\nFastify + Socket.IO"]
-  Server --> Redis["Redis\nPresence + pub/sub + short-lived state"]
   Server --> Postgres["Postgres\nRooms, hands, ledger, audit, exports"]
   Server --> Mail["Resend\nAdmin OTP"]
   Server --> Obs["Sentry + OTel + Grafana"]
+  Server -. optional later .-> Redis["Redis\nPresence + coordination offload"]
 ```
 
 ## Source Of Truth By Concern
@@ -34,7 +34,7 @@ flowchart LR
 | Auth and room CRUD | HTTPS | Server | Idempotent request/response |
 | Live play | WebSocket | Server | Client submits intents only |
 | History export | HTTPS | Server | Async export job optional later |
-| Presence and reconnect | WebSocket + Redis | Server | Redis used only as coordination aid |
+| Presence and reconnect | WebSocket | Server | v1 uses server snapshots; Redis coordination is optional later |
 
 ## Primary Flows
 - Create room: admin auth -> config validation -> room persisted -> room actor primed -> room code returned.

@@ -1,4 +1,4 @@
-﻿# Realtime Events
+# Realtime Events
 
 ## Client To Server Intents
 | Event | Payload |
@@ -8,8 +8,6 @@
 | `PLAYER_READY` | room id, seat index |
 | `PLAYER_SIT_OUT` | room id, effective timing |
 | `ACTION_SUBMIT` | hand id, seq expectation, idempotency key, action type, amount |
-| `CHAT_SEND` | room id, message |
-| `REACTION_SEND` | room id, reaction type |
 | `HISTORY_REQUEST` | hand id |
 
 ## Server To Client Events
@@ -17,7 +15,8 @@
 | --- | --- | --- |
 | `ROOM_SNAPSHOT` | player/spectator | full current view |
 | `ROOM_DIFF` | player/spectator | incremental public state changes |
-| `PRIVATE_STATE` | owning player only | hole cards, private stack metadata, action affordances |
+| `PRIVATE_STATE` | owning player only | hole cards, private stack metadata, `actionAffordances`, reconnect metadata |
+| `HAND_STARTED` | room | hand id, hand number, button, blind seats, action order seed data |
 | `TURN_STARTED` | room | acting seat, deadline, legal action set |
 | `TURN_WARNING` | room | acting seat, seconds remaining |
 | `ACTION_ACCEPTED` | acting client | action seq, normalized amount |
@@ -25,8 +24,11 @@
 | `STREET_ADVANCED` | room | new street, board cards |
 | `SHOWDOWN_RESULT` | room | hands shown, rankings, pot winners |
 | `SETTLEMENT_POSTED` | room | ledger deltas, new stacks, odd chip markers |
+| `PLAYER_DISCONNECTED` | room | seat index, disconnected at, timer impact summary |
+| `PLAYER_RECONNECTED` | room | seat index, reconnected at |
+| `QUEUE_UPDATE` | lobby viewers | queue entries, open seats, next eligible player |
 | `ROOM_PAUSED` | room | reason, recovery guidance |
-| `MODERATION_APPLIED` | room or target player | mute, kick, lock updates |
+| `MODERATION_APPLIED` | room or target player | kick or lock updates |
 
 ## Ordering Guarantees
 - Every room message includes `roomEventNo`.
@@ -38,3 +40,8 @@
 - Spectator payloads omit hole cards, private action affordances, and hidden deck metadata.
 - Player payloads contain only the player's own hole cards plus public state.
 - Admins do not receive hidden cards by role alone.
+
+## Private State Affordances
+- `PRIVATE_STATE.actionAffordances` is an object, not a raw string list.
+- It must include normalized fields such as `canFold`, `canCheck`, `callAmount`, `minRaiseTo`, `maxRaiseTo`, `allInAmount`, and `presetAmounts[]`.
+- Clients should render only affordances that are explicitly present in the latest payload.

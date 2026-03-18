@@ -1,4 +1,9 @@
-﻿# REST API Contract
+# REST API Contract
+
+## Health Endpoint
+| Endpoint | Method | Request | Response |
+| --- | --- | --- | --- |
+| `/api/health` | GET | none | status, version, timestamp |
 
 ## Auth Endpoints
 | Endpoint | Method | Request | Response |
@@ -32,20 +37,22 @@
 | --- | --- | --- | --- |
 | `/api/rooms/{roomId}/pause` | POST | admin session | paused room snapshot |
 | `/api/rooms/{roomId}/resume` | POST | admin session | resumed room snapshot |
-| `/api/rooms/{roomId}/mute` | POST | player id, duration | moderation record |
 | `/api/rooms/{roomId}/kick` | POST | player id, reason | moderation record |
 | `/api/rooms/{roomId}/lock` | POST | lock state | updated room permissions |
 
 ## History Endpoints
 | Endpoint | Method | Request | Response |
 | --- | --- | --- | --- |
-| `/api/rooms/{roomId}/hands` | GET | paging | list of hand summaries |
+| `/api/rooms/{roomId}/hands` | GET | `cursor`, `limit` | `items[]`, `nextCursor` |
 | `/api/hands/{handId}` | GET | session | full transcript |
 | `/api/hands/{handId}/export.json` | GET | session | JSON file |
 | `/api/hands/{handId}/export.txt` | GET | session | human-readable transcript |
 
 ## Contract Rules
+- `room code` is for discovery and unauthenticated room entry; `roomId` is for authenticated room-scoped operations after the room is known.
+- OTP request and verify endpoints must be rate-limited per email, IP, and challenge window.
 - All write endpoints require authenticated admin or room-scoped guest session tokens as appropriate.
 - All mutating requests accept an idempotency key header.
 - Validation failures return typed errors, never generic `400` text.
 - Config edits touching gameplay rules are rejected during active hands.
+- Cursor pagination is the default for list endpoints; offset pagination is out of scope for v1.

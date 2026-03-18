@@ -1,4 +1,4 @@
-﻿# Feature Matrix
+# Feature Matrix
 
 ## v1 Included
 | Area | Included |
@@ -8,10 +8,10 @@
 | Gameplay | NL Hold'em, blinds, ante, UTG straddle, all-ins, side pots |
 | Wallet | Room-scoped buy-in, rebuy, top-up, append-only ledger |
 | Realtime | WebSocket-first updates, reconnect, timers, idempotent intents |
-| Admin | Pause/resume, lock/unlock, mute/kick, config edits between hands, exports |
+| Admin | Pause/resume, lock/unlock, remove player, config edits between hands, exports |
 | Spectating | Optional public-state view with hidden-card restrictions |
 | History | JSON export, human-readable transcript, dispute audit trail |
-| UX | Mobile-first table, accessible contrast, color-safe suits, subtle motion |
+| UX | Mobile-first table, accessible contrast, color-safe suits, subtle motion, audio cues |
 | Quality | Unit, property, integration, soak, chaos, and UAT coverage plans |
 
 ## Nice To Have After Core v1
@@ -20,7 +20,9 @@
 | Replay | Post-hand animated replay and street-by-street scrubber |
 | Analytics | Rich per-player stat dashboard and session summaries |
 | Social | Friend lists, persistent profiles, saved notes |
+| Social Table | Chat and emoji reactions |
 | Streaming | Streamer delay presets and anti-ghosting overlays |
+| Fair Play | Collusion signal dashboards and analyst tooling |
 
 ## Explicitly Out Of Scope
 | Area | Excluded |

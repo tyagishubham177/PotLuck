@@ -1,4 +1,4 @@
-﻿# Phase 06: Settlement, Side Pots, and Audit Risks
+# Phase 06: Settlement, Side Pots, and Audit Risks
 
 ## Assumptions
 - Rake is disabled by default but code path still exists.
@@ -14,4 +14,4 @@
 
 ## Deferred Work
 - Replay visualization.
-- Advanced collusion analytics.
+- Future fair-play analytics, including collusion review signals.
