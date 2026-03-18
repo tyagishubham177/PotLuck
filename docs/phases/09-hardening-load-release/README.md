@@ -6,6 +6,10 @@ Prove reliability, performance, accessibility, and release readiness under reali
 ## Why Now
 The app should not be called production-ready until restart recovery, load behavior, and operational workflows are exercised.
 
+## AI Mode
+- Recommended mode: `hi`
+- Comment: `hi`, leaning `xtra hi`; the code changes are smaller, but soak tests, alerts, and release decisions carry high operational risk.
+
 ## Prerequisites
 - Phases 00 through 08 complete.
 - Read `docs/07-quality/test-strategy.md` and `docs/06-ops/observability.md`.

@@ -42,18 +42,18 @@ flowchart TD
 ```
 
 ## Phase Execution Order
-| Phase | Name | Goal |
-| --- | --- | --- |
-| 00 | Foundation | Create monorepo scaffold, CI, env handling, baseline tooling |
-| 01 | Auth Admin and Guest Entry | Establish identity, roles, and room entry |
-| 02 | Room Lobby Seating | Build room creation, codes, seating, and lobby flows |
-| 03 | Wallet Buyin and Ledger | Enforce room-scoped chips and table-stakes accounting |
-| 04 | Realtime Room Actor | Implement single-writer room loop and action transport |
-| 05 | Holdem Engine and Hand State | Build the authoritative hand state machine |
-| 06 | Settlement Side Pots and Audit | Finalize pot splitting, side pots, and auditable payouts |
-| 07 | Player Table UI | Ship the mobile-first player interface |
-| 08 | Admin Spectator History | Add moderation, spectating, and hand history |
-| 09 | Hardening Load Release | Prove reliability, accessibility, and release readiness |
+| Phase | Name | Goal | AI Mode | Comment |
+| --- | --- | --- | --- | --- |
+| 00 | Foundation | Create monorepo scaffold, CI, env handling, baseline tooling | `med` | `med`, leaning `hi`; use `hi` if one pass is wiring the full workspace and CI together |
+| 01 | Auth Admin and Guest Entry | Establish identity, roles, and room entry | `hi` | `hi`, leaning `med`, but safe-side `hi` because auth mistakes become security bugs |
+| 02 | Room Lobby Seating | Build room creation, codes, seating, and lobby flows | `med` | `med`, leaning `hi`; product-state heavy, but still simpler than realtime hand logic |
+| 03 | Wallet Buyin and Ledger | Enforce room-scoped chips and table-stakes accounting | `hi` | `hi`, leaning `xtra hi`; chip accounting and rollback safety need careful reasoning |
+| 04 | Realtime Room Actor | Implement single-writer room loop and action transport | `xtra hi` | `xtra hi`; event ordering, reconnects, timers, and idempotency are subtle |
+| 05 | Holdem Engine and Hand State | Build the authoritative hand state machine | `xtra hi` | `xtra hi`; betting legality and street transitions have many edge cases |
+| 06 | Settlement Side Pots and Audit | Finalize pot splitting, side pots, and auditable payouts | `xtra hi` | `xtra hi`, and stay there; this is the highest-risk correctness phase |
+| 07 | Player Table UI | Ship the mobile-first player interface | `hi` | `hi`, leaning `med`; UI work is lighter than engine work, but contract accuracy still matters |
+| 08 | Admin Spectator History | Add moderation, spectating, and hand history | `hi` | `hi`, leaning `med`; permission edges and privacy rules make `hi` safer |
+| 09 | Hardening Load Release | Prove reliability, accessibility, and release readiness | `hi` | `hi`, leaning `xtra hi`; release, soak, and observability decisions are operationally risky |
 
 ## Current Status
 - Repo status: docs scaffolded, no executable code yet.

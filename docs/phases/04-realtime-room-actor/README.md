@@ -6,6 +6,10 @@ Implement websocket connectivity, room subscription, single-writer actor flow, r
 ## Why Now
 The authoritative room loop must be in place before the game engine can safely drive hands.
 
+## AI Mode
+- Recommended mode: `xtra hi`
+- Comment: `xtra hi`; room actors, reconnects, timers, event ordering, and idempotency are easy places for subtle race-condition bugs.
+
 ## Prerequisites
 - Phase 03 complete.
 - Read `docs/02-architecture/room-actor-model.md` and `docs/03-contracts/realtime-events.md`.

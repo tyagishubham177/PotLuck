@@ -6,6 +6,10 @@ Build the deterministic hand lifecycle, action legality, blinds, betting rounds,
 ## Why Now
 This phase turns the room actor into a playable poker table, but without final settlement complexity yet.
 
+## AI Mode
+- Recommended mode: `xtra hi`
+- Comment: `xtra hi`; turn order, action legality, blinds, and street transitions have many edge cases and are worth the safest mode.
+
 ## Prerequisites
 - Phase 04 complete.
 - Read `docs/04-game/hold-em-rules.md` and `docs/02-architecture/state-machines.md`.

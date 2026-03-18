@@ -6,6 +6,10 @@ Implement pot construction, showdown evaluation per pot, odd-chip rules, rake, s
 ## Why Now
 Fairness and correctness live or die here; this phase completes the money math.
 
+## AI Mode
+- Recommended mode: `xtra hi`
+- Comment: `xtra hi`, and stay there; side pots, odd chips, rake, and transactional settlement are the highest-risk correctness area in the app.
+
 ## Prerequisites
 - Phase 05 complete.
 - Read `docs/04-game/settlement-spec.md` end to end.

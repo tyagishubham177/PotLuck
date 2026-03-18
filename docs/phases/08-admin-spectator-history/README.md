@@ -6,6 +6,10 @@ Add moderation tools, spectator mode, hand-history browsing, and export surfaces
 ## Why Now
 Operations and trust require admin control and visible audit outputs once live play exists.
 
+## AI Mode
+- Recommended mode: `hi`
+- Comment: `hi`, leaning `med`; the feature set is manageable, but role boundaries, spectator privacy, and exports make `hi` safer.
+
 ## Prerequisites
 - Phase 07 complete.
 - Read `docs/04-game/audit-history.md` and `docs/06-ops/runbook.md`.

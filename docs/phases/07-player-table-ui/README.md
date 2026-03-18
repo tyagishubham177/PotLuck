@@ -6,6 +6,10 @@ Ship the mobile-first player experience for live hands, including action tray, b
 ## Why Now
 Once the backend rules are trustworthy, the product needs a clear and fast interface for real players.
 
+## AI Mode
+- Recommended mode: `hi`
+- Comment: `hi`, leaning `med`; the UI is lighter than engine work, but private/public state rendering still has correctness traps.
+
 ## Prerequisites
 - Phase 06 complete.
 - Read `docs/05-experience/design-system.md` and `screen-specs.md`.
