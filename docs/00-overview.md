@@ -1,0 +1,78 @@
+﻿# PotLuck Overview
+
+## Product Shape
+- PotLuck is a room-based realtime poker web app for private friend groups.
+- Primary game: Texas Hold'em, no-limit, 2 to 9 seats.
+- v1 is play-money only with room-scoped chips and no global wallet.
+- Mobile-first UI is required; desktop is an enhancement of the same information architecture.
+
+## Goals
+- Make table creation and joining friction-light.
+- Keep all game authority, randomness, timers, and settlement on the server.
+- Produce deterministic, auditable hand outcomes with correct side pots and odd-chip handling.
+- Keep the architecture legible enough that future AI agents can implement phase by phase without product drift.
+
+## Non-Goals
+- Tournaments
+- Real-money payments or withdrawals
+- Run-it-twice
+- Hand replay viewer in v1
+- Multi-variant support beyond future-ready seams
+- Global matchmaking or discovery
+
+## Launch Defaults
+| Area | Default |
+| --- | --- |
+| Audience | Private friend groups |
+| Auth | Verified admins, guest players |
+| Spectators | Off by default |
+| Odd chip rule | Left of button |
+| Rake | Off |
+| Region | Single primary region |
+| Hosting | Vercel + Fly.io + Neon + Upstash |
+
+## Core Roles
+| Role | Capabilities |
+| --- | --- |
+| Admin | Create room, edit config between hands, pause/resume, moderate, export history |
+| Player | Join by code, seat, buy in, act in hand, top up between hands, chat if enabled |
+| Spectator | Subscribe to public table state only, no hidden cards before showdown |
+| Moderator | Same as admin for the room in v1 |
+
+## Core Invariants
+- Server is the only writer of authoritative room and hand state.
+- Clients submit intents, never state mutations.
+- Every chip movement produces append-only ledger and audit records.
+- A player's stack for a hand is fixed once cards are dealt.
+- Folded players can contribute to pots but cannot win them.
+- All contract payloads are versioned and validated at boundaries.
+
+## Planned Stack
+| Layer | Choice | Reason |
+| --- | --- | --- |
+| Package manager | pnpm | Fast workspace installs and predictable monorepo behavior |
+| Task runner | Turborepo | Clear package graphs and cached CI steps |
+| Web | Next.js 15 | Mature web app framework and easy Vercel deploy |
+| UI | Tailwind CSS 4 + Radix + Framer Motion | Accessible primitives with controlled motion |
+| Realtime server | Fastify + Socket.IO | Strong TypeScript ergonomics and websocket fallback model |
+| Shared validation | Zod | Runtime validation and inferred types |
+| Persistence | Drizzle + Neon Postgres | Typed schema control with low-cost managed Postgres |
+| Coordination | Upstash Redis | Cheap managed pub/sub and reconnect support |
+| Mail | Resend | Simple admin OTP |
+| Observability | Sentry + OpenTelemetry + Grafana Cloud | Error tracking plus traces and metrics |
+
+## Document Map
+- `01-product/`: room rules, player lifecycle, feature boundaries, journey specs
+- `02-architecture/`: topology, actors, state machines, data model, ADRs
+- `03-contracts/`: REST, realtime, errors, versioning
+- `04-game/`: rules, settlement, RNG, audit behavior
+- `05-experience/`: design system, screens, accessibility, copy
+- `06-ops/`: environments, deployment, observability, incidents
+- `07-quality/`: automated and manual verification
+- `phases/`: execution packs for implementation
+
+## Delivery Principles
+- Prefer pure deterministic domain code over framework-coupled logic.
+- Keep a single writer per room to avoid race conditions.
+- Design every phase to be independently testable and reviewable.
+- Move stable decisions out of phase docs and into authoritative docs as soon as they are fixed.
