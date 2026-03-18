@@ -1,8 +1,8 @@
-﻿# Phase 04: Realtime Room Actor Risks
+# Phase 04: Realtime Room Actor Risks
 
 ## Assumptions
 - One active room actor exists per room at any moment.
-- Redis routing hints are advisory, not authoritative.
+- Single-process hosting is sufficient for v1 scale.
 
 ## Risks
 - Reconnect races between old and new sockets.

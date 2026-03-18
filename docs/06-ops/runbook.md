@@ -1,11 +1,11 @@
-﻿# Runbook
+# Runbook
 
 ## Common Incidents
 | Incident | First Action |
 | --- | --- |
 | Stuck hand | pause room, inspect latest hand seq, compare persisted events to actor state |
 | Settlement failure | prevent next hand, inspect DB transaction logs, replay hand in support tool |
-| Redis outage | keep current rooms alive, disable cross-instance reshuffle, watch reconnect degradation |
+| Optional Redis outage | keep current rooms alive and verify no optional presence features are degraded |
 | Postgres latency spike | slow new room creation, monitor failed writes, consider temporary room cap |
 | OTP mail outage | disable new admin room creation, preserve existing sessions |
 

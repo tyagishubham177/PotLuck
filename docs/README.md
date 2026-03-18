@@ -1,4 +1,4 @@
-﻿# PotLuck Docs Index
+# PotLuck Docs Index
 
 ## Intent
 - This folder is the implementation pack for PotLuck.
@@ -7,14 +7,15 @@
 
 ## Reading Order
 1. `00-overview.md`
-2. `01-product/*`
-3. `02-architecture/*`
-4. `03-contracts/*`
-5. `04-game/*`
-6. `05-experience/*`
-7. `06-ops/*`
-8. `07-quality/*`
-9. `phases/00-foundation/*`
+2. `glossary.md`
+3. `01-product/*`
+4. `02-architecture/*`
+5. `03-contracts/*`
+6. `04-game/*`
+7. `05-experience/*`
+8. `06-ops/*`
+9. `07-quality/*`
+10. `phases/00-foundation/*`
 
 ## Do Not Implement Before Reading
 - `02-architecture/system-overview.md`
@@ -27,16 +28,17 @@
 ## Dependency Graph
 ```mermaid
 flowchart TD
-  A["00-overview"] --> B["01-product"]
-  B --> C["02-architecture"]
-  C --> D["03-contracts"]
-  C --> E["04-game"]
-  B --> F["05-experience"]
-  C --> G["06-ops"]
-  C --> H["07-quality"]
-  D --> I["phases/00-foundation"]
-  E --> J["phases/05-holdem-engine-and-hand-state"]
-  E --> K["phases/06-settlement-side-pots-and-audit"]
+  A["00-overview"] --> B["glossary"]
+  B --> C["01-product"]
+  C --> D["02-architecture"]
+  D --> E["03-contracts"]
+  D --> F["04-game"]
+  C --> G["05-experience"]
+  D --> H["06-ops"]
+  D --> I["07-quality"]
+  E --> J["phases/00-foundation"]
+  F --> K["phases/05-holdem-engine-and-hand-state"]
+  F --> L["phases/06-settlement-side-pots-and-audit"]
 ```
 
 ## Phase Execution Order

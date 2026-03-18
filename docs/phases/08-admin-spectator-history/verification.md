@@ -1,4 +1,4 @@
-﻿# Phase 08: Admin, Spectator, and History Verification
+# Phase 08: Admin, Spectator, and History Verification
 
 ## Run Commands
 - pnpm test
@@ -12,4 +12,4 @@
 
 ## Failure Cases
 - Kicked player loses room access cleanly.
-- Muted player cannot chat but still receives gameplay events.
+- Spectator join is rejected with the correct error when spectator mode is disabled.

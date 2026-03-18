@@ -1,4 +1,4 @@
-﻿# Observability
+# Observability
 
 ## Metrics
 | Metric | Why |
@@ -7,11 +7,13 @@
 | seated players | usage tracking |
 | hands per hour | throughput |
 | action ack latency | realtime health |
+| health endpoint latency | API health and load balancer readiness |
 | settlement duration | correctness and performance |
 | reconnect success rate | reliability |
 | timeout rate | UX quality |
 | paused room count | operational risk |
 | duplicate intent rejection count | client/network stability |
+| ledger balance mismatch count | detect chip conservation or settlement drift failures |
 
 ## Logging
 - Structured JSON logs from server only.
@@ -28,3 +30,4 @@
 - P95 action acknowledgement latency > 300 ms for 10 minutes.
 - Reconnect success < 95 percent in 15 minutes.
 - Room pauses caused by recovery faults > threshold.
+- Ledger balance mismatch > 0 in any 5-minute window.

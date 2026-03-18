@@ -1,4 +1,4 @@
-﻿# Audit And History
+# Audit And History
 
 ## Required Hand Transcript Fields
 - Room id, hand id, hand number
@@ -30,6 +30,11 @@
 - `ROOM_CONFIG_CHANGED`
 - `MODERATION_APPLIED`
 - `ROOM_CLOSED`
+
+## Access Control And Retention
+- Hand history is visible only to room admins and participants in that room.
+- Production retention target is `12` months.
+- Staging retention target is `30` days.
 
 ## Finality Rules
 - A hand becomes final only after settlement, ledger commit, and audit emission succeed.

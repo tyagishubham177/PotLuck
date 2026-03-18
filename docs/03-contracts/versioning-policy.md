@@ -1,9 +1,10 @@
-﻿# Versioning Policy
+# Versioning Policy
 
 ## Contract Strategy
 - Use additive versioning by default.
 - Breaking wire changes require a new versioned endpoint or event namespace.
 - All event payloads include `schemaVersion`.
+- `schemaVersion` is an integer starting at `1`.
 - Clients must tolerate unknown fields.
 
 ## REST Rules

@@ -17,12 +17,17 @@ yarn-error.log*
 # Environment files
 .env
 .env.*
+.env.local
 
 # Dependencies
 node_modules/
+pnpm-store/
 
 # Build output
 dist/
 build/
 coverage/
-
+.turbo/
+.next/
+.vercel/
+*.tsbuildinfo

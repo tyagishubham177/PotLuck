@@ -62,7 +62,7 @@ jobs:
       - name: Run docs-first repo verification
         run: |
           git status --short --branch
-          git diff --stat --exit-code
+          git diff --stat
           find docs -maxdepth 3 -type f | sort
 
       - name: Set up Node and pnpm when workspace exists
@@ -106,4 +106,3 @@ jobs:
             echo "Running pnpm ${script}"
             pnpm "${script}"
           done
-

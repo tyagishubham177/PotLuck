@@ -1,4 +1,4 @@
-﻿# PotLuck Agent Guide
+# PotLuck Agent Guide
 
 ## Purpose
 - This repo is docs-first right now. Treat `docs/` as the source of truth until Phase 00 scaffolding is complete.
@@ -25,9 +25,12 @@
 - Every important flow must define source of truth, timeout behavior, retries/idempotency, audit trail, and verification steps.
 
 ## Current Commands
+- Runtime requirements:
+  - Node.js `22.x`
+  - `pnpm` `10.x` via Corepack unless the workspace pins a different compatible version later
 - Repo verification:
   - `git status --short --branch`
-  - `Get-ChildItem docs -Recurse`
+  - `Get-ChildItem docs -Recurse` on PowerShell, or `find docs -type f` on Unix-like shells
   - `git diff --stat`
 - Target commands after Phase 00:
   - `pnpm install`

@@ -1,10 +1,11 @@
-﻿# Hold'em Rules
+# Hold'em Rules
 
 ## Table Variant
 - Texas Hold'em, no-limit, 52-card deck.
 - Seat count: 2 to 9.
 - Optional ante.
 - Optional UTG straddle only in v1.
+- Betting is uncapped beyond table stakes because the game is no-limit.
 
 ## Hand Lifecycle
 1. Determine eligible players for the next hand.
@@ -24,6 +25,19 @@
 - Minimum raise is based on the size of the previous full bet or raise.
 - A short all-in that does not constitute a full raise does not reopen action for players who have already acted.
 - If a player cannot fully call, the action becomes an all-in call for the remaining stack.
+
+## Straddle Rules
+- v1 supports UTG straddle only.
+- The straddle amount is exactly `2x` the big blind.
+- When posted, the straddler acts last in the preflop betting round unless action is otherwise closed by all-in behavior.
+- Postflop order remains unchanged.
+
+## Showdown Rules
+- If betting closes with more than one eligible player, showdown is required.
+- The last aggressor on the final betting street shows first.
+- If there was no final-street aggressor, the first live seat left of the button shows first.
+- Remaining eligible players may show or muck in clockwise order after that.
+- Losing players may muck their cards instead of exposing them once a better hand has been shown and all pots they could win are lost.
 
 ## All-In Handling
 - Contributions are tracked both as total hand commitment and by street.
