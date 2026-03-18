@@ -1,0 +1,23 @@
+﻿# Environments
+
+## Local
+- Single developer machine.
+- One web process and one server process.
+- Managed dev Postgres/Redis allowed to avoid heavy local ops.
+- Seed script creates sample room configs and test users.
+
+## Staging
+- Mirrors prod topology.
+- Uses synthetic players for soak tests.
+- Hand history retention can be shorter.
+- Spectator mode and training mode should be enabled for QA.
+
+## Production
+- Single primary region.
+- Friend-group usage assumptions, but public internet exposure.
+- Tight alerting on reconnect rate, action timeout spikes, and settlement failures.
+
+## Config Classes
+- Build-time: public web flags and analytics ids.
+- Runtime: blinds defaults, timer defaults, feature flags, observability endpoints.
+- Secret: session signing, admin OTP, database credentials.
