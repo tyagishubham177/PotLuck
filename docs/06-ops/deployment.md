@@ -22,6 +22,7 @@
 - Web-only UI regression: revert Vercel deployment first.
 - Server regression with compatible schema: roll back Fly.io image.
 - Schema incompatibility: keep old readers supported until forward fix ships; avoid destructive rollback.
+- GitHub maintains daily `rollback-YYYY-MM-DD` tags on `master`; keep those tags usable for fast code rollback.
 
 ## Secret Ownership
 - Web envs: public client config only.

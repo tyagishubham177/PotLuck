@@ -1,0 +1,91 @@
+name: Rollback Tags
+
+on:
+  schedule:
+    - cron: "20 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rollback-tags
+  cancel-in-progress: false
+
+jobs:
+  maintain-tags:
+    name: Create daily rollback tag and prune stale tags
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch all tags
+        run: git fetch --force --tags origin
+
+      - name: Create today's rollback tag if missing
+        id: create_tag
+        run: |
+          today_tag="rollback-$(date -u +%F)"
+          if git rev-parse -q --verify "refs/tags/${today_tag}" >/dev/null; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            echo "tag=${today_tag}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git tag -a "$today_tag" -m "Daily rollback point for ${today_tag}"
+          git push origin "refs/tags/${today_tag}"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+          echo "tag=${today_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Prune rollback tags older than 7 days while keeping the newest 5
+        run: |
+          mapfile -t rollback_tags < <(git tag --list 'rollback-*' --sort=-creatordate)
+          if (( ${#rollback_tags[@]} <= 5 )); then
+            echo "Five or fewer rollback tags exist; nothing to prune."
+            exit 0
+          fi
+
+          cutoff_epoch="$(date -u -d '7 days ago' +%s)"
+          delete_tags=()
+
+          for i in "${!rollback_tags[@]}"; do
+            tag="${rollback_tags[$i]}"
+
+            if (( i < 5 )); then
+              echo "Keeping recent rollback tag ${tag}"
+              continue
+            fi
+
+            tag_date="${tag#rollback-}"
+            if ! tag_epoch="$(date -u -d "${tag_date}" +%s 2>/dev/null)"; then
+              echo "Skipping malformed rollback tag ${tag}"
+              continue
+            fi
+
+            if (( tag_epoch <= cutoff_epoch )); then
+              delete_tags+=("${tag}")
+            else
+              echo "Keeping ${tag}; it is newer than 7 days."
+            fi
+          done
+
+          if (( ${#delete_tags[@]} == 0 )); then
+            echo "No stale rollback tags qualified for deletion."
+            exit 0
+          fi
+
+          printf 'Deleting stale rollback tags: %s\n' "${delete_tags[*]}"
+          for tag in "${delete_tags[@]}"; do
+            git push origin ":refs/tags/${tag}"
+            git tag -d "${tag}"
+          done
