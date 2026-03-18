@@ -6,6 +6,10 @@ Implement verified admin creation flow and low-friction guest room join sessions
 ## Why Now
 Room creation and room-code entry are the front door for every other interaction.
 
+## AI Mode
+- Recommended mode: `hi`
+- Comment: `hi`, leaning `med`, but safe-side `hi` because auth, rate limits, cookies, and signed sessions are security-sensitive.
+
 ## Prerequisites
 - Phase 00 complete.
 - Read `docs/03-contracts/rest-api.md` and `docs/01-product/user-flows.md`.

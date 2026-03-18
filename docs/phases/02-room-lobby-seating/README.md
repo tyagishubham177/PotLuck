@@ -6,6 +6,10 @@ Build room creation, room code lifecycle, lobby snapshots, seat reservation, wai
 ## Why Now
 Players need a stable pre-hand environment before any chip or game actions exist.
 
+## AI Mode
+- Recommended mode: `med`
+- Comment: `med`, leaning `hi`; there are several stateful UX flows here, but the logic is still simpler than realtime gameplay.
+
 ## Prerequisites
 - Phases 00 and 01 complete.
 - Read `docs/01-product/room-rules.md` and `docs/05-experience/screen-specs.md`.

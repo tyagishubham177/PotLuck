@@ -6,6 +6,10 @@ Create the monorepo scaffold, package boundaries, baseline CI, env handling, and
 ## Why Now
 Every later phase depends on stable workspace tooling, shared contracts, and repeatable verification commands.
 
+## AI Mode
+- Recommended mode: `med`
+- Comment: `med`, leaning `hi`; use `hi` if the agent is scaffolding the whole monorepo, CI, and env validation in one pass.
+
 ## Prerequisites
 - Read `docs/README.md` and `docs/02-architecture/system-overview.md`.
 - Lock the package boundaries from `README.md` and `AGENTS.md`.
