@@ -1,3 +1,3 @@
-﻿# Test Kit Placeholder
+# Test Kit
 
-Future home for synthetic players, fixtures, replay harnesses, and property-based test utilities.
+Fixtures and helpers that later phases can use for contract, engine, and integration testing.

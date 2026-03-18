@@ -1,3 +1,3 @@
-﻿# Game Engine Placeholder
+# Game Engine
 
-Future home for deterministic poker rules, side-pot logic, settlement, and replay-safe hand evaluation.
+Deterministic poker engine seam. Phase 00 keeps this intentionally minimal.

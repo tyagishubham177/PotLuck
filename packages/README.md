@@ -1,3 +1,3 @@
-﻿# Packages
+# Packages
 
-Reserved for shared packages that keep contracts, rules, UI, config, and test helpers isolated and strongly typed.
+Shared workspaces that keep contracts, config, UI, game rules, and test helpers isolated and strongly typed.

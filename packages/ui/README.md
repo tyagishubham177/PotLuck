@@ -1,3 +1,3 @@
-﻿# UI Placeholder
+# UI
 
-Future home for shared design tokens, table primitives, and reusable interface components.
+Shared React UI primitives for the PotLuck web client.

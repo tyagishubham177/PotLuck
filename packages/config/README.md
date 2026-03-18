@@ -1,3 +1,3 @@
-﻿# Config Placeholder
+# Config
 
-Future home for environment validation, runtime defaults, and shared constants.
+Zod-based runtime env validation for the web and server apps.
