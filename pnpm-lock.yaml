@@ -56,6 +56,9 @@ importers:
       '@potluck/game-engine':
         specifier: workspace:*
         version: link:../../packages/game-engine
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
       drizzle-orm:
         specifier: ^0.38.3
         version: 0.38.4(@types/react@19.2.14)(pg@8.20.0)(react@19.2.4)
@@ -997,6 +1000,10 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
 
   drizzle-orm@0.38.4:
     resolution: {integrity: sha512-s7/5BpLKO+WJRHspvpqTydxFob8i1vo2rEx4pY6TGY7QSMuUfWUuzaY0DIpXCkgHOo37BaFC+SJQb99dDUXT3Q==}
@@ -2625,6 +2632,8 @@ snapshots:
 
   detect-libc@2.1.2:
     optional: true
+
+  dotenv@16.6.1: {}
 
   drizzle-orm@0.38.4(@types/react@19.2.14)(pg@8.20.0)(react@19.2.4):
     optionalDependencies:
