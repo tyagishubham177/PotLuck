@@ -1,0 +1,22 @@
+{
+  "name": "@potluck/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --project tsconfig.json --noEmit",
+    "test": "vitest run",
+    "build": "next build",
+    "clean": "if exist .next rmdir /s /q .next"
+  },
+  "dependencies": {
+    "@potluck/config": "workspace:*",
+    "@potluck/contracts": "workspace:*",
+    "@potluck/ui": "workspace:*",
+    "next": "^15.2.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

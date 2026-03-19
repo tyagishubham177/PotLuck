@@ -67,6 +67,13 @@ jobs:
 
       - name: Set up Node and pnpm when workspace exists
         if: ${{ hashFiles('package.json', 'pnpm-workspace.yaml') != '' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.7.1
+          run_install: false
+
+      - name: Set up Node when workspace exists
+        if: ${{ hashFiles('package.json', 'pnpm-workspace.yaml') != '' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -74,9 +81,7 @@ jobs:
 
       - name: Install workspace dependencies when lockfile exists
         if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
-        run: |
-          corepack enable
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Require clean-merge scripts when workspace exists
         if: ${{ hashFiles('package.json') != '' }}
@@ -101,7 +106,6 @@ jobs:
       - name: Execute required clean-merge scripts
         if: ${{ steps.package_scripts.outputs.commands != '' }}
         run: |
-          corepack enable
           for script in ${{ steps.package_scripts.outputs.commands }}; do
             echo "Running pnpm ${script}"
             pnpm "${script}"

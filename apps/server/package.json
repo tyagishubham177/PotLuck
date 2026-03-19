@@ -1,0 +1,25 @@
+{
+  "name": "@potluck/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test": "vitest run",
+    "build": "tsup src/index.ts --format esm --target node22 --out-dir dist --clean",
+    "clean": "if exist dist rmdir /s /q dist"
+  },
+  "dependencies": {
+    "@potluck/config": "workspace:*",
+    "@potluck/contracts": "workspace:*",
+    "@potluck/game-engine": "workspace:*",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.38.3",
+    "fastify": "^4.28.1",
+    "pg": "^8.13.3",
+    "socket.io": "^4.8.1",
+    "zod": "^3.24.2"
+  }
+}

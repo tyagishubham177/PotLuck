@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/contracts" },
+    { "path": "./packages/config" },
+    { "path": "./packages/game-engine" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/test-kit" },
+    { "path": "./apps/server" }
+  ]
+}
