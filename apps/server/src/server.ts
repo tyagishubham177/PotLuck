@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest } from "fastify";
 
 import { getServerEnv, type ServerEnv } from "@potluck/config/server";
 import {
@@ -6,10 +6,16 @@ import {
   adminOtpVerifyRequestSchema,
   authSessionResponseSchema,
   authStatusResponseSchema,
+  buyInQuoteResponseSchema,
   healthResponseSchema,
   joinRoomRequestSchema,
   joinRoomResponseSchema,
   logoutResponseSchema,
+  queueJoinResponseSchema,
+  roomCreateRequestSchema,
+  roomCreateResponseSchema,
+  seatReservationRequestSchema,
+  seatReservationResponseSchema,
   roomPublicSummarySchema
 } from "@potluck/contracts";
 import { createEnginePlaceholder } from "@potluck/game-engine";
@@ -22,12 +28,12 @@ import {
 } from "./cookies.js";
 import { createResendEmailAdapter, type EmailAdapter } from "./email.js";
 import { AppError, appError, sendAppError } from "./errors.js";
-import { createPhaseOneState } from "./state.js";
+import { createAppState } from "./state.js";
 
 type BuildServerOptions = {
   env?: Partial<Record<keyof ServerEnv, string>>;
   emailAdapter?: EmailAdapter;
-  state?: ReturnType<typeof createPhaseOneState>;
+  state?: ReturnType<typeof createAppState>;
 };
 
 export function buildServer(options: BuildServerOptions = {}) {
@@ -36,7 +42,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     logger: env.NODE_ENV !== "test"
   });
   const engine = createEnginePlaceholder();
-  const state = options.state ?? createPhaseOneState();
+  const state = options.state ?? createAppState();
   const emailAdapter =
     options.emailAdapter ??
     createResendEmailAdapter({
@@ -45,7 +51,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     });
 
   app.decorate("env", env);
-  app.decorate("phaseOneState", state);
+  app.decorate("appState", state);
 
   app.addHook("onRequest", async (request, reply) => {
     reply.header("Access-Control-Allow-Origin", env.APP_ORIGIN);
@@ -92,6 +98,21 @@ export function buildServer(options: BuildServerOptions = {}) {
 
   app.get("/health", healthHandler);
   app.get("/api/health", healthHandler);
+
+  const requireAuth = (request: FastifyRequest) => {
+    const authContext = state.getAuthContext(getAccessToken(request), env);
+
+    if (!authContext) {
+      throw appError({
+        code: "ERR_AUTH_REQUIRED",
+        message: "A valid session is required for this action.",
+        statusCode: 401,
+        retryable: true
+      });
+    }
+
+    return authContext;
+  };
 
   app.get("/api/auth/session", async (request) => {
     const authContext = state.getAuthContext(getAccessToken(request), env);
@@ -178,6 +199,22 @@ export function buildServer(options: BuildServerOptions = {}) {
     });
   });
 
+  app.post("/api/rooms", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "ADMIN") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only admins can create rooms.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const body = roomCreateRequestSchema.parse(request.body);
+    return roomCreateResponseSchema.parse(state.createRoom(authContext.actor, body));
+  });
+
   app.get("/api/rooms/:code", async (request) => {
     const code = (request.params as { code: string }).code;
     return roomPublicSummarySchema.parse(state.getRoomSummary(code));
@@ -204,12 +241,64 @@ export function buildServer(options: BuildServerOptions = {}) {
     });
   });
 
+  app.get("/api/rooms/:roomId/lobby", async (request) => {
+    const authContext = requireAuth(request);
+    const roomId = (request.params as { roomId: string }).roomId;
+
+    return state.getLobbySnapshot(roomId, authContext.actor);
+  });
+
+  app.get("/api/rooms/:roomId/buyin/quote", async (request) => {
+    const authContext = requireAuth(request);
+    const roomId = (request.params as { roomId: string }).roomId;
+
+    return buyInQuoteResponseSchema.parse(state.getBuyInQuote(roomId, authContext.actor));
+  });
+
+  app.post("/api/rooms/:roomId/seats/:seatIndex", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "GUEST") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only room guests can reserve seats.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    seatReservationRequestSchema.parse(request.body ?? {});
+
+    const params = request.params as { roomId: string; seatIndex: string };
+    const seatIndex = Number(params.seatIndex);
+
+    return seatReservationResponseSchema.parse(
+      state.reserveSeat(params.roomId, seatIndex, authContext.actor)
+    );
+  });
+
+  app.post("/api/rooms/:roomId/queue", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "GUEST") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only room guests can join the waiting list.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    return queueJoinResponseSchema.parse(state.joinWaitingList(roomId, authContext.actor));
+  });
+
   return app;
 }
 
 declare module "fastify" {
   interface FastifyInstance {
     env: ServerEnv;
-    phaseOneState: ReturnType<typeof createPhaseOneState>;
+    appState: ReturnType<typeof createAppState>;
   }
 }
