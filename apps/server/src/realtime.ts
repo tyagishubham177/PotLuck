@@ -166,6 +166,12 @@ export function attachRealtimeGateway(
           return;
         }
 
+        if (event.type === "STREET_ADVANCED" || event.type === "SHOWDOWN_TRIGGERED") {
+          sendMessage(socket, event);
+          sendPrivateState(roomId);
+          return;
+        }
+
         if (event.type === "TURN_STARTED" || event.type === "TURN_WARNING") {
           sendMessage(socket, event);
           sendPrivateState(roomId);

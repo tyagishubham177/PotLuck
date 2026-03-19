@@ -1,3 +1,4 @@
 # Game Engine
 
-Deterministic poker engine seam. Phase 00 keeps this intentionally minimal.
+Deterministic no-limit Texas Hold'em engine with blind posting, action legality,
+street advancement, all-in auto-deal, and showdown trigger support.

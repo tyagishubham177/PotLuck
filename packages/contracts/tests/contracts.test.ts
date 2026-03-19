@@ -21,7 +21,7 @@ describe("shared contracts", () => {
       service: "potluck-server",
       environment: "development",
       appOrigin: "http://localhost:3000",
-      engine: "foundation-placeholder-engine"
+      engine: "holdem-engine-v1"
     });
 
     expect(payload.service).toBe("potluck-server");
@@ -567,8 +567,20 @@ describe("shared contracts", () => {
       }
     });
 
+    const streetEvent = realtimeServerMessageSchema.parse({
+      type: "STREET_ADVANCED",
+      roomId: "room_123",
+      roomEventNo: 5,
+      handId: "hand_123",
+      handSeq: 3,
+      street: "FLOP",
+      board: ["AS", "KH", "QD"],
+      revealedCards: ["AS", "KH", "QD"]
+    });
+
     expect(snapshot.roomEventNo).toBe(3);
     expect(intent.actionType).toBe("CHECK");
     expect(serverEvent.type).toBe("TURN_STARTED");
+    expect(streetEvent.type).toBe("STREET_ADVANCED");
   });
 });

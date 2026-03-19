@@ -340,15 +340,15 @@ describe("phase 04 realtime room actor", () => {
       const firstAction = await state.submitAction(room.room.roomId, alpha.actor, {
         handId: snapshot.activeHand?.handId ?? "",
         seqExpectation: snapshot.activeHand?.handSeq ?? 0,
-        idempotencyKey: "alpha-check-1",
-        actionType: "CHECK"
+        idempotencyKey: "alpha-call-1",
+        actionType: "CALL"
       });
       const eventCountAfterFirstAction = observedEvents.length;
       const duplicateAction = await state.submitAction(room.room.roomId, alpha.actor, {
         handId: snapshot.activeHand?.handId ?? "",
         seqExpectation: snapshot.activeHand?.handSeq ?? 0,
-        idempotencyKey: "alpha-check-1",
-        actionType: "CHECK"
+        idempotencyKey: "alpha-call-1",
+        actionType: "CALL"
       });
 
       expect(firstAction.outcome).toBe("accepted");
@@ -360,7 +360,7 @@ describe("phase 04 realtime room actor", () => {
       expect(
         observedEvents.some(
           (event) =>
-            event.type === "ACTION_ACCEPTED" && event.actionType === "TIMEOUT_FOLD"
+            event.type === "ACTION_ACCEPTED" && event.actionType === "CHECK"
         )
       ).toBe(false);
 
@@ -369,7 +369,7 @@ describe("phase 04 realtime room actor", () => {
       expect(
         observedEvents.some(
           (event) =>
-            event.type === "ACTION_ACCEPTED" && event.actionType === "TIMEOUT_FOLD"
+            event.type === "ACTION_ACCEPTED" && event.actionType === "CHECK"
         )
       ).toBe(true);
       expect(
