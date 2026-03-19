@@ -32,6 +32,15 @@ import {
   type SessionEnvelope,
   type SessionRole
 } from "@potluck/contracts";
+import {
+  HoldemEngineError,
+  applyHoldemAction as applyHoldemEngineAction,
+  getHandSequence,
+  getLegalActions as getHoldemLegalActions,
+  getPlayerHoleCards,
+  startHoldemHand,
+  type HoldemHandState
+} from "@potluck/game-engine";
 
 import { type EmailAdapter } from "./email.js";
 import { appError } from "./errors.js";
@@ -140,7 +149,7 @@ type CachedActionIntent = {
         participantId: string;
         seatIndex: number;
         idempotencyKey: string;
-        actionType: "CHECK" | "FOLD" | "CALL" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
+        actionType: "CHECK" | "FOLD" | "CALL" | "BET" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
         normalizedAmount?: number;
       }
     | {
@@ -156,13 +165,7 @@ type CachedActionIntent = {
 };
 
 type ActiveHandRecord = {
-  handId: string;
-  handNumber: number;
-  handSeq: number;
-  seatOrder: number[];
-  actingSeatPointer: number;
-  foldedParticipantIds: Set<string>;
-  actedParticipantIds: Set<string>;
+  engine: HoldemHandState;
   startedAt: Date;
   deadlineAt: Date;
   timerToken: string;
@@ -210,6 +213,16 @@ type RoomEvent =
       secondsRemaining: number;
     }
   | {
+      type: "STREET_ADVANCED";
+      roomId: string;
+      roomEventNo: number;
+      handId: string;
+      handSeq: number;
+      street: "FLOP" | "TURN" | "RIVER";
+      board: string[];
+      revealedCards: string[];
+    }
+  | {
       type: "ACTION_ACCEPTED";
       roomId: string;
       roomEventNo: number;
@@ -218,8 +231,18 @@ type RoomEvent =
       participantId: string;
       seatIndex: number;
       idempotencyKey: string;
-      actionType: "CHECK" | "FOLD" | "CALL" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
+      actionType: "CHECK" | "FOLD" | "CALL" | "BET" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
       normalizedAmount?: number;
+    }
+  | {
+      type: "SHOWDOWN_TRIGGERED";
+      roomId: string;
+      roomEventNo: number;
+      handId: string;
+      handSeq: number;
+      board: string[];
+      eligibleSeatIndexes: number[];
+      revealOrder: number[];
     }
   | {
       type: "ACTION_REJECTED";
@@ -284,6 +307,7 @@ type RoomRecord = {
   processedActionIntents: Map<string, CachedActionIntent>;
   roomEventNo: number;
   activeHand?: ActiveHandRecord;
+  lastButtonSeatIndex?: number;
   pausedReason?: string;
   pausedTurnRemainingMs?: number;
 };
@@ -661,7 +685,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
 
     if (
       removedSeatIndex !== undefined &&
-      room.activeHand?.seatOrder.includes(removedSeatIndex)
+      room.activeHand?.engine.seatOrder.includes(removedSeatIndex)
     ) {
       pauseRoomInternal(
         room,
@@ -1137,11 +1161,11 @@ export function createAppState(options: CreateAppStateOptions = {}) {
   }
 
   function getCurrentActingSeatIndex(room: RoomRecord) {
-    if (!room.activeHand) {
-      return undefined;
-    }
+    return room.activeHand?.engine.actingSeatIndex;
+  }
 
-    return room.activeHand.seatOrder[room.activeHand.actingSeatPointer];
+  function getCurrentHandSeq(room: RoomRecord) {
+    return room.activeHand ? getHandSequence(room.activeHand.engine) : undefined;
   }
 
   function getCurrentActingParticipantId(room: RoomRecord) {
@@ -1154,7 +1178,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     return room.seats.at(actingSeatIndex)?.participantId;
   }
 
-  function getEligibleReadySeatOrder(room: RoomRecord) {
+  function getEligibleReadyPlayersForHand(room: RoomRecord) {
     return room.seats
       .filter(
         (seat) =>
@@ -1162,10 +1186,15 @@ export function createAppState(options: CreateAppStateOptions = {}) {
           Boolean(seat.participantId) &&
           room.participants.get(seat.participantId ?? "")?.mode === "PLAYER" &&
           room.participants.get(seat.participantId ?? "")?.isReady &&
-          !room.participants.get(seat.participantId ?? "")?.isSittingOut
+          !room.participants.get(seat.participantId ?? "")?.isSittingOut &&
+          (seat.stack ?? 0) > 0
       )
-      .map((seat) => seat.seatIndex)
-      .sort((left, right) => left - right);
+      .map((seat) => ({
+        seatIndex: seat.seatIndex,
+        participantId: seat.participantId ?? "",
+        stack: seat.stack ?? 0
+      }))
+      .sort((left, right) => left.seatIndex - right.seatIndex);
   }
 
   function toActiveHandSnapshot(room: RoomRecord) {
@@ -1173,24 +1202,42 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       return null;
     }
 
+    const engine = room.activeHand.engine;
+
     return {
-      handId: room.activeHand.handId,
-      handNumber: room.activeHand.handNumber,
-      handSeq: room.activeHand.handSeq,
-      actingSeatIndex: getCurrentActingSeatIndex(room) ?? room.activeHand.seatOrder[0] ?? 0,
-      eligibleSeatOrder: room.activeHand.seatOrder,
-      foldedSeatIndexes: room.activeHand.seatOrder.filter((seatIndex) => {
-        const participantId = room.seats.at(seatIndex)?.participantId;
-        return participantId
-          ? room.activeHand?.foldedParticipantIds.has(participantId)
-          : false;
-      }),
-      actedSeatIndexes: room.activeHand.seatOrder.filter((seatIndex) => {
-        const participantId = room.seats.at(seatIndex)?.participantId;
-        return participantId
-          ? room.activeHand?.actedParticipantIds.has(participantId)
-          : false;
-      }),
+      handId: engine.handId,
+      handNumber: engine.handNumber,
+      handSeq: getHandSequence(engine),
+      street: engine.street,
+      buttonSeatIndex: engine.buttonSeatIndex,
+      smallBlindSeatIndex: engine.smallBlindSeatIndex,
+      bigBlindSeatIndex: engine.bigBlindSeatIndex,
+      actingSeatIndex: getCurrentActingSeatIndex(room),
+      eligibleSeatOrder: engine.seatOrder,
+      foldedSeatIndexes: engine.players
+        .filter((player) => player.status === "FOLDED")
+        .map((player) => player.seatIndex),
+      actedSeatIndexes: engine.players
+        .filter((player) => player.hasActedThisRound)
+        .map((player) => player.seatIndex),
+      board: engine.board,
+      potTotal: engine.potTotal,
+      currentBet: engine.currentBet,
+      minimumRaiseTo: engine.minimumRaiseTo,
+      showdownSeatIndexes: engine.showdownSeatIndexes,
+      showdownRevealOrder: engine.showdownRevealOrder,
+      players: engine.players.map((player) => ({
+        seatIndex: player.seatIndex,
+        participantId: player.participantId,
+        status: player.status,
+        stack: player.stack,
+        streetCommitted: player.streetCommitted,
+        totalCommitted: player.totalCommitted,
+        hasActed: player.hasActedThisRound,
+        canRaise: player.canRaiseThisRound
+      })),
+      forcedCommitments: engine.forcedCommitments,
+      winnerByFoldSeatIndex: engine.winnerByFoldSeatIndex,
       startedAt: toIso(room.activeHand.startedAt),
       deadlineAt: toIso(room.activeHand.deadlineAt)
     };
@@ -1237,22 +1284,18 @@ export function createAppState(options: CreateAppStateOptions = {}) {
 
   function getActionAffordances(room: RoomRecord, participantId: string) {
     const seat = getParticipantSeat(room, participantId);
-    const actingSeatIndex = getCurrentActingSeatIndex(room);
 
     if (
       !room.activeHand ||
       room.status !== "OPEN" ||
-      seat?.seatIndex === undefined ||
-      actingSeatIndex !== seat.seatIndex
+      seat?.seatIndex === undefined
     ) {
       return undefined;
     }
 
-    return roomActionAffordancesSchema.parse({
-      canFold: true,
-      canCheck: true,
-      presetAmounts: []
-    });
+    const legalActions = getHoldemLegalActions(room.activeHand.engine, seat.seatIndex);
+
+    return legalActions ? roomActionAffordancesSchema.parse(legalActions) : undefined;
   }
 
   function toRoomPrivateState(
@@ -1270,6 +1313,10 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       roomEventNo: room.roomEventNo,
       seatIndex: seat?.seatIndex,
       stack: seat?.stack,
+      holeCards:
+        room.activeHand && seat?.seatIndex !== undefined
+          ? getPlayerHoleCards(room.activeHand.engine, seat.seatIndex)
+          : undefined,
       actionAffordances: getActionAffordances(room, actor.guestId),
       reconnect: {
         isReconnecting: Boolean(
@@ -1410,7 +1457,40 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     }
   }
 
-  function finishPlaceholderHand(room: RoomRecord, roomEventNo?: number) {
+  function syncSeatStacksFromActiveHand(room: RoomRecord) {
+    if (!room.activeHand) {
+      return;
+    }
+
+    for (const player of room.activeHand.engine.players) {
+      const seat = room.seats.at(player.seatIndex);
+
+      if (seat?.participantId === player.participantId) {
+        seat.stack = player.stack;
+      }
+    }
+  }
+
+  function buildPreflopActionSeatOrder(engine: HoldemHandState) {
+    const actingSeatIndex = engine.actingSeatIndex;
+
+    if (actingSeatIndex === undefined) {
+      return [...engine.seatOrder];
+    }
+
+    const actingSeatOrderIndex = engine.seatOrder.indexOf(actingSeatIndex);
+
+    if (actingSeatOrderIndex < 0) {
+      return [...engine.seatOrder];
+    }
+
+    return [
+      ...engine.seatOrder.slice(actingSeatOrderIndex),
+      ...engine.seatOrder.slice(0, actingSeatOrderIndex)
+    ];
+  }
+
+  function finishAwardedHand(room: RoomRecord, roomEventNo?: number) {
     const hand = room.activeHand;
 
     if (!hand) {
@@ -1418,15 +1498,26 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     }
 
     clearTurnTimers(room.roomId);
+    syncSeatStacksFromActiveHand(room);
+
+    if (hand.engine.winnerByFoldSeatIndex !== undefined) {
+      const winnerSeat = room.seats.at(hand.engine.winnerByFoldSeatIndex);
+
+      if (winnerSeat?.status === "OCCUPIED") {
+        winnerSeat.stack = (winnerSeat.stack ?? 0) + hand.engine.potTotal;
+      }
+    }
+
+    room.lastButtonSeatIndex = hand.engine.buttonSeatIndex;
     room.tablePhase = "BETWEEN_HANDS";
     room.activeHand = undefined;
     room.pausedTurnRemainingMs = undefined;
     clearReadyStateAfterHand(room);
 
-    emitRoomRefresh(room, ["participants", "tablePhase", "activeHand"], {
+    emitRoomRefresh(room, ["participants", "seats", "tablePhase", "activeHand"], {
       roomEventNo,
-      handId: hand.handId,
-      handSeq: hand.handSeq
+      handId: hand.engine.handId,
+      handSeq: getHandSequence(hand.engine)
     });
   }
 
@@ -1467,7 +1558,11 @@ export function createAppState(options: CreateAppStateOptions = {}) {
   }
 
   function scheduleTurnTimers(room: RoomRecord) {
-    if (!room.activeHand) {
+    if (
+      !room.activeHand ||
+      room.activeHand.engine.handStatus !== "BETTING" ||
+      room.activeHand.engine.actingSeatIndex === undefined
+    ) {
       return;
     }
 
@@ -1481,7 +1576,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       if (
         !currentRoom?.activeHand ||
         currentRoom.activeHand.timerToken !== timerToken ||
-        currentRoom.status !== "OPEN"
+        currentRoom.status !== "OPEN" ||
+        currentRoom.activeHand.engine.handStatus !== "BETTING"
       ) {
         return;
       }
@@ -1496,8 +1592,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         type: "TURN_WARNING",
         roomId: currentRoom.roomId,
         roomEventNo: nextRoomEventNo(currentRoom),
-        handId: currentRoom.activeHand.handId,
-        handSeq: currentRoom.activeHand.handSeq,
+        handId: currentRoom.activeHand.engine.handId,
+        handSeq: getHandSequence(currentRoom.activeHand.engine),
         actingSeatIndex,
         secondsRemaining: Math.ceil(TURN_WARNING_MS / 1000)
       });
@@ -1509,28 +1605,42 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       if (
         !currentRoom?.activeHand ||
         currentRoom.activeHand.timerToken !== timerToken ||
-        currentRoom.status !== "OPEN"
+        currentRoom.status !== "OPEN" ||
+        currentRoom.activeHand.engine.handStatus !== "BETTING"
       ) {
         return;
       }
 
-      const participantId = getCurrentActingParticipantId(currentRoom);
+      const actingSeatIndex = getCurrentActingSeatIndex(currentRoom);
+      const participantId =
+        actingSeatIndex === undefined
+          ? undefined
+          : currentRoom.seats.at(actingSeatIndex)?.participantId;
 
       if (!participantId) {
         return;
       }
 
+      const legalActions = getActionAffordances(currentRoom, participantId);
+      const timeoutActionType = legalActions?.canCheck ? "CHECK" : "TIMEOUT_FOLD";
+
       void applyPlayerAction(currentRoom, participantId, {
-        handId: currentRoom.activeHand.handId,
-        seqExpectation: currentRoom.activeHand.handSeq,
-        idempotencyKey: `timeout-${currentRoom.activeHand.handId}-${currentRoom.activeHand.handSeq}`,
-        actionType: "TIMEOUT_FOLD"
+        handId: currentRoom.activeHand.engine.handId,
+        seqExpectation: getHandSequence(currentRoom.activeHand.engine),
+        idempotencyKey: `timeout-${currentRoom.activeHand.engine.handId}-${getHandSequence(
+          currentRoom.activeHand.engine
+        )}`,
+        actionType: timeoutActionType
       });
     }, Math.max(0, room.activeHand.deadlineAt.getTime() - clock().getTime()));
   }
 
   function startTurn(room: RoomRecord, roomEventNo?: number) {
-    if (!room.activeHand) {
+    if (
+      !room.activeHand ||
+      room.activeHand.engine.handStatus !== "BETTING" ||
+      room.activeHand.engine.actingSeatIndex === undefined
+    ) {
       return;
     }
 
@@ -1548,12 +1658,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
 
     const participantId = getCurrentActingParticipantId(room);
     const legalActions =
-      participantId &&
-      roomActionAffordancesSchema.parse({
-        canFold: true,
-        canCheck: true,
-        presetAmounts: []
-      });
+      participantId && getActionAffordances(room, participantId);
     const eventNo = roomEventNo ?? nextRoomEventNo(room);
 
     if (legalActions) {
@@ -1561,8 +1666,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         type: "TURN_STARTED",
         roomId: room.roomId,
         roomEventNo: eventNo,
-        handId: room.activeHand.handId,
-        handSeq: room.activeHand.handSeq,
+        handId: room.activeHand.engine.handId,
+        handSeq: getHandSequence(room.activeHand.engine),
         actingSeatIndex,
         deadlineAt: toIso(room.activeHand.deadlineAt),
         legalActions
@@ -1572,68 +1677,56 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     scheduleTurnTimers(room);
   }
 
-  function resolveNextActingPointer(room: RoomRecord) {
-    if (!room.activeHand) {
-      return null;
-    }
-
-    for (let offset = 1; offset <= room.activeHand.seatOrder.length; offset += 1) {
-      const pointer =
-        (room.activeHand.actingSeatPointer + offset) % room.activeHand.seatOrder.length;
-      const seatIndex = room.activeHand.seatOrder[pointer];
-      const participantId = room.seats.at(seatIndex)?.participantId;
-
-      if (!participantId || room.activeHand.foldedParticipantIds.has(participantId)) {
-        continue;
-      }
-
-      if (room.activeHand.actedParticipantIds.has(participantId)) {
-        continue;
-      }
-
-      return pointer;
-    }
-
-    return null;
-  }
-
-  function startPlaceholderHandIfReady(room: RoomRecord) {
+  function startHoldemHandIfReady(room: RoomRecord) {
     if (room.status !== "OPEN" || room.tablePhase !== "BETWEEN_HANDS" || room.activeHand) {
       return;
     }
 
-    const seatOrder = getEligibleReadySeatOrder(room);
+    const eligiblePlayers = getEligibleReadyPlayersForHand(room);
 
-    if (seatOrder.length < 2) {
+    if (eligiblePlayers.length < 2) {
       return;
     }
 
-    room.tablePhase = "HAND_ACTIVE";
-    room.activeHand = {
+    const engine = startHoldemHand({
       handId: `hand_${randomUUID()}`,
       handNumber: room.roomEventNo + 1,
-      handSeq: 0,
-      seatOrder,
-      actingSeatPointer: 0,
-      foldedParticipantIds: new Set(),
-      actedParticipantIds: new Set(),
+      previousButtonSeatIndex: room.lastButtonSeatIndex,
+      smallBlind: room.config.smallBlind,
+      bigBlind: room.config.bigBlind,
+      ante: room.config.ante,
+      players: eligiblePlayers
+    });
+
+    room.tablePhase = "HAND_ACTIVE";
+    room.activeHand = {
+      engine,
       startedAt: clock(),
       deadlineAt: clock(),
       timerToken: randomUUID()
     };
+    room.lastButtonSeatIndex = engine.buttonSeatIndex;
+    syncSeatStacksFromActiveHand(room);
 
-    const roomEventNo = emitRoomRefresh(room, ["participants", "tablePhase", "activeHand"]);
+    const roomEventNo = emitRoomRefresh(room, [
+      "participants",
+      "seats",
+      "tablePhase",
+      "activeHand"
+    ]);
 
     emitRoomEvent(room.roomId, {
       type: "HAND_STARTED",
       roomId: room.roomId,
       roomEventNo,
-      handId: room.activeHand.handId,
-      handSeq: room.activeHand.handSeq,
-      handNumber: room.activeHand.handNumber,
-      actionSeatOrder: room.activeHand.seatOrder,
-      blindSeatIndexes: room.activeHand.seatOrder.slice(0, 2),
-      buttonSeatIndex: room.activeHand.seatOrder[0]
+      handId: engine.handId,
+      handSeq: getHandSequence(engine),
+      handNumber: engine.handNumber,
+      actionSeatOrder: buildPreflopActionSeatOrder(engine),
+      blindSeatIndexes: [engine.smallBlindSeatIndex, engine.bigBlindSeatIndex].filter(
+        (seatIndex): seatIndex is number => seatIndex !== undefined
+      ),
+      buttonSeatIndex: engine.buttonSeatIndex
     });
 
     startTurn(room, roomEventNo);
@@ -1680,7 +1773,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       return;
     }
 
-    startPlaceholderHandIfReady(room);
+    startHoldemHandIfReady(room);
   }
 
   async function applyPlayerAction(
@@ -1690,7 +1783,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       handId: string;
       seqExpectation: number;
       idempotencyKey?: string;
-      actionType: "CHECK" | "FOLD" | "CALL" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
+      actionType: "CHECK" | "FOLD" | "CALL" | "BET" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
       amount?: number;
     },
     options: { emitAcceptedEvent?: boolean } = {}
@@ -1710,8 +1803,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       const result: CachedActionIntent["result"] = {
         outcome: "rejected",
         roomEventNo: nextRoomEventNo(room),
-        handId: room.activeHand?.handId,
-        handSeq: room.activeHand?.handSeq,
+        handId: room.activeHand?.engine.handId,
+        handSeq: getCurrentHandSeq(room),
         idempotencyKey: payload.idempotencyKey,
         errorCode: options.errorCode,
         message: options.message,
@@ -1736,19 +1829,19 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       });
     }
 
-    if (room.activeHand.handId !== payload.handId) {
+    if (room.activeHand.engine.handId !== payload.handId) {
       return reject({
         errorCode: "ERR_STALE_SEQUENCE",
         message: "That hand is no longer active.",
-        expectedSeq: room.activeHand.handSeq
+        expectedSeq: getHandSequence(room.activeHand.engine)
       });
     }
 
-    if (room.activeHand.handSeq !== payload.seqExpectation) {
+    if (getHandSequence(room.activeHand.engine) !== payload.seqExpectation) {
       return reject({
         errorCode: "ERR_STALE_SEQUENCE",
         message: "The expected hand sequence no longer matches the authoritative room state.",
-        expectedSeq: room.activeHand.handSeq
+        expectedSeq: getHandSequence(room.activeHand.engine)
       });
     }
 
@@ -1762,34 +1855,42 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       });
     }
 
-    if (!["CHECK", "FOLD", "TIMEOUT_FOLD"].includes(payload.actionType)) {
-      return reject({
-        errorCode: "ERR_ACTION_INVALID",
-        message: "Phase 04 placeholder play currently supports check and fold only."
-      });
-    }
-
     clearTurnTimers(room.roomId);
+    let transition;
 
-    if (payload.actionType === "FOLD" || payload.actionType === "TIMEOUT_FOLD") {
-      room.activeHand.foldedParticipantIds.add(participantId);
+    try {
+      transition = applyHoldemEngineAction(room.activeHand.engine, {
+        seatIndex: seat.seatIndex,
+        actionType: payload.actionType,
+        amount: payload.amount
+      });
+    } catch (error) {
+      if (error instanceof HoldemEngineError) {
+        return reject({
+          errorCode: error.code,
+          message: error.message
+        });
+      }
+
+      throw error;
     }
 
-    room.activeHand.actedParticipantIds.add(participantId);
-    room.activeHand.handSeq += 1;
+    room.activeHand.engine = transition.state;
+    syncSeatStacksFromActiveHand(room);
 
-    const handSeq = room.activeHand.handSeq;
+    const handSeq = getHandSequence(transition.state);
     const roomEventNo = nextRoomEventNo(room);
     const result: CachedActionIntent["result"] = {
       outcome: "accepted",
       roomEventNo,
-      handId: room.activeHand.handId,
+      handId: transition.state.handId,
       handSeq,
       participantId,
       seatIndex: seat.seatIndex,
-      idempotencyKey: payload.idempotencyKey ?? `timeout-${room.activeHand.handId}-${handSeq}`,
-      actionType: payload.actionType,
-      normalizedAmount: payload.amount
+      idempotencyKey:
+        payload.idempotencyKey ?? `timeout-${transition.state.handId}-${handSeq}`,
+      actionType: transition.normalizedAction.actionType,
+      normalizedAmount: transition.normalizedAction.normalizedAmount
     };
 
     storeActionIntent(room, participantId, payload.idempotencyKey, fingerprint, result);
@@ -1799,43 +1900,69 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         type: "ACTION_ACCEPTED",
         roomId: room.roomId,
         roomEventNo,
-        handId: room.activeHand.handId,
+        handId: transition.state.handId,
         handSeq,
         participantId,
         seatIndex: seat.seatIndex,
         idempotencyKey: result.idempotencyKey,
-        actionType: payload.actionType,
-        normalizedAmount: payload.amount
+        actionType: transition.normalizedAction.actionType,
+        normalizedAmount: transition.normalizedAction.normalizedAmount
       });
     }
 
-    const remainingSeatIndexes = room.activeHand.seatOrder.filter((seatIndex) => {
-      const currentParticipantId = room.seats.at(seatIndex)?.participantId;
+    const awardedEffect = transition.effects.find((effect) => effect.type === "HAND_AWARDED");
 
-      return currentParticipantId
-        ? !room.activeHand?.foldedParticipantIds.has(currentParticipantId)
-        : false;
-    });
-
-    if (remainingSeatIndexes.length <= 1) {
-      finishPlaceholderHand(room, roomEventNo);
+    if (awardedEffect) {
+      finishAwardedHand(room, roomEventNo);
       return result;
     }
 
-    const nextPointer = resolveNextActingPointer(room);
-
-    if (nextPointer === null) {
-      finishPlaceholderHand(room, roomEventNo);
-      return result;
-    }
-
-    room.activeHand.actingSeatPointer = nextPointer;
-    emitRoomRefresh(room, ["activeHand"], {
+    emitRoomRefresh(room, ["activeHand", "seats"], {
       roomEventNo,
-      handId: room.activeHand.handId,
+      handId: transition.state.handId,
       handSeq
     });
-    startTurn(room, roomEventNo);
+
+    for (const effect of transition.effects) {
+      if (effect.type === "STREET_ADVANCED") {
+        if (effect.street === "PREFLOP") {
+          continue;
+        }
+
+        emitRoomEvent(room.roomId, {
+          type: "STREET_ADVANCED",
+          roomId: room.roomId,
+          roomEventNo,
+          handId: transition.state.handId,
+          handSeq,
+          street: effect.street,
+          board: effect.board,
+          revealedCards: effect.revealedCards
+        });
+        continue;
+      }
+
+      if (effect.type === "SHOWDOWN_TRIGGERED") {
+        emitRoomEvent(room.roomId, {
+          type: "SHOWDOWN_TRIGGERED",
+          roomId: room.roomId,
+          roomEventNo,
+          handId: transition.state.handId,
+          handSeq,
+          board: effect.board,
+          eligibleSeatIndexes: effect.eligibleSeatIndexes,
+          revealOrder: effect.revealOrder
+        });
+      }
+    }
+
+    if (
+      room.activeHand &&
+      room.activeHand.engine.handStatus === "BETTING" &&
+      room.activeHand.engine.actingSeatIndex !== undefined
+    ) {
+      startTurn(room, roomEventNo);
+    }
 
     return result;
   }
@@ -2367,7 +2494,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       participant.isReady = true;
       participant.isSittingOut = false;
       emitRoomRefresh(room, ["participants"]);
-      startPlaceholderHandIfReady(room);
+      startHoldemHandIfReady(room);
 
       return toRoomRealtimeSnapshot(room, actor);
     },
@@ -2407,9 +2534,11 @@ export function createAppState(options: CreateAppStateOptions = {}) {
 
         if (seat && getCurrentActingSeatIndex(room) === seat.seatIndex) {
           void applyPlayerAction(room, actor.guestId, {
-            handId: room.activeHand.handId,
-            seqExpectation: room.activeHand.handSeq,
-            idempotencyKey: `sitout-${room.activeHand.handId}-${room.activeHand.handSeq}`,
+            handId: room.activeHand.engine.handId,
+            seqExpectation: getHandSequence(room.activeHand.engine),
+            idempotencyKey: `sitout-${room.activeHand.engine.handId}-${getHandSequence(
+              room.activeHand.engine
+            )}`,
             actionType: "FOLD"
           });
         }
@@ -2987,7 +3116,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         handId: string;
         seqExpectation: number;
         idempotencyKey: string;
-        actionType: "CHECK" | "FOLD" | "CALL" | "RAISE" | "ALL_IN";
+        actionType: "CHECK" | "FOLD" | "CALL" | "BET" | "RAISE" | "ALL_IN";
         amount?: number;
       }
     ) {

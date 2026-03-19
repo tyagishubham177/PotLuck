@@ -134,10 +134,56 @@ describe("room realtime helpers", () => {
           handId: "hand_001",
           handNumber: 1,
           handSeq: 0,
+          street: "PREFLOP",
+          buttonSeatIndex: 0,
+          smallBlindSeatIndex: 0,
+          bigBlindSeatIndex: 1,
           actingSeatIndex: 0,
           eligibleSeatOrder: [0, 1],
           foldedSeatIndexes: [],
           actedSeatIndexes: [],
+          board: [],
+          potTotal: 150,
+          currentBet: 100,
+          minimumRaiseTo: 200,
+          showdownSeatIndexes: [],
+          showdownRevealOrder: [],
+          players: [
+            {
+              seatIndex: 0,
+              participantId: "guest_alpha",
+              status: "ACTIVE",
+              stack: 4950,
+              streetCommitted: 50,
+              totalCommitted: 50,
+              hasActed: false,
+              canRaise: true
+            },
+            {
+              seatIndex: 1,
+              participantId: "guest_bravo",
+              status: "ACTIVE",
+              stack: 4900,
+              streetCommitted: 100,
+              totalCommitted: 100,
+              hasActed: false,
+              canRaise: true
+            }
+          ],
+          forcedCommitments: [
+            {
+              seatIndex: 0,
+              participantId: "guest_alpha",
+              type: "SMALL_BLIND",
+              amount: 50
+            },
+            {
+              seatIndex: 1,
+              participantId: "guest_bravo",
+              type: "BIG_BLIND",
+              amount: 100
+            }
+          ],
           startedAt: "2026-03-19T12:05:00.000Z",
           deadlineAt: "2026-03-19T12:05:15.000Z"
         }

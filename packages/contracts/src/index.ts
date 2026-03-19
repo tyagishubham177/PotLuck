@@ -41,6 +41,7 @@ export const submittedRoomActionTypeSchema = z.enum([
   "CHECK",
   "FOLD",
   "CALL",
+  "BET",
   "RAISE",
   "ALL_IN"
 ]);
@@ -48,11 +49,16 @@ export const roomActionTypeSchema = z.enum([
   "CHECK",
   "FOLD",
   "CALL",
+  "BET",
   "RAISE",
   "ALL_IN",
   "TIMEOUT_FOLD"
 ]);
 export const playerSitOutTimingSchema = z.enum(["NOW", "NEXT_HAND"]);
+export const cardCodeSchema = z.string().regex(/^(?:[2-9TJQKA][CDHS])$/);
+export const handStreetSchema = z.enum(["PREFLOP", "FLOP", "TURN", "RIVER", "SHOWDOWN"]);
+export const handPlayerStatusSchema = z.enum(["ACTIVE", "FOLDED", "ALL_IN"]);
+export const forcedCommitmentTypeSchema = z.enum(["ANTE", "SMALL_BLIND", "BIG_BLIND"]);
 
 export const errorCodeSchema = z.enum([
   "ERR_ROOM_NOT_FOUND",
@@ -387,14 +393,45 @@ export const roomParticipantRealtimeSchema = lobbyParticipantSchema.extend({
   reconnectGraceEndsAt: isoTimestampSchema.optional()
 });
 
+export const activeHandPlayerSchema = z.object({
+  seatIndex: seatIndexSchema,
+  participantId: z.string().min(1),
+  status: handPlayerStatusSchema,
+  stack: z.number().int().min(0),
+  streetCommitted: z.number().int().min(0),
+  totalCommitted: z.number().int().min(0),
+  hasActed: z.boolean(),
+  canRaise: z.boolean()
+});
+
+export const activeHandForcedCommitmentSchema = z.object({
+  seatIndex: seatIndexSchema,
+  participantId: z.string().min(1),
+  type: forcedCommitmentTypeSchema,
+  amount: z.number().int().min(0)
+});
+
 export const activeHandSnapshotSchema = z.object({
   handId: z.string().min(1),
   handNumber: z.number().int().positive(),
   handSeq: z.number().int().nonnegative(),
-  actingSeatIndex: seatIndexSchema,
+  street: handStreetSchema,
+  buttonSeatIndex: seatIndexSchema.optional(),
+  smallBlindSeatIndex: seatIndexSchema.optional(),
+  bigBlindSeatIndex: seatIndexSchema.optional(),
+  actingSeatIndex: seatIndexSchema.optional(),
   eligibleSeatOrder: z.array(seatIndexSchema),
   foldedSeatIndexes: z.array(seatIndexSchema),
   actedSeatIndexes: z.array(seatIndexSchema),
+  board: z.array(cardCodeSchema),
+  potTotal: z.number().int().min(0),
+  currentBet: z.number().int().min(0),
+  minimumRaiseTo: z.number().int().min(0),
+  showdownSeatIndexes: z.array(seatIndexSchema),
+  showdownRevealOrder: z.array(seatIndexSchema),
+  players: z.array(activeHandPlayerSchema),
+  forcedCommitments: z.array(activeHandForcedCommitmentSchema),
+  winnerByFoldSeatIndex: seatIndexSchema.optional(),
   startedAt: isoTimestampSchema,
   deadlineAt: isoTimestampSchema
 });
@@ -438,6 +475,7 @@ export const roomPrivateStateSchema = z.object({
   roomEventNo: z.number().int().nonnegative(),
   seatIndex: seatIndexSchema.optional(),
   stack: z.number().int().min(0).optional(),
+  holeCards: z.array(cardCodeSchema).max(2).optional(),
   actionAffordances: roomActionAffordancesSchema.optional(),
   reconnect: roomReconnectMetadataSchema
 });
@@ -537,6 +575,13 @@ export const turnWarningEventSchema = handEventEnvelopeSchema.extend({
   secondsRemaining: z.number().int().nonnegative()
 });
 
+export const streetAdvancedEventSchema = handEventEnvelopeSchema.extend({
+  type: z.literal("STREET_ADVANCED"),
+  street: z.enum(["FLOP", "TURN", "RIVER"]),
+  board: z.array(cardCodeSchema),
+  revealedCards: z.array(cardCodeSchema).min(1).max(3)
+});
+
 export const actionAcceptedEventSchema = handEventEnvelopeSchema.extend({
   type: z.literal("ACTION_ACCEPTED"),
   participantId: z.string().min(1),
@@ -544,6 +589,13 @@ export const actionAcceptedEventSchema = handEventEnvelopeSchema.extend({
   idempotencyKey: z.string().min(1),
   actionType: roomActionTypeSchema,
   normalizedAmount: z.number().int().min(0).optional()
+});
+
+export const showdownTriggeredEventSchema = handEventEnvelopeSchema.extend({
+  type: z.literal("SHOWDOWN_TRIGGERED"),
+  board: z.array(cardCodeSchema),
+  eligibleSeatIndexes: z.array(seatIndexSchema),
+  revealOrder: z.array(seatIndexSchema)
 });
 
 export const actionRejectedEventSchema = roomEventEnvelopeSchema.extend({
@@ -592,7 +644,9 @@ export const realtimeServerMessageSchema = z.discriminatedUnion("type", [
   handStartedEventSchema,
   turnStartedEventSchema,
   turnWarningEventSchema,
+  streetAdvancedEventSchema,
   actionAcceptedEventSchema,
+  showdownTriggeredEventSchema,
   actionRejectedEventSchema,
   playerDisconnectedEventSchema,
   playerReconnectedEventSchema,
@@ -647,7 +701,9 @@ export type PrivateStateEvent = z.infer<typeof privateStateEventSchema>;
 export type HandStartedEvent = z.infer<typeof handStartedEventSchema>;
 export type TurnStartedEvent = z.infer<typeof turnStartedEventSchema>;
 export type TurnWarningEvent = z.infer<typeof turnWarningEventSchema>;
+export type StreetAdvancedEvent = z.infer<typeof streetAdvancedEventSchema>;
 export type ActionAcceptedEvent = z.infer<typeof actionAcceptedEventSchema>;
+export type ShowdownTriggeredEvent = z.infer<typeof showdownTriggeredEventSchema>;
 export type ActionRejectedEvent = z.infer<typeof actionRejectedEventSchema>;
 export type PlayerDisconnectedEvent = z.infer<typeof playerDisconnectedEventSchema>;
 export type PlayerReconnectedEvent = z.infer<typeof playerReconnectedEventSchema>;

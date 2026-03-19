@@ -1128,15 +1128,15 @@ export function PhaseTwoShell({
               {liveSnapshot.activeHand ? (
                 <div className="info-block">
                   <div className="info-row"><span>Hand</span><strong>{liveSnapshot.activeHand.handId}</strong></div>
-                  <div className="info-row"><span>Acting seat</span><strong>Seat {liveSnapshot.activeHand.actingSeatIndex + 1}</strong></div>
+                  <div className="info-row"><span>Acting seat</span><strong>{liveSnapshot.activeHand.actingSeatIndex === undefined ? "Waiting" : `Seat ${liveSnapshot.activeHand.actingSeatIndex + 1}`}</strong></div>
                   <div className="info-row"><span>Deadline</span><strong>{new Date(liveSnapshot.activeHand.deadlineAt).toLocaleTimeString()}</strong></div>
                   <div className="info-row"><span>Hand seq</span><strong>{liveSnapshot.activeHand.handSeq}</strong></div>
                 </div>
               ) : (
                 <div className="gate-card muted">
                   <p className="eyebrow">Between Hands</p>
-                  <h3>Ready marks drive the placeholder hand loop</h3>
-                  <p>Seat two players, click ready, and the actor will start a timed placeholder turn cycle with ordered diffs.</p>
+                  <h3>Ready marks start the authoritative hand loop</h3>
+                  <p>Seat two players, click ready, and the room actor will post blinds, deal cards, and drive a timed live hand.</p>
                 </div>
               )}
             </>

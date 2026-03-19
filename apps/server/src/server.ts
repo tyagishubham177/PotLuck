@@ -24,7 +24,7 @@ import {
   topUpRequestSchema,
   topUpResponseSchema
 } from "@potluck/contracts";
-import { createEnginePlaceholder } from "@potluck/game-engine";
+import { createEngineMetadata } from "@potluck/game-engine";
 
 import {
   clearAuthCookies,
@@ -48,7 +48,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   const app = Fastify({
     logger: env.NODE_ENV !== "test"
   });
-  const engine = createEnginePlaceholder();
+  const engine = createEngineMetadata();
   const state = options.state ?? createAppState();
   const emailAdapter =
     options.emailAdapter ??
