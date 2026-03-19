@@ -7,12 +7,12 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "turbo run dev --parallel",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "build": "turbo run build",
-    "clean": "turbo run clean"
+    "dev": "node ./node_modules/turbo/bin/turbo run dev",
+    "lint": "node ./node_modules/turbo/bin/turbo run lint",
+    "typecheck": "node ./node_modules/turbo/bin/turbo run typecheck",
+    "test": "node ./node_modules/turbo/bin/turbo run test",
+    "build": "node ./node_modules/turbo/bin/turbo run build",
+    "clean": "node ./node_modules/turbo/bin/turbo run clean"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
