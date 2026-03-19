@@ -15,6 +15,7 @@ const snapshot: RoomRealtimeSnapshot = {
     code: "DEMO42",
     tableName: "Realtime Table",
     status: "OPEN",
+    joinLocked: false,
     maxSeats: 6,
     openSeatCount: 4,
     reservedSeatCount: 0,

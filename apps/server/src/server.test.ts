@@ -456,6 +456,168 @@ describe("phase 02 and phase 03 room flow", () => {
     });
   });
 
+  it("rejects spectator joins when the room disables spectator mode", async () => {
+    const adminCookieHeader = await createAdminCookieHeader();
+    const room = await createRoom(adminCookieHeader, {
+      spectatorsAllowed: false
+    });
+
+    const spectator = await joinRoom(room.room.code, "Railbird", "SPECTATOR");
+
+    expect(spectator.response.statusCode).toBe(403);
+    expect(spectator.response.json()).toMatchObject({
+      error: {
+        code: "ERR_SPECTATOR_DISABLED"
+      }
+    });
+  });
+
+  it("supports admin config edits, join locks, and lobby kicks", async () => {
+    const adminCookieHeader = await createAdminCookieHeader();
+    const room = await createRoom(adminCookieHeader, {
+      tableName: "Admin Ops",
+      spectatorsAllowed: true
+    });
+    const spectator = await joinRoom(room.room.code, "Railbird", "SPECTATOR");
+
+    expect(spectator.response.statusCode).toBe(200);
+
+    const configResponse = await app.inject({
+      method: "PATCH",
+      url: `/api/rooms/${room.room.roomId}/config`,
+      headers: { cookie: adminCookieHeader },
+      payload: {
+        tableName: "Admin Ops Late",
+        smallBlind: 75,
+        bigBlind: 150,
+        spectatorsAllowed: false
+      }
+    });
+
+    expect(configResponse.statusCode).toBe(200);
+    expect(configResponse.json()).toMatchObject({
+      snapshot: {
+        room: {
+          tableName: "Admin Ops Late"
+        },
+        config: {
+          smallBlind: 75,
+          bigBlind: 150,
+          spectatorsAllowed: false
+        }
+      }
+    });
+
+    const lockResponse = await app.inject({
+      method: "POST",
+      url: `/api/rooms/${room.room.roomId}/lock`,
+      headers: { cookie: adminCookieHeader },
+      payload: {
+        locked: true,
+        reason: "Incident review"
+      }
+    });
+
+    expect(lockResponse.statusCode).toBe(200);
+    expect(lockResponse.json()).toMatchObject({
+      moderation: {
+        action: "ROOM_LOCKED",
+        joinLocked: true
+      },
+      snapshot: {
+        room: {
+          joinLocked: true
+        }
+      }
+    });
+
+    const lateJoin = await joinRoom(room.room.code, "LateRail", "PLAYER");
+    expect(lateJoin.response.statusCode).toBe(409);
+    expect(lateJoin.response.json()).toMatchObject({
+      error: {
+        code: "ERR_ROOM_LOCKED"
+      }
+    });
+
+    const spectatorId = spectator.response.json().actor.guestId as string;
+    const kickResponse = await app.inject({
+      method: "POST",
+      url: `/api/rooms/${room.room.roomId}/kick`,
+      headers: { cookie: adminCookieHeader },
+      payload: {
+        participantId: spectatorId,
+        reason: "Clearing the rail"
+      }
+    });
+
+    expect(kickResponse.statusCode).toBe(200);
+    expect(kickResponse.json()).toMatchObject({
+      moderation: {
+        action: "PLAYER_KICKED",
+        targetParticipantId: spectatorId
+      }
+    });
+
+    const kickedLobbyResponse = await app.inject({
+      method: "GET",
+      url: `/api/rooms/${room.room.roomId}/lobby`,
+      headers: { cookie: spectator.cookieHeader }
+    });
+
+    expect(kickedLobbyResponse.statusCode).toBe(401);
+  });
+
+  it("rejects config edits and seated kicks during an active hand", async () => {
+    const adminCookieHeader = await createAdminCookieHeader();
+    const room = await createRoom(adminCookieHeader, {});
+    const alpha = await joinRoom(room.room.code, "AlphaOps");
+    const bravo = await joinRoom(room.room.code, "BravoOps");
+
+    await reserveSeat(room.room.roomId, 0, alpha.cookieHeader);
+    await reserveSeat(room.room.roomId, 1, bravo.cookieHeader);
+    await commitBuyIn(room.room.roomId, 0, 5000, alpha.cookieHeader, "ops-alpha-buyin-1");
+    await commitBuyIn(room.room.roomId, 1, 5000, bravo.cookieHeader, "ops-bravo-buyin-1");
+
+    const alphaActor = alpha.response.json().actor;
+    const bravoActor = bravo.response.json().actor;
+
+    state.playerReady(room.room.roomId, alphaActor, 0);
+    state.playerReady(room.room.roomId, bravoActor, 1);
+
+    const configDuringHand = await app.inject({
+      method: "PATCH",
+      url: `/api/rooms/${room.room.roomId}/config`,
+      headers: { cookie: adminCookieHeader },
+      payload: {
+        smallBlind: 125
+      }
+    });
+
+    expect(configDuringHand.statusCode).toBe(409);
+    expect(configDuringHand.json()).toMatchObject({
+      error: {
+        code: "ERR_CONFIG_EDIT_DURING_HAND"
+      }
+    });
+
+    const kickDuringHand = await app.inject({
+      method: "POST",
+      url: `/api/rooms/${room.room.roomId}/kick`,
+      headers: { cookie: adminCookieHeader },
+      payload: {
+        participantId: alphaActor.guestId,
+        reason: "Too noisy"
+      }
+    });
+
+    expect(kickDuringHand.statusCode).toBe(409);
+    expect(kickDuringHand.json()).toMatchObject({
+      error: {
+        code: "ERR_MODERATION_DURING_HAND"
+      }
+    });
+  });
+
   it("stores settled hand history and serves JSON and text transcript exports", async () => {
     const adminCookieHeader = await createAdminCookieHeader();
     const room = await createRoom(adminCookieHeader, {});

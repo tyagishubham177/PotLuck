@@ -78,6 +78,7 @@ export const rakeModeSchema = z.literal("PER_HAND");
 export const errorCodeSchema = z.enum([
   "ERR_ROOM_NOT_FOUND",
   "ERR_ROOM_CLOSED",
+  "ERR_ROOM_LOCKED",
   "ERR_ROOM_FULL",
   "ERR_QUEUE_FULL",
   "ERR_SEAT_TAKEN",
@@ -107,7 +108,9 @@ export const errorCodeSchema = z.enum([
   "ERR_LEDGER_COMMIT_FAILED",
   "ERR_ROOM_PAUSED",
   "ERR_CONFIG_EDIT_DURING_HAND",
-  "ERR_ACTIVE_ROOM_EXISTS"
+  "ERR_ACTIVE_ROOM_EXISTS",
+  "ERR_PARTICIPANT_NOT_FOUND",
+  "ERR_MODERATION_DURING_HAND"
 ]);
 
 export const apiErrorSchema = z.object({
@@ -188,6 +191,7 @@ export const roomPublicSummarySchema = z.object({
   code: z.string().min(6).max(8),
   tableName: z.string().min(3).max(40),
   status: roomStatusSchema,
+  joinLocked: z.boolean(),
   maxSeats: z.number().int().min(2).max(9),
   openSeatCount: z.number().int().min(0),
   reservedSeatCount: z.number().int().min(0),
@@ -469,6 +473,7 @@ export const roomRealtimeSnapshotSchema = z.object({
 
 export const roomDiffPatchSchema = z.object({
   room: roomPublicSummarySchema.optional(),
+  config: roomConfigSchema.optional(),
   seats: z.array(seatSnapshotSchema).optional(),
   participants: z.array(roomParticipantRealtimeSchema).optional(),
   waitingList: z.array(queueEntrySchema).optional(),
@@ -614,6 +619,15 @@ export const handHistorySummarySchema = z.object({
   startedAt: isoTimestampSchema,
   endedAt: isoTimestampSchema,
   playerCount: z.number().int().nonnegative(),
+  playerNames: z.array(z.string().min(1)),
+  stackDeltas: z.array(
+    z.object({
+      seatIndex: seatIndexSchema,
+      participantId: z.string().min(1),
+      nickname: z.string().min(1),
+      netResult: z.number().int()
+    })
+  ),
   totalPot: z.number().int().nonnegative(),
   totalRake: z.number().int().nonnegative(),
   board: z.array(cardCodeSchema)
@@ -622,6 +636,91 @@ export const handHistorySummarySchema = z.object({
 export const handHistoryListResponseSchema = z.object({
   items: z.array(handHistorySummarySchema),
   nextCursor: z.string().min(1).nullable()
+});
+
+export const roomConfigPatchRequestSchema = z
+  .object({
+    tableName: z.string().trim().min(3).max(40).optional(),
+    smallBlind: z.number().int().positive().optional(),
+    bigBlind: z.number().int().positive().optional(),
+    ante: z.number().int().min(0).optional(),
+    buyInMode: buyInModeSchema.optional(),
+    minBuyIn: z.number().int().positive().optional(),
+    maxBuyIn: z.number().int().positive().optional(),
+    rakeEnabled: z.boolean().optional(),
+    rakePercent: z.number().min(0).max(10).optional(),
+    rakeCap: z.number().int().min(0).optional(),
+    oddChipRule: oddChipRuleSchema.optional(),
+    spectatorsAllowed: z.boolean().optional(),
+    straddleAllowed: z.boolean().optional(),
+    rebuyEnabled: z.boolean().optional(),
+    topUpEnabled: z.boolean().optional(),
+    seatReservationTimeoutSeconds: z.number().int().min(30).max(300).optional(),
+    joinCodeExpiryMinutes: z.number().int().min(30).max(1440).optional(),
+    waitingListEnabled: z.boolean().optional()
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.smallBlind !== undefined &&
+      value.bigBlind !== undefined &&
+      value.bigBlind < value.smallBlind
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bigBlind"],
+        message: "Big blind must be greater than or equal to the small blind."
+      });
+    }
+
+    if (
+      value.minBuyIn !== undefined &&
+      value.maxBuyIn !== undefined &&
+      value.minBuyIn >= value.maxBuyIn
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["minBuyIn"],
+        message: "Min buy-in must be less than max buy-in."
+      });
+    }
+  });
+
+export const roomLockRequestSchema = z.object({
+  locked: z.boolean(),
+  reason: z.string().trim().min(3).max(160).optional()
+});
+
+export const roomKickRequestSchema = z.object({
+  participantId: z.string().min(1),
+  reason: z.string().trim().min(3).max(160)
+});
+
+export const moderationActionSchema = z.enum([
+  "ROOM_LOCKED",
+  "ROOM_UNLOCKED",
+  "PLAYER_KICKED",
+  "ROOM_CONFIG_UPDATED"
+]);
+
+export const moderationRecordSchema = z.object({
+  moderationId: z.string().min(1),
+  roomId: z.string().min(1),
+  adminId: z.string().min(1),
+  action: moderationActionSchema,
+  targetParticipantId: z.string().min(1).optional(),
+  reason: z.string().min(1).optional(),
+  message: z.string().min(1),
+  joinLocked: z.boolean().optional(),
+  appliedAt: isoTimestampSchema
+});
+
+export const roomModerationResponseSchema = z.object({
+  moderation: moderationRecordSchema,
+  snapshot: roomRealtimeSnapshotSchema
+});
+
+export const roomConfigUpdateResponseSchema = z.object({
+  snapshot: roomRealtimeSnapshotSchema
 });
 
 export const roomSubscribeIntentSchema = z.object({
@@ -786,6 +885,11 @@ export const roomPausedEventSchema = roomEventEnvelopeSchema.extend({
   recoveryGuidance: z.string().min(1).optional()
 });
 
+export const moderationAppliedEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("MODERATION_APPLIED"),
+  moderation: moderationRecordSchema
+});
+
 export const handHistoryEventSchema = roomEventEnvelopeSchema.extend({
   type: z.literal("HAND_HISTORY"),
   transcript: handTranscriptSchema
@@ -815,6 +919,7 @@ export const realtimeServerMessageSchema = z.discriminatedUnion("type", [
   playerDisconnectedEventSchema,
   playerReconnectedEventSchema,
   roomPausedEventSchema,
+  moderationAppliedEventSchema,
   handHistoryEventSchema,
   serverErrorEventSchema
 ]);
@@ -835,7 +940,8 @@ export const clientSnapshotSchema = z.object({
     "phase-04-ready",
     "phase-05-ready",
     "phase-06-ready",
-    "phase-07-ready"
+    "phase-07-ready",
+    "phase-08-ready"
   ])
 });
 
@@ -869,6 +975,13 @@ export type HandSettlement = z.infer<typeof handSettlementSchema>;
 export type HandTranscript = z.infer<typeof handTranscriptSchema>;
 export type HandHistorySummary = z.infer<typeof handHistorySummarySchema>;
 export type HandHistoryListResponse = z.infer<typeof handHistoryListResponseSchema>;
+export type RoomConfigPatchRequest = z.infer<typeof roomConfigPatchRequestSchema>;
+export type RoomLockRequest = z.infer<typeof roomLockRequestSchema>;
+export type RoomKickRequest = z.infer<typeof roomKickRequestSchema>;
+export type ModerationAction = z.infer<typeof moderationActionSchema>;
+export type ModerationRecord = z.infer<typeof moderationRecordSchema>;
+export type RoomModerationResponse = z.infer<typeof roomModerationResponseSchema>;
+export type RoomConfigUpdateResponse = z.infer<typeof roomConfigUpdateResponseSchema>;
 export type RealtimeClientMessage = z.infer<typeof realtimeClientMessageSchema>;
 export type RoomSnapshotEvent = z.infer<typeof roomSnapshotEventSchema>;
 export type RoomDiffEvent = z.infer<typeof roomDiffEventSchema>;
@@ -885,6 +998,7 @@ export type ActionRejectedEvent = z.infer<typeof actionRejectedEventSchema>;
 export type PlayerDisconnectedEvent = z.infer<typeof playerDisconnectedEventSchema>;
 export type PlayerReconnectedEvent = z.infer<typeof playerReconnectedEventSchema>;
 export type RoomPausedEvent = z.infer<typeof roomPausedEventSchema>;
+export type ModerationAppliedEvent = z.infer<typeof moderationAppliedEventSchema>;
 export type HandHistoryEvent = z.infer<typeof handHistoryEventSchema>;
 export type ServerErrorEvent = z.infer<typeof serverErrorEventSchema>;
 export type RealtimeServerMessage = z.infer<typeof realtimeServerMessageSchema>;

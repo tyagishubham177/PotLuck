@@ -15,11 +15,17 @@ import {
   joinRoomRequestSchema,
   joinRoomResponseSchema,
   logoutResponseSchema,
+  roomConfigPatchRequestSchema,
+  roomConfigUpdateResponseSchema,
   queueJoinResponseSchema,
   rebuyRequestSchema,
   rebuyResponseSchema,
   roomCreateRequestSchema,
   roomCreateResponseSchema,
+  roomKickRequestSchema,
+  roomLockRequestSchema,
+  roomModerationResponseSchema,
+  roomRealtimeSnapshotSchema,
   seatReservationRequestSchema,
   seatReservationResponseSchema,
   roomPublicSummarySchema,
@@ -382,6 +388,103 @@ export function buildServer(options: BuildServerOptions = {}) {
     return queueJoinResponseSchema.parse(state.joinWaitingList(roomId, authContext.actor));
   });
 
+  app.post("/api/rooms/:roomId/pause", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "ADMIN") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only admins can pause rooms.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    const body = ((request.body ?? {}) as { reason?: unknown }) ?? {};
+    const reason = typeof body.reason === "string" && body.reason.trim().length > 0
+      ? body.reason.trim()
+      : undefined;
+
+    return roomRealtimeSnapshotSchema.parse(state.pauseRoom(roomId, authContext.actor, reason));
+  });
+
+  app.post("/api/rooms/:roomId/resume", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "ADMIN") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only admins can resume rooms.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    return roomRealtimeSnapshotSchema.parse(state.resumeRoom(roomId, authContext.actor));
+  });
+
+  app.patch("/api/rooms/:roomId/config", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "ADMIN") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only admins can edit room config.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    const body = roomConfigPatchRequestSchema.parse(request.body ?? {});
+
+    return roomConfigUpdateResponseSchema.parse({
+      snapshot: state.updateRoomConfig(roomId, authContext.actor, body)
+    });
+  });
+
+  app.post("/api/rooms/:roomId/lock", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "ADMIN") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only admins can lock rooms.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    const body = roomLockRequestSchema.parse(request.body ?? {});
+
+    return roomModerationResponseSchema.parse(
+      state.setRoomJoinLock(roomId, authContext.actor, body.locked, body.reason)
+    );
+  });
+
+  app.post("/api/rooms/:roomId/kick", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "ADMIN") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only admins can kick participants.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    const body = roomKickRequestSchema.parse(request.body ?? {});
+
+    return roomModerationResponseSchema.parse(
+      state.kickParticipant(roomId, authContext.actor, body.participantId, body.reason)
+    );
+  });
+
   app.get("/api/rooms/:roomId/hands", async (request) => {
     const authContext = requireAuth(request);
     const roomId = (request.params as { roomId: string }).roomId;
@@ -402,7 +505,10 @@ export function buildServer(options: BuildServerOptions = {}) {
   app.get("/api/hands/:handId/export.json", async (request) => {
     const authContext = requireAuth(request);
     const handId = (request.params as { handId: string }).handId;
-    return handTranscriptSchema.parse(state.getHandTranscript(handId, authContext.actor));
+    const transcript = handTranscriptSchema.parse(state.getHandTranscript(handId, authContext.actor));
+
+    request.log.debug({ handId }, "Serving JSON hand export");
+    return transcript;
   });
 
   app.get("/api/hands/:handId/export.txt", async (request, reply) => {
@@ -411,6 +517,10 @@ export function buildServer(options: BuildServerOptions = {}) {
     const transcript = handTranscriptSchema.parse(state.getHandTranscript(handId, authContext.actor));
 
     reply.type("text/plain; charset=utf-8");
+    reply.header(
+      "Content-Disposition",
+      `attachment; filename="${transcript.roomId}-${transcript.handId}.txt"`
+    );
     return reply.send(formatHandTranscriptText(transcript));
   });
 
