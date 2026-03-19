@@ -16,6 +16,13 @@ export const sessionRoleSchema = z.enum(["ADMIN", "GUEST"]);
 export const roomVariantSchema = z.literal("HOLD_EM_NL");
 export const buyInModeSchema = z.enum(["BB_MULTIPLE", "ABSOLUTE"]);
 export const oddChipRuleSchema = z.literal("LEFT_OF_BUTTON");
+export const ledgerEntryTypeSchema = z.enum([
+  "BUY_IN",
+  "REBUY",
+  "TOP_UP",
+  "COMPENSATING_ADJUSTMENT"
+]);
+export const roomTablePhaseSchema = z.enum(["BETWEEN_HANDS", "HAND_ACTIVE"]);
 export const seatStatusSchema = z.enum([
   "EMPTY",
   "RESERVED",
@@ -57,6 +64,7 @@ export const errorCodeSchema = z.enum([
   "ERR_MIN_BUYIN",
   "ERR_MAX_BUYIN",
   "ERR_TOPUP_DURING_HAND",
+  "ERR_TOPUP_DISABLED",
   "ERR_REBUY_DISABLED",
   "ERR_LEDGER_COMMIT_FAILED",
   "ERR_ROOM_PAUSED",
@@ -110,6 +118,8 @@ export const roomConfigSchema = z
     oddChipRule: oddChipRuleSchema.default("LEFT_OF_BUTTON"),
     spectatorsAllowed: z.boolean().default(false),
     straddleAllowed: z.boolean().default(false),
+    rebuyEnabled: z.boolean().default(true),
+    topUpEnabled: z.boolean().default(true),
     seatReservationTimeoutSeconds: z.number().int().min(30).max(300).default(120),
     joinCodeExpiryMinutes: z.number().int().min(30).max(1440).default(120),
     waitingListEnabled: z.boolean().default(true),
@@ -282,6 +292,67 @@ export const queueJoinResponseSchema = z.object({
   lobbySnapshot: lobbySnapshotSchema
 });
 
+const chipAmountSchema = z.number().int().positive();
+
+export const buyInCommitRequestSchema = z.object({
+  seatIndex: z.number().int().min(0).max(8),
+  amount: chipAmountSchema
+});
+
+export const rebuyRequestSchema = z.object({
+  amount: chipAmountSchema
+});
+
+export const topUpRequestSchema = z.object({
+  amount: chipAmountSchema
+});
+
+export const ledgerEntrySchema = z.object({
+  entryId: z.string().min(1),
+  roomId: z.string().min(1),
+  participantId: z.string().min(1),
+  seatIndex: z.number().int().min(0).max(8).optional(),
+  type: ledgerEntryTypeSchema,
+  delta: z.number().int(),
+  balanceAfter: z.number().int().min(0),
+  referenceId: z.string().min(1),
+  idempotencyKey: z.string().min(1).optional(),
+  createdAt: isoTimestampSchema
+});
+
+export const roomBalanceSummarySchema = z.object({
+  roomId: z.string().min(1),
+  participantId: z.string().min(1),
+  seatIndex: z.number().int().min(0).max(8).optional(),
+  buyInCommitted: z.number().int().min(0),
+  rebuyCommitted: z.number().int().min(0),
+  topUpCommitted: z.number().int().min(0),
+  adjustmentTotal: z.number().int(),
+  totalCommitted: z.number().int().min(0),
+  netBalance: z.number().int().min(0),
+  liveStack: z.number().int().min(0)
+});
+
+const chipOperationResponseBaseSchema = z.object({
+  tablePhase: roomTablePhaseSchema,
+  seat: seatSnapshotSchema,
+  ledgerEntry: ledgerEntrySchema,
+  balance: roomBalanceSummarySchema,
+  lobbySnapshot: lobbySnapshotSchema
+});
+
+export const buyInResponseSchema = chipOperationResponseBaseSchema.extend({
+  operation: z.literal("BUY_IN")
+});
+
+export const rebuyResponseSchema = chipOperationResponseBaseSchema.extend({
+  operation: z.literal("REBUY")
+});
+
+export const topUpResponseSchema = chipOperationResponseBaseSchema.extend({
+  operation: z.literal("TOP_UP")
+});
+
 export const logoutResponseSchema = z.object({
   success: z.literal(true)
 });
@@ -307,3 +378,6 @@ export type SessionEnvelope = z.infer<typeof sessionEnvelopeSchema>;
 export type AuthActor = z.infer<typeof authActorSchema>;
 export type RoomJoinMode = z.infer<typeof roomJoinModeSchema>;
 export type SessionRole = z.infer<typeof sessionRoleSchema>;
+export type RoomTablePhase = z.infer<typeof roomTablePhaseSchema>;
+export type LedgerEntry = z.infer<typeof ledgerEntrySchema>;
+export type RoomBalanceSummary = z.infer<typeof roomBalanceSummarySchema>;
