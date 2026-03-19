@@ -1178,10 +1178,6 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     return room.seats.at(actingSeatIndex)?.participantId;
   }
 
-  function getEligibleReadySeatOrder(room: RoomRecord) {
-    return getEligibleReadyPlayersForHand(room).map((player) => player.seatIndex);
-  }
-
   function getEligibleReadyPlayersForHand(room: RoomRecord) {
     return room.seats
       .filter(
