@@ -30,7 +30,7 @@ export function applyRoomDiff(
     return current;
   }
 
-  return roomRealtimeSnapshotSchema.parse({
+  const nextSnapshot = roomRealtimeSnapshotSchema.safeParse({
     ...current,
     ...diff,
     roomEventNo,
@@ -43,6 +43,8 @@ export function applyRoomDiff(
         ? current.pausedReason
         : diff.pausedReason ?? undefined
   });
+
+  return nextSnapshot.success ? nextSnapshot.data : current;
 }
 
 function getGuestRoomScopeKey(authState: RoomScopedAuthState) {

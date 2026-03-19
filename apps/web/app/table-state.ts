@@ -47,6 +47,11 @@ export type TableSeatViewModel = {
   statusTone: "empty" | "reserved" | "occupied" | "hero" | "warning" | "muted";
 };
 
+type FormatChipOptions = {
+  compact?: boolean;
+  withUnit?: boolean;
+};
+
 const seatPositionClasses = [
   "seat-position-0",
   "seat-position-1",
@@ -59,12 +64,31 @@ const seatPositionClasses = [
   "seat-position-8"
 ] as const;
 
-export function formatChips(amount: number | null | undefined) {
+function formatCompactNumber(amount: number) {
+  if (Math.abs(amount) < 1000) {
+    return amount.toLocaleString();
+  }
+
+  const compact = Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(amount);
+
+  return compact.replace(".0", "");
+}
+
+export function formatChips(
+  amount: number | null | undefined,
+  options: FormatChipOptions = {}
+) {
   if (amount === null || amount === undefined) {
     return "n/a";
   }
 
-  return `${amount.toLocaleString()} chips`;
+  const formatted = options.compact ? formatCompactNumber(amount) : amount.toLocaleString();
+  const includeUnit = options.withUnit ?? !options.compact;
+
+  return includeUnit ? `${formatted} chips` : formatted;
 }
 
 export function formatCountdown(expiresAt: string, nowMs: number) {
@@ -154,7 +178,7 @@ export function getActionTrayState(
   } else if ((affordances.callAmount ?? 0) > 0) {
     quickActions.push({
       actionType: "CALL",
-      label: `Call ${formatChips(affordances.callAmount)}`,
+      label: `Call ${formatChips(affordances.callAmount, { compact: true })}`,
       tone: "primary"
     });
   }
@@ -167,7 +191,7 @@ export function getActionTrayState(
   if ((affordances.allInAmount ?? 0) > 0) {
     quickActions.push({
       actionType: "ALL_IN",
-      label: `All-in ${formatChips(affordances.allInAmount)}`,
+      label: `All-in ${formatChips(affordances.allInAmount, { compact: true })}`,
       tone: canSize ? "secondary" : "primary"
     });
   }
@@ -195,6 +219,11 @@ export function buildSeatViewModels(
   privateState: RoomPrivateState | null,
   nowMs: number
 ) {
+  const seatToneLookup: Record<string, TableSeatViewModel["statusTone"]> = {
+    EMPTY: "empty",
+    RESERVED: "reserved",
+    OCCUPIED: "occupied"
+  };
   const activePlayersBySeat = new Map(
     (snapshot.activeHand?.players ?? []).map((player) => [player.seatIndex, player])
   );
@@ -248,7 +277,7 @@ export function buildSeatViewModels(
               ? "Tap to reserve"
               : "Waiting",
       detailLabel:
-        detailBits.join(" • ") ||
+        detailBits.join(" | ") ||
         (participant?.state ? participant.state.replaceAll("_", " ") : "Waiting"),
       badgeLabel,
       timerLabel:
@@ -269,13 +298,7 @@ export function buildSeatViewModels(
           ? "hero"
           : isActing
             ? "warning"
-            : seat.status === "EMPTY"
-              ? "empty"
-              : seat.status === "RESERVED"
-                ? "reserved"
-                : seat.status === "OCCUPIED"
-                  ? "occupied"
-                  : "muted"
+            : seatToneLookup[seat.status] ?? "muted"
     };
   });
 }

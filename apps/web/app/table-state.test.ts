@@ -5,6 +5,7 @@ import type { RoomPrivateState, RoomRealtimeSnapshot } from "@potluck/contracts"
 import {
   buildSeatViewModels,
   clampActionAmount,
+  formatChips,
   getActionTrayState,
   getDefaultActionAmount
 } from "./table-state";
@@ -232,6 +233,11 @@ describe("table state helpers", () => {
     expect(clampActionAmount(9999, privateState.actionAffordances)).toBe(3200);
   });
 
+  it("supports compact chip labels when space is tight", () => {
+    expect(formatChips(1200, { compact: true })).toBe("1.2K");
+    expect(formatChips(1200, { compact: true, withUnit: true })).toBe("1.2K chips");
+  });
+
   it("builds seat cards with acting, hero, and disconnect state", () => {
     const seats = buildSeatViewModels(
       snapshot,
@@ -252,5 +258,6 @@ describe("table state helpers", () => {
       isDisconnected: true,
       statusTone: "occupied"
     });
+    expect(seats[1].detailLabel).toContain("Offline");
   });
 });
