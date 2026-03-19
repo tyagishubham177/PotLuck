@@ -10,9 +10,25 @@ export const healthResponseSchema = z.object({
   engine: z.string().min(1)
 });
 
-export const roomStatusSchema = z.enum(["OPEN", "PAUSED", "CLOSED"]);
+export const roomStatusSchema = z.enum(["CREATED", "OPEN", "PAUSED", "CLOSED"]);
 export const roomJoinModeSchema = z.enum(["PLAYER", "SPECTATOR"]);
 export const sessionRoleSchema = z.enum(["ADMIN", "GUEST"]);
+export const roomVariantSchema = z.literal("HOLD_EM_NL");
+export const buyInModeSchema = z.enum(["BB_MULTIPLE", "ABSOLUTE"]);
+export const oddChipRuleSchema = z.literal("LEFT_OF_BUTTON");
+export const seatStatusSchema = z.enum([
+  "EMPTY",
+  "RESERVED",
+  "OCCUPIED",
+  "LOCKED_DURING_HAND"
+]);
+export const participantStateSchema = z.enum([
+  "LOBBY",
+  "SPECTATING",
+  "RESERVED",
+  "SEATED",
+  "QUEUED"
+]);
 
 export const errorCodeSchema = z.enum([
   "ERR_ROOM_NOT_FOUND",
@@ -22,6 +38,7 @@ export const errorCodeSchema = z.enum([
   "ERR_SEAT_TAKEN",
   "ERR_SEAT_LOCKED",
   "ERR_ALREADY_SEATED",
+  "ERR_ALREADY_QUEUED",
   "ERR_JOIN_NAME_CONFLICT",
   "ERR_SPECTATOR_DISABLED",
   "ERR_AUTH_REQUIRED",
@@ -43,7 +60,8 @@ export const errorCodeSchema = z.enum([
   "ERR_REBUY_DISABLED",
   "ERR_LEDGER_COMMIT_FAILED",
   "ERR_ROOM_PAUSED",
-  "ERR_CONFIG_EDIT_DURING_HAND"
+  "ERR_CONFIG_EDIT_DURING_HAND",
+  "ERR_ACTIVE_ROOM_EXISTS"
 ]);
 
 export const apiErrorSchema = z.object({
@@ -75,6 +93,48 @@ export const adminOtpVerifyRequestSchema = z.object({
   code: z.string().regex(/^\d{6}$/)
 });
 
+export const roomConfigSchema = z
+  .object({
+    tableName: z.string().trim().min(3).max(40),
+    maxSeats: z.number().int().min(2).max(9).default(6),
+    variant: roomVariantSchema.default("HOLD_EM_NL"),
+    smallBlind: z.number().int().positive().default(50),
+    bigBlind: z.number().int().positive().default(100),
+    ante: z.number().int().min(0).default(0),
+    buyInMode: buyInModeSchema.default("BB_MULTIPLE"),
+    minBuyIn: z.number().int().positive().default(40),
+    maxBuyIn: z.number().int().positive().default(250),
+    rakeEnabled: z.boolean().default(false),
+    rakePercent: z.number().min(0).max(10).default(0),
+    rakeCap: z.number().int().min(0).default(0),
+    oddChipRule: oddChipRuleSchema.default("LEFT_OF_BUTTON"),
+    spectatorsAllowed: z.boolean().default(false),
+    straddleAllowed: z.boolean().default(false),
+    seatReservationTimeoutSeconds: z.number().int().min(30).max(300).default(120),
+    joinCodeExpiryMinutes: z.number().int().min(30).max(1440).default(120),
+    waitingListEnabled: z.boolean().default(true),
+    roomMaxDurationMinutes: z.number().int().min(720).max(720).default(720)
+  })
+  .superRefine((value, ctx) => {
+    if (value.bigBlind < value.smallBlind) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bigBlind"],
+        message: "Big blind must be greater than or equal to the small blind."
+      });
+    }
+
+    if (value.minBuyIn >= value.maxBuyIn) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["minBuyIn"],
+        message: "Min buy-in must be less than max buy-in."
+      });
+    }
+  });
+
+export const roomCreateRequestSchema = roomConfigSchema;
+
 export const roomPublicSummarySchema = z.object({
   roomId: z.string().min(1),
   code: z.string().min(6).max(8),
@@ -82,25 +142,70 @@ export const roomPublicSummarySchema = z.object({
   status: roomStatusSchema,
   maxSeats: z.number().int().min(2).max(9),
   openSeatCount: z.number().int().min(0),
-  occupantCount: z.number().int().min(0),
+  reservedSeatCount: z.number().int().min(0),
+  occupiedSeatCount: z.number().int().min(0),
+  participantCount: z.number().int().min(0),
+  queuedCount: z.number().int().min(0),
   spectatorsAllowed: z.boolean(),
+  waitingListEnabled: z.boolean(),
   joinCodeExpiresAt: isoTimestampSchema,
-  createdAt: isoTimestampSchema
+  createdAt: isoTimestampSchema,
+  closesAt: isoTimestampSchema
+});
+
+export const seatSnapshotSchema = z.object({
+  seatIndex: z.number().int().min(0).max(8),
+  status: seatStatusSchema,
+  participantId: z.string().min(1).optional(),
+  nickname: z.string().min(2).max(20).optional(),
+  reservedUntil: isoTimestampSchema.optional(),
+  stack: z.number().int().min(0).optional()
+});
+
+export const queueEntrySchema = z.object({
+  entryId: z.string().min(1),
+  participantId: z.string().min(1),
+  nickname: z.string().min(2).max(20),
+  joinedAt: isoTimestampSchema,
+  position: z.number().int().positive()
+});
+
+export const buyInQuoteResponseSchema = z.object({
+  roomId: z.string().min(1),
+  mode: buyInModeSchema,
+  minUnits: z.number().int().positive(),
+  maxUnits: z.number().int().positive(),
+  minChips: z.number().int().positive(),
+  maxChips: z.number().int().positive(),
+  smallBlind: z.number().int().positive(),
+  bigBlind: z.number().int().positive(),
+  ante: z.number().int().min(0),
+  displayMin: z.string().min(1),
+  displayMax: z.string().min(1)
 });
 
 export const lobbyParticipantSchema = z.object({
   participantId: z.string().min(1),
   nickname: z.string().min(2).max(20),
   mode: roomJoinModeSchema,
-  state: z.enum(["LOBBY", "SPECTATING"]),
+  state: participantStateSchema,
   joinedAt: isoTimestampSchema,
-  isConnected: z.boolean()
+  isConnected: z.boolean(),
+  seatIndex: z.number().int().min(0).max(8).optional(),
+  reservationExpiresAt: isoTimestampSchema.optional(),
+  queuePosition: z.number().int().positive().optional()
 });
 
 export const lobbySnapshotSchema = z.object({
   room: roomPublicSummarySchema,
+  config: roomConfigSchema,
+  seats: z.array(seatSnapshotSchema),
+  waitingList: z.array(queueEntrySchema),
   participants: z.array(lobbyParticipantSchema),
-  heroParticipantId: z.string().min(1)
+  buyInQuote: buyInQuoteResponseSchema,
+  heroParticipantId: z.string().min(1).optional(),
+  heroSeatIndex: z.number().int().min(0).max(8).optional(),
+  canJoinWaitingList: z.boolean()
 });
 
 export const sessionEnvelopeSchema = z.object({
@@ -158,6 +263,25 @@ export const joinRoomResponseSchema = z.object({
   lobbySnapshot: lobbySnapshotSchema
 });
 
+export const roomCreateResponseSchema = z.object({
+  room: roomPublicSummarySchema,
+  lobbySnapshot: lobbySnapshotSchema
+});
+
+export const seatReservationRequestSchema = z.object({});
+
+export const seatReservationResponseSchema = z.object({
+  reservedSeatIndex: z.number().int().min(0).max(8),
+  reservedUntil: isoTimestampSchema,
+  buyInQuote: buyInQuoteResponseSchema,
+  lobbySnapshot: lobbySnapshotSchema
+});
+
+export const queueJoinResponseSchema = z.object({
+  queueEntry: queueEntrySchema,
+  lobbySnapshot: lobbySnapshotSchema
+});
+
 export const logoutResponseSchema = z.object({
   success: z.literal(true)
 });
@@ -166,14 +290,18 @@ export const clientSnapshotSchema = z.object({
   appName: z.string().min(1),
   appOrigin: z.string().url(),
   serverOrigin: z.string().url(),
-  status: z.enum(["foundation-ready", "phase-01-ready"])
+  status: z.enum(["foundation-ready", "phase-01-ready", "phase-02-ready"])
 });
 
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 export type ClientSnapshot = z.infer<typeof clientSnapshotSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
+export type RoomConfig = z.infer<typeof roomConfigSchema>;
 export type RoomPublicSummary = z.infer<typeof roomPublicSummarySchema>;
+export type SeatSnapshot = z.infer<typeof seatSnapshotSchema>;
+export type QueueEntry = z.infer<typeof queueEntrySchema>;
+export type BuyInQuote = z.infer<typeof buyInQuoteResponseSchema>;
 export type LobbySnapshot = z.infer<typeof lobbySnapshotSchema>;
 export type SessionEnvelope = z.infer<typeof sessionEnvelopeSchema>;
 export type AuthActor = z.infer<typeof authActorSchema>;

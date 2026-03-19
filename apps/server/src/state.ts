@@ -2,9 +2,16 @@ import { randomInt, randomUUID } from "node:crypto";
 
 import {
   adminOtpRequestResponseSchema,
+  buyInQuoteResponseSchema,
+  lobbySnapshotSchema,
+  queueEntrySchema,
+  roomConfigSchema,
+  roomCreateResponseSchema,
   roomPublicSummarySchema,
+  seatReservationResponseSchema,
   type AuthActor,
   type LobbySnapshot,
+  type RoomConfig,
   type RoomJoinMode,
   type SessionEnvelope,
   type SessionRole
@@ -21,6 +28,8 @@ const OTP_REQUEST_LIMIT = 5;
 const OTP_VERIFY_LIMIT = 5;
 const ACCESS_TTL_MS = 15 * 60 * 1000;
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const ROOM_CODE_LENGTH = 6;
 
 type Clock = () => Date;
 
@@ -57,16 +66,33 @@ type ParticipantRecord = {
   isConnected: boolean;
 };
 
+type QueueEntryRecord = {
+  entryId: string;
+  participantId: string;
+  nickname: string;
+  joinedAt: Date;
+};
+
+type SeatRecord = {
+  seatIndex: number;
+  status: "EMPTY" | "RESERVED" | "OCCUPIED" | "LOCKED_DURING_HAND";
+  participantId?: string;
+  reservedUntil?: Date;
+  stack?: number;
+};
+
 type RoomRecord = {
   roomId: string;
   code: string;
-  tableName: string;
-  status: "OPEN" | "PAUSED" | "CLOSED";
-  maxSeats: number;
-  spectatorsAllowed: boolean;
-  joinCodeExpiresAt: Date;
+  status: "CREATED" | "OPEN" | "PAUSED" | "CLOSED";
+  adminId: string;
+  config: RoomConfig;
   createdAt: Date;
+  joinCodeExpiresAt: Date;
+  closesAt: Date;
   participants: Map<string, ParticipantRecord>;
+  waitingList: QueueEntryRecord[];
+  seats: SeatRecord[];
 };
 
 type SessionRecord = {
@@ -112,21 +138,10 @@ type GuestSessionResult = IssueSessionResult & {
   lobbySnapshot: LobbySnapshot;
 };
 
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-function normalizeRoomCode(code: string) {
-  return code.trim().toUpperCase();
-}
-
-function normalizeNickname(nickname: string) {
-  return nickname.trim().replace(/\s+/g, " ");
-}
-
-function toIso(value: Date) {
-  return value.toISOString();
-}
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const normalizeRoomCode = (code: string) => code.trim().toUpperCase();
+const normalizeNickname = (nickname: string) => nickname.trim().replace(/\s+/g, " ");
+const toIso = (value: Date) => value.toISOString();
 
 function secondsBetween(now: Date, future: Date) {
   return Math.max(0, Math.ceil((future.getTime() - now.getTime()) / 1000));
@@ -147,69 +162,26 @@ function maskEmail(email: string) {
   return `${visibleLocal}@${domain}`;
 }
 
-function seedRooms(now: Date) {
-  const createdAt = new Date(now.getTime() - 30 * 60 * 1000);
-
-  const baseRooms = [
-    {
-      roomId: "room_demo_42",
-      code: "DEMO42",
-      tableName: "Phase One Demo Table",
-      status: "OPEN" as const,
-      maxSeats: 6,
-      spectatorsAllowed: true,
-      joinCodeExpiresAt: new Date(now.getTime() + 2 * 60 * 60 * 1000),
-      createdAt
-    },
-    {
-      roomId: "room_finale",
-      code: "FINALE",
-      tableName: "Closed Table",
-      status: "CLOSED" as const,
-      maxSeats: 6,
-      spectatorsAllowed: false,
-      joinCodeExpiresAt: new Date(now.getTime() + 2 * 60 * 60 * 1000),
-      createdAt
-    },
-    {
-      roomId: "room_sunset",
-      code: "SUNSET",
-      tableName: "Expired Code Table",
-      status: "OPEN" as const,
-      maxSeats: 9,
-      spectatorsAllowed: true,
-      joinCodeExpiresAt: new Date(now.getTime() - 5 * 60 * 1000),
-      createdAt
-    }
-  ] satisfies Array<Omit<RoomRecord, "participants">>;
-
-  return new Map(
-    baseRooms.map((room) => [
-      room.code,
-      {
-        ...room,
-        participants: new Map<string, ParticipantRecord>()
-      }
-    ])
-  );
+function createSeatMap(maxSeats: number): SeatRecord[] {
+  return Array.from({ length: maxSeats }, (_, seatIndex) => ({
+    seatIndex,
+    status: "EMPTY"
+  }));
 }
 
-export function createPhaseOneState(options: { clock?: Clock } = {}) {
+export function createAppState(options: { clock?: Clock } = {}) {
   const clock = options.clock ?? (() => new Date());
   const adminProfiles = new Map<string, AdminProfileRecord>();
   const otpChallenges = new Map<string, OtpChallenge>();
   const otpChallengeByEmail = new Map<string, string>();
   const rateLimits = new Map<string, RateLimitBucket>();
   const sessions = new Map<string, SessionRecord>();
-  const rooms = seedRooms(clock());
+  const roomsByCode = new Map<string, RoomRecord>();
+  const roomsById = new Map<string, RoomRecord>();
   const auditEvents: AuditEvent[] = [];
 
   function addAuditEvent(event: Omit<AuditEvent, "eventId" | "occurredAt">) {
-    auditEvents.push({
-      eventId: randomUUID(),
-      occurredAt: toIso(clock()),
-      ...event
-    });
+    auditEvents.push({ eventId: randomUUID(), occurredAt: toIso(clock()), ...event });
   }
 
   function consumeRateLimit(key: string, limit: number, windowMs: number) {
@@ -217,10 +189,7 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
     const existing = rateLimits.get(key);
 
     if (!existing || existing.resetAt <= now) {
-      rateLimits.set(key, {
-        count: 1,
-        resetAt: now + windowMs
-      });
+      rateLimits.set(key, { count: 1, resetAt: now + windowMs });
       return;
     }
 
@@ -231,9 +200,7 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
         statusCode: 429,
         retryable: true,
         details: {
-          retryAfterSeconds: String(
-            Math.max(1, Math.ceil((existing.resetAt - now) / 1000))
-          )
+          retryAfterSeconds: String(Math.max(1, Math.ceil((existing.resetAt - now) / 1000)))
         }
       });
     }
@@ -241,52 +208,24 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
     existing.count += 1;
   }
 
-  function getRoomRecord(code: string) {
-    const room = rooms.get(normalizeRoomCode(code));
-    const now = clock();
+  function generateUniqueRoomCode() {
+    for (let attempt = 0; attempt < 1000; attempt += 1) {
+      let code = "";
 
-    if (!room || room.joinCodeExpiresAt.getTime() <= now.getTime()) {
-      throw appError({
-        code: "ERR_ROOM_NOT_FOUND",
-        message: "That room code is invalid or has expired.",
-        statusCode: 404,
-        retryable: false
-      });
-    }
+      for (let index = 0; index < ROOM_CODE_LENGTH; index += 1) {
+        code += ROOM_CODE_ALPHABET[randomInt(0, ROOM_CODE_ALPHABET.length)];
+      }
 
-    return room;
-  }
-
-  function pruneExpiredParticipants(room: RoomRecord) {
-    const now = clock().getTime();
-
-    for (const [participantId, participant] of room.participants.entries()) {
-      const session = sessions.get(participant.sessionId);
-
-      if (
-        !session ||
-        session.revokedAt ||
-        session.refreshExpiresAt.getTime() <= now
-      ) {
-        room.participants.delete(participantId);
+      if (!roomsByCode.has(code)) {
+        return code;
       }
     }
-  }
 
-  function toRoomSummary(room: RoomRecord) {
-    pruneExpiredParticipants(room);
-
-    return roomPublicSummarySchema.parse({
-      roomId: room.roomId,
-      code: room.code,
-      tableName: room.tableName,
-      status: room.status,
-      maxSeats: room.maxSeats,
-      openSeatCount: Math.max(0, room.maxSeats - room.participants.size),
-      occupantCount: room.participants.size,
-      spectatorsAllowed: room.spectatorsAllowed,
-      joinCodeExpiresAt: toIso(room.joinCodeExpiresAt),
-      createdAt: toIso(room.createdAt)
+    throw appError({
+      code: "ERR_INTERNAL",
+      message: "We could not generate a unique room code.",
+      statusCode: 500,
+      retryable: true
     });
   }
 
@@ -297,11 +236,7 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
       return existing;
     }
 
-    const created = {
-      adminId: `admin_${randomUUID()}`,
-      email
-    };
-
+    const created = { adminId: `admin_${randomUUID()}`, email };
     adminProfiles.set(email, created);
     return created;
   }
@@ -388,8 +323,7 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
 
     const expiryMs =
       kind === "access" ? session.expiresAt.getTime() : session.refreshExpiresAt.getTime();
-    const tokenId =
-      kind === "access" ? session.tokenId : session.refreshTokenId;
+    const tokenId = kind === "access" ? session.tokenId : session.refreshTokenId;
 
     if (payload.exp * 1000 <= now || expiryMs <= now || payload.tokenId !== tokenId) {
       return null;
@@ -444,6 +378,235 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
         secret
       })
     };
+  }
+
+  function removeParticipantFromRoom(room: RoomRecord, participantId: string) {
+    room.waitingList = room.waitingList.filter((entry) => entry.participantId !== participantId);
+
+    for (const seat of room.seats) {
+      if (seat.participantId === participantId) {
+        seat.status = "EMPTY";
+        seat.participantId = undefined;
+        seat.reservedUntil = undefined;
+        seat.stack = undefined;
+      }
+    }
+
+    room.participants.delete(participantId);
+  }
+
+  function closeRoomIfExpired(room: RoomRecord) {
+    if (room.status !== "CLOSED" && room.closesAt.getTime() <= clock().getTime()) {
+      room.status = "CLOSED";
+    }
+  }
+
+  function releaseExpiredReservations(room: RoomRecord) {
+    const nowMs = clock().getTime();
+
+    for (const seat of room.seats) {
+      if (
+        seat.status === "RESERVED" &&
+        seat.reservedUntil &&
+        seat.reservedUntil.getTime() <= nowMs
+      ) {
+        seat.status = "EMPTY";
+        seat.reservedUntil = undefined;
+        seat.participantId = undefined;
+      }
+    }
+  }
+
+  function pruneExpiredParticipants(room: RoomRecord) {
+    const nowMs = clock().getTime();
+
+    for (const [participantId, participant] of room.participants.entries()) {
+      const session = sessions.get(participant.sessionId);
+
+      if (
+        !session ||
+        session.revokedAt ||
+        session.refreshExpiresAt.getTime() <= nowMs
+      ) {
+        removeParticipantFromRoom(room, participantId);
+      }
+    }
+  }
+
+  function cleanupRoom(room: RoomRecord) {
+    closeRoomIfExpired(room);
+    releaseExpiredReservations(room);
+    pruneExpiredParticipants(room);
+  }
+
+  function getRoomRecordByCode(code: string) {
+    const room = roomsByCode.get(normalizeRoomCode(code));
+
+    if (!room) {
+      throw appError({
+        code: "ERR_ROOM_NOT_FOUND",
+        message: "That room code is invalid or has expired.",
+        statusCode: 404,
+        retryable: false
+      });
+    }
+
+    cleanupRoom(room);
+
+    if (room.joinCodeExpiresAt.getTime() <= clock().getTime()) {
+      throw appError({
+        code: "ERR_ROOM_NOT_FOUND",
+        message: "That room code is invalid or has expired.",
+        statusCode: 404,
+        retryable: false
+      });
+    }
+
+    return room;
+  }
+
+  function getRoomRecordById(roomId: string) {
+    const room = roomsById.get(roomId);
+
+    if (!room) {
+      throw appError({
+        code: "ERR_ROOM_NOT_FOUND",
+        message: "That room no longer exists.",
+        statusCode: 404,
+        retryable: false
+      });
+    }
+
+    cleanupRoom(room);
+    return room;
+  }
+
+  function toRoomSummary(room: RoomRecord) {
+    return roomPublicSummarySchema.parse({
+      roomId: room.roomId,
+      code: room.code,
+      tableName: room.config.tableName,
+      status: room.status,
+      maxSeats: room.config.maxSeats,
+      openSeatCount: room.seats.filter((seat) => seat.status === "EMPTY").length,
+      reservedSeatCount: room.seats.filter((seat) => seat.status === "RESERVED").length,
+      occupiedSeatCount: room.seats.filter((seat) => seat.status === "OCCUPIED").length,
+      participantCount: room.participants.size,
+      queuedCount: room.waitingList.length,
+      spectatorsAllowed: room.config.spectatorsAllowed,
+      waitingListEnabled: room.config.waitingListEnabled,
+      joinCodeExpiresAt: toIso(room.joinCodeExpiresAt),
+      createdAt: toIso(room.createdAt),
+      closesAt: toIso(room.closesAt)
+    });
+  }
+
+  function toBuyInQuote(room: RoomRecord) {
+    const usesBigBlindMultiple = room.config.buyInMode === "BB_MULTIPLE";
+    const minChips = usesBigBlindMultiple
+      ? room.config.minBuyIn * room.config.bigBlind
+      : room.config.minBuyIn;
+    const maxChips = usesBigBlindMultiple
+      ? room.config.maxBuyIn * room.config.bigBlind
+      : room.config.maxBuyIn;
+
+    return buyInQuoteResponseSchema.parse({
+      roomId: room.roomId,
+      mode: room.config.buyInMode,
+      minUnits: room.config.minBuyIn,
+      maxUnits: room.config.maxBuyIn,
+      minChips,
+      maxChips,
+      smallBlind: room.config.smallBlind,
+      bigBlind: room.config.bigBlind,
+      ante: room.config.ante,
+      displayMin: usesBigBlindMultiple
+        ? `${room.config.minBuyIn} BB = ${minChips.toLocaleString()} chips`
+        : `${minChips.toLocaleString()} chips`,
+      displayMax: usesBigBlindMultiple
+        ? `${room.config.maxBuyIn} BB = ${maxChips.toLocaleString()} chips`
+        : `${maxChips.toLocaleString()} chips`
+    });
+  }
+
+  function getParticipantSeat(room: RoomRecord, participantId: string) {
+    return room.seats.find((seat) => seat.participantId === participantId);
+  }
+
+  function getQueuePosition(room: RoomRecord, participantId: string) {
+    const index = room.waitingList.findIndex((entry) => entry.participantId === participantId);
+    return index >= 0 ? index + 1 : undefined;
+  }
+
+  function toLobbySnapshot(room: RoomRecord, heroParticipantId?: string) {
+    cleanupRoom(room);
+
+    const heroSeat = heroParticipantId
+      ? getParticipantSeat(room, heroParticipantId)
+      : undefined;
+    const canJoinWaitingList =
+      Boolean(heroParticipantId) &&
+      room.config.waitingListEnabled &&
+      room.seats.every((seat) => seat.status !== "EMPTY") &&
+      !heroSeat &&
+      !room.waitingList.some((entry) => entry.participantId === heroParticipantId);
+
+    return lobbySnapshotSchema.parse({
+      room: toRoomSummary(room),
+      config: roomConfigSchema.parse(room.config),
+      seats: room.seats.map((seat) => {
+        const participant = seat.participantId
+          ? room.participants.get(seat.participantId)
+          : undefined;
+
+        return {
+          seatIndex: seat.seatIndex,
+          status: seat.status,
+          participantId: seat.participantId,
+          nickname: participant?.nickname,
+          reservedUntil: seat.reservedUntil ? toIso(seat.reservedUntil) : undefined,
+          stack: seat.stack
+        };
+      }),
+      waitingList: room.waitingList.map((entry, index) =>
+        queueEntrySchema.parse({
+          entryId: entry.entryId,
+          participantId: entry.participantId,
+          nickname: entry.nickname,
+          joinedAt: toIso(entry.joinedAt),
+          position: index + 1
+        })
+      ),
+      participants: [...room.participants.values()].map((participant) => {
+        const seat = getParticipantSeat(room, participant.participantId);
+        const queuePosition = getQueuePosition(room, participant.participantId);
+
+        return {
+          participantId: participant.participantId,
+          nickname: participant.nickname,
+          mode: participant.mode,
+          state:
+            participant.mode === "SPECTATOR"
+              ? "SPECTATING"
+              : seat?.status === "RESERVED"
+                ? "RESERVED"
+                : seat?.status === "OCCUPIED"
+                  ? "SEATED"
+                  : queuePosition
+                    ? "QUEUED"
+                    : "LOBBY",
+          joinedAt: toIso(participant.joinedAt),
+          isConnected: participant.isConnected,
+          seatIndex: seat?.seatIndex,
+          reservationExpiresAt: seat?.reservedUntil ? toIso(seat.reservedUntil) : undefined,
+          queuePosition
+        };
+      }),
+      buyInQuote: toBuyInQuote(room),
+      heroParticipantId,
+      heroSeatIndex: heroSeat?.seatIndex,
+      canJoinWaitingList
+    });
   }
 
   return {
@@ -503,19 +666,13 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
         expiresAt: toIso(expiresAt)
       });
 
-      addAuditEvent({
-        type: "AUTH_ADMIN_OTP_REQUESTED",
-        detail: `OTP requested for ${email}`
-      });
+      addAuditEvent({ type: "AUTH_ADMIN_OTP_REQUESTED", detail: `OTP requested for ${email}` });
 
       return adminOtpRequestResponseSchema.parse({
         challengeId,
         cooldownSeconds: Math.floor(OTP_COOLDOWN_MS / 1000),
         expiresAt: toIso(expiresAt),
-        delivery: {
-          channel: "email",
-          recipientHint: maskEmail(email)
-        }
+        delivery: { channel: "email", recipientHint: maskEmail(email) }
       });
     },
     verifyAdminOtp(challengeId: string, code: string, ip: string, env: TokenEnv) {
@@ -561,11 +718,7 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
 
       const adminProfile = getOrCreateAdminProfile(challenge.email);
       const issuedSession = createSession(
-        {
-          role: "ADMIN",
-          adminId: adminProfile.adminId,
-          email: adminProfile.email
-        },
+        { role: "ADMIN", adminId: adminProfile.adminId, email: adminProfile.email },
         env
       );
 
@@ -577,17 +730,85 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
 
       return issuedSession;
     },
-    getRoomSummary(code: string) {
-      return toRoomSummary(getRoomRecord(code));
+    createRoom(actor: Extract<AuthActor, { role: "ADMIN" }>, input: RoomConfig) {
+      const config = roomConfigSchema.parse(input);
+
+      for (const room of roomsById.values()) {
+        cleanupRoom(room);
+
+        if (room.adminId === actor.adminId && room.status !== "CLOSED") {
+          throw appError({
+            code: "ERR_ACTIVE_ROOM_EXISTS",
+            message: "This admin already has an active room.",
+            statusCode: 409,
+            retryable: false
+          });
+        }
+      }
+
+      const now = clock();
+      const room: RoomRecord = {
+        roomId: `room_${randomUUID()}`,
+        code: generateUniqueRoomCode(),
+        status: "OPEN",
+        adminId: actor.adminId,
+        config,
+        createdAt: now,
+        joinCodeExpiresAt: new Date(now.getTime() + config.joinCodeExpiryMinutes * 60 * 1000),
+        closesAt: new Date(now.getTime() + config.roomMaxDurationMinutes * 60 * 1000),
+        participants: new Map(),
+        waitingList: [],
+        seats: createSeatMap(config.maxSeats)
+      };
+
+      roomsByCode.set(room.code, room);
+      roomsById.set(room.roomId, room);
+
+      addAuditEvent({
+        type: "ROOM_CREATED",
+        roomId: room.roomId,
+        actorId: actor.adminId,
+        detail: `Room ${room.code} created`
+      });
+
+      return roomCreateResponseSchema.parse({
+        room: toRoomSummary(room),
+        lobbySnapshot: toLobbySnapshot(room)
+      });
     },
-    joinRoom(
-      code: string,
-      nickname: string,
-      mode: RoomJoinMode,
-      env: TokenEnv
-    ): GuestSessionResult {
+    getRoomSummary(code: string) {
+      return toRoomSummary(getRoomRecordByCode(code));
+    },
+    getLobbySnapshot(roomId: string, actor: AuthActor) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.role === "ADMIN") {
+        if (room.adminId !== actor.adminId) {
+          throw appError({
+            code: "ERR_FORBIDDEN",
+            message: "This admin cannot view that room.",
+            statusCode: 403,
+            retryable: false
+          });
+        }
+
+        return toLobbySnapshot(room);
+      }
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      return toLobbySnapshot(room, actor.guestId);
+    },
+    joinRoom(code: string, nickname: string, mode: RoomJoinMode, env: TokenEnv): GuestSessionResult {
       const normalizedNickname = normalizeNickname(nickname);
-      const room = getRoomRecord(code);
+      const room = getRoomRecordByCode(code);
 
       if (room.status === "CLOSED") {
         throw appError({
@@ -598,7 +819,7 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
         });
       }
 
-      if (mode === "SPECTATOR" && !room.spectatorsAllowed) {
+      if (mode === "SPECTATOR" && !room.config.spectatorsAllowed) {
         throw appError({
           code: "ERR_SPECTATOR_DISABLED",
           message: "Spectator access is disabled for this room.",
@@ -607,12 +828,8 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
         });
       }
 
-      pruneExpiredParticipants(room);
-
-      const normalizedLower = normalizedNickname.toLowerCase();
-
       for (const participant of room.participants.values()) {
-        if (participant.nickname.toLowerCase() === normalizedLower) {
+        if (participant.nickname.toLowerCase() === normalizedNickname.toLowerCase()) {
           throw appError({
             code: "ERR_JOIN_NAME_CONFLICT",
             message: "That nickname is already active in this room.",
@@ -622,7 +839,20 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
         }
       }
 
-      const actor: AuthActor = {
+      if (
+        mode === "PLAYER" &&
+        !room.seats.some((seat) => seat.status === "EMPTY") &&
+        !room.config.waitingListEnabled
+      ) {
+        throw appError({
+          code: "ERR_ROOM_FULL",
+          message: "This room is full and the waiting list is disabled.",
+          statusCode: 409,
+          retryable: true
+        });
+      }
+
+      const actor: Extract<AuthActor, { role: "GUEST" }> = {
         role: "GUEST",
         guestId: `guest_${randomUUID()}`,
         nickname: normalizedNickname,
@@ -648,25 +878,212 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
         detail: `${normalizedNickname} joined as ${mode}`
       });
 
-      const lobbySnapshot: LobbySnapshot = {
-        room: toRoomSummary(room),
-        participants: [...room.participants.values()].map((participant) => ({
-          participantId: participant.participantId,
-          nickname: participant.nickname,
-          mode: participant.mode,
-          state: participant.mode === "SPECTATOR" ? "SPECTATING" : "LOBBY",
-          joinedAt: toIso(participant.joinedAt),
-          isConnected: participant.isConnected
-        })),
-        heroParticipantId: actor.guestId
-      };
-
       return {
         session: issuedSession.session,
         actor,
-        lobbySnapshot,
+        lobbySnapshot: toLobbySnapshot(room, actor.guestId),
         accessToken: issuedSession.accessToken,
         refreshToken: issuedSession.refreshToken
+      };
+    },
+    getBuyInQuote(roomId: string, actor: AuthActor) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.role === "ADMIN" && room.adminId !== actor.adminId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This admin cannot view that room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (actor.role === "GUEST" && actor.roomId !== roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      return toBuyInQuote(room);
+    },
+    reserveSeat(roomId: string, seatIndex: number, actor: Extract<AuthActor, { role: "GUEST" }>) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (actor.mode === "SPECTATOR") {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "Spectators cannot reserve seats.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (getParticipantSeat(room, actor.guestId)) {
+        throw appError({
+          code: "ERR_ALREADY_SEATED",
+          message: "This player already holds a seat reservation.",
+          statusCode: 409,
+          retryable: false
+        });
+      }
+
+      const participant = room.participants.get(actor.guestId);
+      const seat = room.seats.at(seatIndex);
+
+      if (!participant) {
+        throw appError({
+          code: "ERR_AUTH_REQUIRED",
+          message: "An active room session is required.",
+          statusCode: 401,
+          retryable: true
+        });
+      }
+
+      if (!seat) {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "That seat does not exist.",
+          statusCode: 422,
+          retryable: false
+        });
+      }
+
+      if (seat.status !== "EMPTY") {
+        throw appError({
+          code: "ERR_SEAT_TAKEN",
+          message: "That seat is no longer open.",
+          statusCode: 409,
+          retryable: true
+        });
+      }
+
+      seat.status = "RESERVED";
+      seat.participantId = actor.guestId;
+      seat.reservedUntil = new Date(
+        clock().getTime() + room.config.seatReservationTimeoutSeconds * 1000
+      );
+      room.waitingList = room.waitingList.filter((entry) => entry.participantId !== actor.guestId);
+
+      addAuditEvent({
+        type: "ROOM_SEAT_RESERVED",
+        roomId,
+        actorId: actor.guestId,
+        detail: `${participant.nickname} reserved seat ${seatIndex}`
+      });
+
+      return seatReservationResponseSchema.parse({
+        reservedSeatIndex: seatIndex,
+        reservedUntil: toIso(seat.reservedUntil),
+        buyInQuote: toBuyInQuote(room),
+        lobbySnapshot: toLobbySnapshot(room, actor.guestId)
+      });
+    },
+    joinWaitingList(roomId: string, actor: Extract<AuthActor, { role: "GUEST" }>) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (actor.mode === "SPECTATOR") {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "Spectators cannot join the waiting list.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (!room.config.waitingListEnabled) {
+        throw appError({
+          code: "ERR_ROOM_FULL",
+          message: "This room does not allow waiting-list joins.",
+          statusCode: 409,
+          retryable: false
+        });
+      }
+
+      if (room.seats.some((seat) => seat.status === "EMPTY")) {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "Open seats are still available, so queueing is not needed.",
+          statusCode: 409,
+          retryable: true
+        });
+      }
+
+      if (getParticipantSeat(room, actor.guestId)) {
+        throw appError({
+          code: "ERR_ALREADY_SEATED",
+          message: "This player already holds a seat reservation.",
+          statusCode: 409,
+          retryable: false
+        });
+      }
+
+      const participant = room.participants.get(actor.guestId);
+      const existing = room.waitingList.find((entry) => entry.participantId === actor.guestId);
+
+      if (!participant) {
+        throw appError({
+          code: "ERR_AUTH_REQUIRED",
+          message: "An active room session is required.",
+          statusCode: 401,
+          retryable: true
+        });
+      }
+
+      if (existing) {
+        throw appError({
+          code: "ERR_ALREADY_QUEUED",
+          message: "This player is already on the waiting list.",
+          statusCode: 409,
+          retryable: false
+        });
+      }
+
+      const queueEntry: QueueEntryRecord = {
+        entryId: `queue_${randomUUID()}`,
+        participantId: actor.guestId,
+        nickname: participant.nickname,
+        joinedAt: clock()
+      };
+
+      room.waitingList.push(queueEntry);
+
+      addAuditEvent({
+        type: "ROOM_WAITING_LIST_JOINED",
+        roomId,
+        actorId: actor.guestId,
+        detail: `${participant.nickname} joined the waiting list`
+      });
+
+      return {
+        queueEntry: queueEntrySchema.parse({
+          entryId: queueEntry.entryId,
+          participantId: queueEntry.participantId,
+          nickname: queueEntry.nickname,
+          joinedAt: toIso(queueEntry.joinedAt),
+          position: room.waitingList.length
+        }),
+        lobbySnapshot: toLobbySnapshot(room, actor.guestId)
       };
     },
     getAuthContext(accessToken: string | undefined, env: TokenEnv): AuthContext | null {
@@ -702,20 +1119,14 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
       addAuditEvent({
         type: "AUTH_SESSION_REFRESHED",
         actorId:
-          session.actor.role === "ADMIN"
-            ? session.actor.adminId
-            : session.actor.guestId,
+          session.actor.role === "ADMIN" ? session.actor.adminId : session.actor.guestId,
         roomId: session.actor.role === "GUEST" ? session.actor.roomId : undefined,
         detail: `Session refreshed for ${session.actor.role}`
       });
 
       return rotateSession(session, env);
     },
-    logout(
-      accessToken: string | undefined,
-      refreshToken: string | undefined,
-      env: TokenEnv
-    ) {
+    logout(accessToken: string | undefined, refreshToken: string | undefined, env: TokenEnv) {
       const session =
         getSessionRecordFromToken(accessToken, env, "access") ??
         getSessionRecordFromToken(refreshToken, env, "refresh");
@@ -727,17 +1138,18 @@ export function createPhaseOneState(options: { clock?: Clock } = {}) {
       session.revokedAt = clock();
 
       if (session.actor.role === "GUEST") {
-        rooms.get(normalizeRoomCode(session.actor.roomCode))?.participants.delete(
-          session.actor.guestId
-        );
+        const room = roomsById.get(session.actor.roomId);
+
+        if (room) {
+          cleanupRoom(room);
+          removeParticipantFromRoom(room, session.actor.guestId);
+        }
       }
 
       addAuditEvent({
         type: "AUTH_SESSION_LOGGED_OUT",
         actorId:
-          session.actor.role === "ADMIN"
-            ? session.actor.adminId
-            : session.actor.guestId,
+          session.actor.role === "ADMIN" ? session.actor.adminId : session.actor.guestId,
         roomId: session.actor.role === "GUEST" ? session.actor.roomId : undefined,
         detail: `Session logged out for ${session.actor.role}`
       });

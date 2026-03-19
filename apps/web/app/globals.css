@@ -136,6 +136,7 @@ input:focus {
 .status-actions,
 .action-row,
 .mode-picker,
+.toggle-row,
 .panel-grid {
   display: flex;
   gap: 12px;
@@ -259,6 +260,10 @@ input:focus {
 }
 
 .action-row {
+  margin-top: 18px;
+}
+
+.toggle-row {
   margin-top: 18px;
 }
 
@@ -428,6 +433,68 @@ input:focus {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.stat-grid,
+.seat-grid,
+.subpanel-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stat-card,
+.seat-card {
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.stat-card {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.stat-card span,
+.seat-card span,
+.seat-card small {
+  color: var(--muted);
+}
+
+.seat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.seat-card {
+  padding: 16px;
+  text-align: left;
+  display: grid;
+  gap: 8px;
+  color: var(--text);
+}
+
+.seat-card strong {
+  font-size: 1.05rem;
+}
+
+.seat-empty {
+  background:
+    radial-gradient(circle at top left, rgba(217, 177, 93, 0.12), transparent 42%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.seat-reserved {
+  border-color: rgba(217, 177, 93, 0.3);
+  background: rgba(217, 177, 93, 0.08);
+}
+
+.subpanel-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .gate-card {
   background:
     radial-gradient(circle at top right, rgba(217, 177, 93, 0.14), transparent 34%),
@@ -493,7 +560,10 @@ input:focus {
   .panel-grid,
   .footer-strip,
   .field-grid,
-  .demo-code-grid {
+  .demo-code-grid,
+  .stat-grid,
+  .seat-grid,
+  .subpanel-grid {
     grid-template-columns: 1fr;
   }
 
