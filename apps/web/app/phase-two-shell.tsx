@@ -8,25 +8,31 @@ import {
   apiErrorSchema,
   authSessionResponseSchema,
   authStatusResponseSchema,
+  buyInResponseSchema,
   buyInQuoteResponseSchema,
   joinRoomResponseSchema,
   lobbySnapshotSchema,
   logoutResponseSchema,
   queueJoinResponseSchema,
+  rebuyResponseSchema,
   realtimeServerMessageSchema,
   roomCreateResponseSchema,
   roomRealtimeSnapshotSchema,
   roomPublicSummarySchema,
   roomPrivateStateSchema,
   seatReservationResponseSchema,
+  topUpResponseSchema,
   type AuthActor,
+  type HandTranscript,
   type LobbySnapshot,
   type RoomConfig,
   type RoomJoinMode,
   type RoomPrivateState,
   type RoomPublicSummary,
   type RoomRealtimeSnapshot,
-  type SessionEnvelope
+  type SettlementPostedEvent,
+  type SessionEnvelope,
+  type ShowdownResultEvent
 } from "@potluck/contracts";
 
 import {
@@ -37,6 +43,14 @@ import {
   shouldResetRoomState,
   toWebSocketUrl
 } from "./room-realtime";
+import {
+  buildSeatViewModels,
+  clampActionAmount,
+  formatChips,
+  formatCountdown,
+  getActionTrayState,
+  getDefaultActionAmount
+} from "./table-state";
 
 type PhaseTwoShellProps = {
   appName: string;
@@ -61,6 +75,8 @@ type OtpRequestState = {
 type ProcessTone = "idle" | "pending" | "success" | "error";
 type ProcessFeedback = { tone: Exclude<ProcessTone, "idle">; message: string };
 type SocketStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error";
+type PlayerRealtimeAction = "CHECK" | "FOLD" | "CALL" | "BET" | "RAISE" | "ALL_IN";
+type ChipOperation = "BUY_IN" | "TOP_UP" | "REBUY";
 
 type ProcessButtonProps = {
   variant: "primary" | "secondary" | "ghost";
@@ -142,6 +158,42 @@ function ProcessNotice({ feedback }: { feedback: ProcessFeedback | null }) {
   return <p className={`process-notice process-${feedback.tone}`}>{feedback.message}</p>;
 }
 
+const suitSymbols: Record<string, string> = {
+  C: "♣",
+  D: "♦",
+  H: "♥",
+  S: "♠"
+};
+
+function CardFace({
+  card,
+  hidden = false,
+  winning = false
+}: {
+  card?: string;
+  hidden?: boolean;
+  winning?: boolean;
+}) {
+  if (hidden || !card) {
+    return (
+      <div className="playing-card hidden" aria-hidden="true">
+        <span className="card-back-pattern" />
+      </div>
+    );
+  }
+
+  const rank = card.slice(0, -1);
+  const suit = card.slice(-1);
+  const isRed = suit === "D" || suit === "H";
+
+  return (
+    <div className={`playing-card${isRed ? " suit-red" : ""}${winning ? " is-winning" : ""}`}>
+      <span className="card-rank">{rank}</span>
+      <span className="card-suit">{suitSymbols[suit] ?? suit}</span>
+    </div>
+  );
+}
+
 async function readResponse<T>(
   response: Response,
   parser: { parse: (value: unknown) => T }
@@ -180,13 +232,6 @@ async function apiRequest<T>(
   return readResponse(response, parser);
 }
 
-function formatCountdown(expiresAt: string, nowMs: number) {
-  const totalSeconds = Math.max(0, Math.ceil((new Date(expiresAt).getTime() - nowMs) / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
 export function PhaseTwoShell({
   appName,
   appOrigin,
@@ -220,6 +265,12 @@ export function PhaseTwoShell({
   const [privateState, setPrivateState] = useState<RoomPrivateState | null>(null);
   const [socketStatus, setSocketStatus] = useState<SocketStatus>("idle");
   const [socketFeedback, setSocketFeedback] = useState<ProcessFeedback | null>(null);
+  const [stackAmount, setStackAmount] = useState("");
+  const [chipFeedback, setChipFeedback] = useState<ProcessFeedback | null>(null);
+  const [betAmount, setBetAmount] = useState("");
+  const [showdownResult, setShowdownResult] = useState<ShowdownResultEvent | null>(null);
+  const [settlementPosted, setSettlementPosted] = useState<SettlementPostedEvent | null>(null);
+  const [handHistory, setHandHistory] = useState<HandTranscript | null>(null);
   const authStateRef = useRef<AuthState>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -249,6 +300,12 @@ export function PhaseTwoShell({
     setPrivateState(null);
     setSocketStatus("idle");
     setSocketFeedback(null);
+    setStackAmount("");
+    setChipFeedback(null);
+    setBetAmount("");
+    setShowdownResult(null);
+    setSettlementPosted(null);
+    setHandHistory(null);
 
     if (options.keepRoomCode !== undefined) {
       setRoomCode(options.keepRoomCode);
@@ -440,6 +497,11 @@ export function PhaseTwoShell({
             setLiveSnapshot(snapshot);
             setPrivateState(null);
             setRoomPreview(snapshot.room);
+            if (snapshot.activeHand) {
+              setShowdownResult(null);
+              setSettlementPosted(null);
+              setHandHistory(null);
+            }
             setSocketStatus("connected");
             setSocketFeedback({
               tone: "success",
@@ -462,6 +524,25 @@ export function PhaseTwoShell({
 
           if (message.type === "PRIVATE_STATE") {
             setPrivateState(roomPrivateStateSchema.parse(message.privateState));
+            return;
+          }
+
+          if (message.type === "HAND_STARTED") {
+            setShowdownResult(null);
+            setSettlementPosted(null);
+            setHandHistory(null);
+            setSocketFeedback({
+              tone: "pending",
+              message: `Hand ${message.handNumber} started.`
+            });
+            return;
+          }
+
+          if (message.type === "TURN_STARTED") {
+            setSocketFeedback({
+              tone: "pending",
+              message: `Seat ${message.actingSeatIndex + 1} is on the clock.`
+            });
             return;
           }
 
@@ -490,7 +571,16 @@ export function PhaseTwoShell({
             return;
           }
 
+          if (message.type === "STREET_ADVANCED") {
+            setSocketFeedback({
+              tone: "success",
+              message: `${message.street} dealt: ${message.revealedCards.join(" ")}.`
+            });
+            return;
+          }
+
           if (message.type === "SHOWDOWN_RESULT") {
+            setShowdownResult(message);
             setSocketFeedback({
               tone: "success",
               message: message.awardedByFold
@@ -501,6 +591,7 @@ export function PhaseTwoShell({
           }
 
           if (message.type === "SETTLEMENT_POSTED") {
+            setSettlementPosted(message);
             setSocketFeedback({
               tone: "success",
               message: `Settlement posted for ${message.settlement.totalPot.toLocaleString()} chips.`
@@ -509,9 +600,26 @@ export function PhaseTwoShell({
           }
 
           if (message.type === "HAND_HISTORY") {
+            setHandHistory(message.transcript);
             setSocketFeedback({
               tone: "success",
               message: `History loaded for hand ${message.transcript.handId}.`
+            });
+            return;
+          }
+
+          if (message.type === "PLAYER_DISCONNECTED") {
+            setSocketFeedback({
+              tone: "error",
+              message: `Seat ${message.seatIndex !== undefined ? message.seatIndex + 1 : "?"} disconnected.`
+            });
+            return;
+          }
+
+          if (message.type === "PLAYER_RECONNECTED") {
+            setSocketFeedback({
+              tone: "success",
+              message: `Seat ${message.seatIndex !== undefined ? message.seatIndex + 1 : "?"} reconnected.`
             });
             return;
           }
@@ -615,6 +723,120 @@ export function PhaseTwoShell({
       ? `${roomForm.minBuyIn}BB = ${(roomForm.minBuyIn * roomForm.bigBlind).toLocaleString()} chips`
       : `${roomForm.minBuyIn.toLocaleString()} chips`;
 
+  const heroSeatIndex =
+    privateState?.seatIndex ?? liveSnapshot?.heroSeatIndex ?? lobbySnapshot?.heroSeatIndex;
+
+  const tableSeatModels = useMemo(
+    () => (liveSnapshot ? buildSeatViewModels(liveSnapshot, privateState, nowMs) : []),
+    [liveSnapshot, nowMs, privateState]
+  );
+
+  const actionAffordances = privateState?.actionAffordances ?? null;
+  const actionTray = useMemo(
+    () => getActionTrayState(liveSnapshot?.activeHand, actionAffordances),
+    [actionAffordances, liveSnapshot?.activeHand]
+  );
+
+  const currentSeatSnapshot =
+    heroSeatIndex !== undefined
+      ? (liveSnapshot?.seats ?? lobbySnapshot?.seats ?? []).find(
+          (seat) => seat.seatIndex === heroSeatIndex
+        ) ?? null
+      : null;
+
+  const stackControlQuote = liveSnapshot?.buyInQuote ?? lobbySnapshot?.buyInQuote ?? null;
+  const stackControlConfig = liveSnapshot?.config ?? lobbySnapshot?.config ?? null;
+  const currentTablePhase = liveSnapshot?.tablePhase ?? "BETWEEN_HANDS";
+
+  const chipControlState = useMemo(() => {
+    const isGuestPlayer =
+      authState?.actor.role === "GUEST" && authState.actor.mode === "PLAYER" && heroSeatIndex !== undefined;
+    const seatStatus = currentSeatSnapshot?.status;
+    const seatStack = currentSeatSnapshot?.stack ?? 0;
+    const betweenHands = currentTablePhase === "BETWEEN_HANDS";
+
+    return {
+      canBuyIn: Boolean(isGuestPlayer && seatStatus === "RESERVED" && stackControlQuote),
+      canTopUp: Boolean(
+        isGuestPlayer &&
+          seatStatus === "OCCUPIED" &&
+          seatStack > 0 &&
+          betweenHands &&
+          stackControlConfig?.topUpEnabled
+      ),
+      canRebuy: Boolean(
+        isGuestPlayer &&
+          seatStatus === "OCCUPIED" &&
+          seatStack === 0 &&
+          betweenHands &&
+          stackControlConfig?.rebuyEnabled
+      )
+    };
+  }, [
+    authState,
+    currentSeatSnapshot?.stack,
+    currentSeatSnapshot?.status,
+    currentTablePhase,
+    heroSeatIndex,
+    stackControlConfig?.rebuyEnabled,
+    stackControlConfig?.topUpEnabled,
+    stackControlQuote
+  ]);
+
+  useEffect(() => {
+    const nextDefault = getDefaultActionAmount(actionAffordances);
+
+    setBetAmount((current) => {
+      if (!actionAffordances) {
+        return "";
+      }
+
+      const numericCurrent = Number(current);
+      const clamped = clampActionAmount(numericCurrent, actionAffordances);
+
+      if (!current || numericCurrent !== clamped) {
+        return nextDefault;
+      }
+
+      return current;
+    });
+  }, [actionAffordances]);
+
+  useEffect(() => {
+    if (!stackControlQuote) {
+      return;
+    }
+
+    setStackAmount((current) => current || String(stackControlQuote.minChips));
+  }, [stackControlQuote?.minChips]);
+
+  const activeCallAmount = actionAffordances?.callAmount ?? 0;
+  const sizingAmount = clampActionAmount(Number(betAmount), actionAffordances);
+  const settlementSummary = settlementPosted?.settlement ?? null;
+  const showdownWinners = new Set(showdownResult?.pots.flatMap((pot) => pot.winnerSeatIndexes) ?? []);
+  const activeHand = liveSnapshot?.activeHand ?? null;
+  const boardCards = activeHand?.board ?? [];
+  const potBadges = settlementSummary
+    ? settlementSummary.pots.map((pot) => ({
+        key: `${settlementSummary.handId}-${pot.potIndex}`,
+        label: pot.potType === "MAIN" ? "Main pot" : `Side pot ${pot.potIndex + 1}`,
+        amount: pot.amount
+      }))
+    : activeHand && activeHand.potTotal > 0
+      ? [
+          {
+            key: activeHand.handId,
+            label: "Pot",
+            amount: activeHand.potTotal
+          }
+        ]
+      : [];
+  const reconnectCopy = privateState?.reconnect.isReconnecting
+    ? `Reconnect grace ends ${privateState.reconnect.reconnectGraceEndsAt ? formatCountdown(privateState.reconnect.reconnectGraceEndsAt, nowMs) : "soon"}.`
+    : socketStatus === "reconnecting"
+      ? "Trying to resume the live room stream."
+      : null;
+
   function updateRoomForm<K extends keyof RoomConfig>(key: K, value: RoomConfig[K]) {
     setRoomForm((current) => ({ ...current, [key]: value }));
   }
@@ -663,7 +885,19 @@ export function PhaseTwoShell({
     });
   }
 
-  function handleSubmitRealtimeAction(actionType: "CHECK" | "FOLD") {
+  function handleSitOutNextHand() {
+    if (authState?.actor.role !== "GUEST" || !activeRoomId) {
+      return;
+    }
+
+    sendRealtimeMessage({
+      type: "PLAYER_SIT_OUT",
+      roomId: activeRoomId,
+      effectiveTiming: "NEXT_HAND"
+    });
+  }
+
+  function handleSubmitRealtimeAction(actionType: PlayerRealtimeAction, amount?: number) {
     if (
       authState?.actor.role !== "GUEST" ||
       !activeRoomId ||
@@ -673,13 +907,117 @@ export function PhaseTwoShell({
       return;
     }
 
-    sendRealtimeMessage({
+    const payload: Record<string, unknown> = {
       type: "ACTION_SUBMIT",
       roomId: activeRoomId,
       handId: liveSnapshot.activeHand.handId,
       seqExpectation: liveSnapshot.activeHand.handSeq,
       idempotencyKey: `${actionType.toLowerCase()}-${liveSnapshot.activeHand.handId}-${liveSnapshot.activeHand.handSeq}`,
       actionType
+    };
+
+    if (amount !== undefined) {
+      payload.amount = amount;
+    }
+
+    sendRealtimeMessage(payload);
+  }
+
+  function handleActionIntent(actionType: PlayerRealtimeAction) {
+    if (actionType === "BET" || actionType === "RAISE") {
+      handleSubmitRealtimeAction(actionType, sizingAmount);
+      return;
+    }
+
+    handleSubmitRealtimeAction(actionType);
+  }
+
+  function handleActionPreset(amount: number) {
+    setBetAmount(String(amount));
+  }
+
+  function handleBetAmountChange(value: string) {
+    setBetAmount(value.replace(/[^\d]/g, ""));
+  }
+
+  function handleStackAmountChange(value: string) {
+    setStackAmount(value.replace(/[^\d]/g, ""));
+  }
+
+  function handleChipOperation(operation: ChipOperation) {
+    if (
+      authState?.actor.role !== "GUEST" ||
+      !activeRoomId ||
+      heroSeatIndex === undefined ||
+      !stackControlQuote
+    ) {
+      return;
+    }
+
+    const parsedAmount = Math.min(
+      Math.max(Number(stackAmount) || stackControlQuote.minChips, stackControlQuote.minChips),
+      stackControlQuote.maxChips
+    );
+
+    const path =
+      operation === "BUY_IN"
+        ? `/api/rooms/${activeRoomId}/buyin`
+        : operation === "TOP_UP"
+          ? `/api/rooms/${activeRoomId}/topup`
+          : `/api/rooms/${activeRoomId}/rebuy`;
+
+    const body =
+      operation === "BUY_IN"
+        ? { seatIndex: heroSeatIndex, amount: parsedAmount }
+        : { amount: parsedAmount };
+
+    const label =
+      operation === "BUY_IN" ? "buy-in" : operation === "TOP_UP" ? "top-up" : "rebuy";
+
+    setChipFeedback({
+      tone: "pending",
+      message: `Posting your ${label} for ${parsedAmount.toLocaleString()} chips.`
+    });
+
+    void (async () => {
+      try {
+        const requestInit = {
+          method: "POST",
+          headers: {
+            "Idempotency-Key": `${label}-${activeRoomId}-${heroSeatIndex}-${parsedAmount}`
+          },
+          body: JSON.stringify(body)
+        } satisfies RequestInit;
+
+        const response =
+          operation === "BUY_IN"
+            ? await apiRequest(serverOrigin, path, buyInResponseSchema, requestInit)
+            : operation === "TOP_UP"
+              ? await apiRequest(serverOrigin, path, topUpResponseSchema, requestInit)
+              : await apiRequest(serverOrigin, path, rebuyResponseSchema, requestInit);
+
+        setLobbySnapshot(response.lobbySnapshot);
+        setRoomPreview(response.lobbySnapshot.room);
+        setStackAmount(String(parsedAmount));
+        setChipFeedback({
+          tone: "success",
+          message: `${operation.replace("_", " ")} accepted. Live stack ${response.seat.stack?.toLocaleString() ?? 0}.`
+        });
+      } catch (error) {
+        setChipFeedback({ tone: "error", message: createErrorMessage(error) });
+      }
+    })();
+  }
+
+  function handleRequestLatestHistory() {
+    if (!activeRoomId || !settlementSummary) {
+      return;
+    }
+
+    sendRealtimeMessage({
+      type: "HISTORY_REQUEST",
+      roomId: activeRoomId,
+      handId: settlementSummary.handId
     });
   }
 
@@ -954,11 +1292,11 @@ export function PhaseTwoShell({
     <main className="phase-shell">
       <section className="hero-panel">
         <div className="hero-copy">
-          <p className="eyebrow">Phase 06</p>
-          <h1>{appName} settlement, audit, and live room history</h1>
+          <p className="eyebrow">Phase 07</p>
+          <h1>{appName} player table, action tray, and showdown flow</h1>
           <p className="hero-text">
-            The docs-first room actor now carries hands through settlement, ledger finality,
-            audit transcripts, reconnect-safe diffs, and live post-hand state updates.
+            The live room now renders a real player table: legal-action controls, private cards,
+            seat status halos, stack management between hands, and post-hand settlement context.
           </p>
           <div className="hero-chips">
             <span>{statusLabel}</span>
@@ -1196,96 +1534,282 @@ export function PhaseTwoShell({
         </article>
       </section>
 
-      <section className="panel-grid">
-        <article className="panel">
+      <section className="player-table-shell">
+        <article className="panel table-panel">
           <div className="panel-head">
-            <p className="eyebrow">Phase 06</p>
-            <h2>Live room actor</h2>
+            <p className="eyebrow">Phase 07</p>
+            <h2>Player table</h2>
+            <p className="panel-copy">
+              Mobile-first seat ring, board rail, private pocket cards, and legal-action tray wired
+              to the live room actor.
+            </p>
           </div>
-          <div className="info-block">
-            <div className="info-row"><span>Socket</span><strong>{socketStatus}</strong></div>
-            <div className="info-row"><span>Room</span><strong>{liveSnapshot?.room.code ?? roomPreview?.code ?? "Not connected"}</strong></div>
-            <div className="info-row"><span>Room event</span><strong>{liveSnapshot?.roomEventNo ?? 0}</strong></div>
-            <div className="info-row"><span>Table phase</span><strong>{liveSnapshot?.tablePhase ?? "BETWEEN_HANDS"}</strong></div>
+
+          <div className="table-pill-row">
+            <span className="table-pill">Socket {socketStatus}</span>
+            <span className="table-pill">
+              Room {liveSnapshot?.room.code ?? roomPreview?.code ?? "Not connected"}
+            </span>
+            <span className="table-pill">Event {liveSnapshot?.roomEventNo ?? 0}</span>
+            <span className="table-pill">Phase {liveSnapshot?.tablePhase ?? "BETWEEN_HANDS"}</span>
           </div>
           <ProcessNotice feedback={socketFeedback} />
 
           {liveSnapshot ? (
             <>
-              <div className="stat-grid">
-                <div className="stat-card"><span>Status</span><strong>{liveSnapshot.room.status}</strong></div>
-                <div className="stat-card"><span>Hero seat</span><strong>{privateState?.seatIndex !== undefined ? `Seat ${privateState.seatIndex + 1}` : "Observer"}</strong></div>
-                <div className="stat-card"><span>Stack</span><strong>{privateState?.stack?.toLocaleString() ?? "n/a"}</strong></div>
-                <div className="stat-card"><span>Reconnect</span><strong>{privateState?.reconnect.isReconnecting ? "Grace window" : "Stable"}</strong></div>
+              {reconnectCopy ? (
+                <div className="reconnect-banner">
+                  <strong>Reconnect state</strong>
+                  <span>{reconnectCopy}</span>
+                </div>
+              ) : null}
+
+              <div className="felt-stage">
+                <div className="table-headline-row">
+                  <div>
+                    <p className="eyebrow">{activeHand ? activeHand.street : "Between Hands"}</p>
+                    <h3 className="table-title">
+                      {activeHand
+                        ? `Hand ${activeHand.handNumber} · ${activeHand.handId}`
+                        : "Waiting for enough ready players"}
+                    </h3>
+                  </div>
+                  <div className="table-pill-row compact">
+                    <span className="table-pill">
+                      Hero {heroSeatIndex !== undefined ? `Seat ${heroSeatIndex + 1}` : "Observer"}
+                    </span>
+                    <span className="table-pill">
+                      Stack {formatChips(privateState?.stack ?? currentSeatSnapshot?.stack)}
+                    </span>
+                    <span className="table-pill">
+                      {activeHand?.actingSeatIndex !== undefined
+                        ? `Acting seat ${activeHand.actingSeatIndex + 1}`
+                        : "No active turn"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="seat-ring">
+                  <div className="board-oval">
+                    <div className="pot-badge-row">
+                      {potBadges.length ? (
+                        potBadges.map((pot) => (
+                          <div key={pot.key} className="pot-badge">
+                            <span>{pot.label}</span>
+                            <strong>{formatChips(pot.amount)}</strong>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="pot-badge muted">
+                          <span>Pot</span>
+                          <strong>{activeHand ? formatChips(activeHand.potTotal) : "No pot yet"}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="board-rail">
+                      {Array.from({ length: 5 }, (_, index) => (
+                        <CardFace key={`board-${index}`} card={boardCards[index]} />
+                      ))}
+                    </div>
+
+                    <div className="board-meta-grid">
+                      <div className="board-meta-card">
+                        <span>Current bet</span>
+                        <strong>{formatChips(activeHand?.currentBet ?? 0)}</strong>
+                      </div>
+                      <div className="board-meta-card">
+                        <span>Min raise</span>
+                        <strong>{formatChips(activeHand?.minimumRaiseTo ?? 0)}</strong>
+                      </div>
+                      <div className="board-meta-card">
+                        <span>Action clock</span>
+                        <strong>
+                          {activeHand ? formatCountdown(activeHand.deadlineAt, nowMs) : "Stand by"}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {tableSeatModels.map((seat) => (
+                    <article
+                      key={seat.seatIndex}
+                      className={`table-seat ${seat.positionClass} tone-${seat.statusTone}${seat.isActing ? " is-acting" : ""}${seat.isFolded ? " is-folded" : ""}`}
+                    >
+                      <div className="table-seat-head">
+                        <span>{seat.title}</span>
+                        {seat.badgeLabel ? <strong>{seat.badgeLabel}</strong> : null}
+                      </div>
+                      <h4>{seat.occupant}</h4>
+                      <p>{seat.stackLabel}</p>
+                      <small>{seat.detailLabel}</small>
+                      {seat.timerLabel ? <span className="seat-timer">{seat.timerLabel}</span> : null}
+                      <div className="seat-card-preview">
+                        {seat.hasPrivateCards ? (
+                          <>
+                            <CardFace card={privateState?.holeCards?.[0]} />
+                            <CardFace card={privateState?.holeCards?.[1]} />
+                          </>
+                        ) : seat.showCardBacks ? (
+                          <>
+                            <CardFace hidden />
+                            <CardFace hidden />
+                          </>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
 
-              <div className="action-row">
-                <ProcessButton
-                  variant="primary"
-                  tone={socketStatus === "connected" ? "success" : socketStatus === "error" ? "error" : socketStatus === "reconnecting" || socketStatus === "connecting" ? "pending" : "idle"}
-                  idleLabel="Live idle"
-                  pendingLabel="Connecting live"
-                  successLabel="Live connected"
-                  errorLabel="Live retrying"
-                  onClick={() => {}}
-                  disabled
-                />
-                <ProcessButton
-                  variant="secondary"
-                  tone="idle"
-                  idleLabel="Ready for hand"
-                  pendingLabel="Ready for hand"
-                  successLabel="Ready for hand"
-                  onClick={handleReadyForHand}
-                  disabled={
-                    authState?.actor.role !== "GUEST" ||
-                    privateState?.seatIndex === undefined ||
-                    liveSnapshot.tablePhase === "HAND_ACTIVE"
-                  }
-                />
-                <ProcessButton
-                  variant="ghost"
-                  tone="idle"
-                  idleLabel="Sit out now"
-                  pendingLabel="Sitting out"
-                  successLabel="Sitting out"
-                  onClick={handleSitOutNow}
-                  disabled={authState?.actor.role !== "GUEST" || privateState?.seatIndex === undefined}
-                />
-                <ProcessButton
-                  variant="secondary"
-                  tone="idle"
-                  idleLabel="Check"
-                  pendingLabel="Checking"
-                  successLabel="Checked"
-                  onClick={() => handleSubmitRealtimeAction("CHECK")}
-                  disabled={!privateState?.actionAffordances?.canCheck}
-                />
-                <ProcessButton
-                  variant="ghost"
-                  tone="idle"
-                  idleLabel="Fold"
-                  pendingLabel="Folding"
-                  successLabel="Folded"
-                  onClick={() => handleSubmitRealtimeAction("FOLD")}
-                  disabled={!privateState?.actionAffordances?.canFold}
-                />
+              <div className="hero-pocket">
+                <div>
+                  <p className="eyebrow">Private cards</p>
+                  <h3>{privateState?.holeCards?.length ? "Pocket cards live" : "Public-only state"}</h3>
+                </div>
+                <div className="hero-pocket-cards">
+                  {privateState?.holeCards?.length ? (
+                    privateState.holeCards.map((card) => <CardFace key={card} card={card} />)
+                  ) : (
+                    <>
+                      <CardFace hidden />
+                      <CardFace hidden />
+                    </>
+                  )}
+                </div>
+                <p className="panel-copy">
+                  {privateState?.holeCards?.length
+                    ? "These stay anchored near the player edge while public seats only show card backs."
+                    : "Spectators and admins keep the same table layout without private information."}
+                </p>
               </div>
 
-              {liveSnapshot.activeHand ? (
-                <div className="info-block">
-                  <div className="info-row"><span>Hand</span><strong>{liveSnapshot.activeHand.handId}</strong></div>
-                  <div className="info-row"><span>Acting seat</span><strong>{liveSnapshot.activeHand.actingSeatIndex === undefined ? "Waiting" : `Seat ${liveSnapshot.activeHand.actingSeatIndex + 1}`}</strong></div>
-                  <div className="info-row"><span>Deadline</span><strong>{new Date(liveSnapshot.activeHand.deadlineAt).toLocaleTimeString()}</strong></div>
-                  <div className="info-row"><span>Hand seq</span><strong>{liveSnapshot.activeHand.handSeq}</strong></div>
+              <div className="action-tray">
+                <div className="action-tray-head">
+                  <div>
+                    <p className="eyebrow">Action tray</p>
+                    <h3>
+                      {actionTray.quickActions.length || actionTray.sizingAction
+                        ? "Only legal actions are shown"
+                        : "Between-hand controls"}
+                    </h3>
+                  </div>
+                  <div className="table-pill-row compact">
+                    {activeCallAmount > 0 ? (
+                      <span className="table-pill">Call {formatChips(activeCallAmount)}</span>
+                    ) : null}
+                    {actionAffordances?.allInAmount ? (
+                      <span className="table-pill">
+                        All-in {formatChips(actionAffordances.allInAmount)}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-              ) : (
-                <div className="gate-card muted">
-                  <p className="eyebrow">Between Hands</p>
-                  <h3>Ready marks start the authoritative hand loop</h3>
-                  <p>Seat two players, click ready, and the room actor will post blinds, deal cards, and drive a timed live hand.</p>
-                </div>
-              )}
+
+                {actionTray.quickActions.length || actionTray.sizingAction ? (
+                  <>
+                    <div className="tray-button-row">
+                      {actionTray.quickActions.map((action) => (
+                        <button
+                          key={action.actionType}
+                          className={`${action.tone}-button tray-action-button`}
+                          onClick={() => handleActionIntent(action.actionType)}
+                          type="button"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {actionTray.sizingAction ? (
+                      <div className="sizing-panel">
+                        <div className="sizing-panel-head">
+                          <div>
+                            <span>{actionTray.sizingAction.label}</span>
+                            <strong>{formatChips(sizingAmount)}</strong>
+                          </div>
+                          <small>
+                            {formatChips(actionTray.sizingAction.min)} to{" "}
+                            {formatChips(actionTray.sizingAction.max)}
+                          </small>
+                        </div>
+
+                        {actionTray.sizingAction.presets.length ? (
+                          <div className="preset-row">
+                            {actionTray.sizingAction.presets.map((amount) => (
+                              <button
+                                key={amount}
+                                className={
+                                  Number(betAmount) === amount ? "mode-chip active" : "mode-chip"
+                                }
+                                onClick={() => handleActionPreset(amount)}
+                                type="button"
+                              >
+                                {formatChips(amount)}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        <div className="sizing-input-row">
+                          <input
+                            max={actionTray.sizingAction.max}
+                            min={actionTray.sizingAction.min}
+                            onChange={(event) => handleBetAmountChange(event.target.value)}
+                            step={1}
+                            type="range"
+                            value={sizingAmount || actionTray.sizingAction.min}
+                          />
+                          <input
+                            inputMode="numeric"
+                            onChange={(event) => handleBetAmountChange(event.target.value)}
+                            type="text"
+                            value={betAmount}
+                          />
+                          <button
+                            className="primary-button tray-action-button"
+                            onClick={() => handleActionIntent(actionTray.sizingAction!.actionType)}
+                            type="button"
+                          >
+                            {actionTray.sizingAction.actionType === "BET" ? "Bet" : "Raise"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="tray-button-row">
+                    <button
+                      className="secondary-button tray-action-button"
+                      disabled={
+                        authState?.actor.role !== "GUEST" ||
+                        privateState?.seatIndex === undefined ||
+                        liveSnapshot.tablePhase === "HAND_ACTIVE"
+                      }
+                      onClick={handleReadyForHand}
+                      type="button"
+                    >
+                      Ready for hand
+                    </button>
+                    <button
+                      className="ghost-button tray-action-button"
+                      disabled={authState?.actor.role !== "GUEST" || privateState?.seatIndex === undefined}
+                      onClick={handleSitOutNextHand}
+                      type="button"
+                    >
+                      Sit out next hand
+                    </button>
+                    <button
+                      className="ghost-button tray-action-button"
+                      disabled={authState?.actor.role !== "GUEST" || privateState?.seatIndex === undefined}
+                      onClick={handleSitOutNow}
+                      type="button"
+                    >
+                      Sit out now
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div className="gate-card muted">
@@ -1296,71 +1820,227 @@ export function PhaseTwoShell({
           )}
         </article>
 
-        <article className="panel">
+        <aside className="panel table-rail">
           <div className="panel-head">
-            <p className="eyebrow">Live State</p>
-            <h2>Ordered seat and player diffs</h2>
+            <p className="eyebrow">Rail</p>
+            <h2>Stack, showdown, and transcript</h2>
           </div>
-          {liveSnapshot ? (
-            <>
-              <div className="seat-grid">
-                {liveSnapshot.seats.map((seat) => (
-                  <div key={seat.seatIndex} className={`seat-card seat-${seat.status.toLowerCase()}`}>
-                    <span>Seat {seat.seatIndex + 1}</span>
-                    <strong>{seat.nickname ?? seat.status}</strong>
-                    <small>
-                      {seat.stack !== undefined
-                        ? `${seat.stack.toLocaleString()} chips`
-                        : seat.reservedUntil
-                          ? `Reserved ${formatCountdown(seat.reservedUntil, nowMs)}`
-                          : "Waiting"}
-                    </small>
+
+          <div className="info-block">
+            <div className="info-row">
+              <span>Hero seat</span>
+              <strong>{heroSeatIndex !== undefined ? `Seat ${heroSeatIndex + 1}` : "Observer"}</strong>
+            </div>
+            <div className="info-row">
+              <span>Current stack</span>
+              <strong>{formatChips(currentSeatSnapshot?.stack ?? privateState?.stack)}</strong>
+            </div>
+            <div className="info-row">
+              <span>Buy-in window</span>
+              <strong>
+                {stackControlQuote
+                  ? `${formatChips(stackControlQuote.minChips)} to ${formatChips(stackControlQuote.maxChips)}`
+                  : "Join a room first"}
+              </strong>
+            </div>
+          </div>
+
+          <div className="stack-control-panel">
+            <div className="panel-head compact">
+              <p className="eyebrow">Between hands</p>
+              <h3>Chip controls</h3>
+            </div>
+            <label className="field">
+              <span>Chip amount</span>
+              <input
+                inputMode="numeric"
+                onChange={(event) => handleStackAmountChange(event.target.value)}
+                value={stackAmount}
+              />
+            </label>
+            {stackControlQuote ? (
+              <div className="preset-row">
+                <button
+                  className="mode-chip"
+                  onClick={() => setStackAmount(String(stackControlQuote.minChips))}
+                  type="button"
+                >
+                  Min {formatChips(stackControlQuote.minChips)}
+                </button>
+                <button
+                  className="mode-chip"
+                  onClick={() =>
+                    setStackAmount(
+                      String(
+                        Math.min(
+                          stackControlQuote.maxChips,
+                          Math.max(
+                            stackControlQuote.minChips,
+                            (currentSeatSnapshot?.stack ?? 0) + stackControlQuote.bigBlind * 20
+                          )
+                        )
+                      )
+                    )
+                  }
+                  type="button"
+                >
+                  Top-up target
+                </button>
+                <button
+                  className="mode-chip"
+                  onClick={() => setStackAmount(String(stackControlQuote.maxChips))}
+                  type="button"
+                >
+                  Max {formatChips(stackControlQuote.maxChips)}
+                </button>
+              </div>
+            ) : null}
+
+            <div className="tray-button-row">
+              {chipControlState.canBuyIn ? (
+                <button className="primary-button tray-action-button" onClick={() => handleChipOperation("BUY_IN")} type="button">
+                  Commit buy-in
+                </button>
+              ) : null}
+              {chipControlState.canTopUp ? (
+                <button className="secondary-button tray-action-button" onClick={() => handleChipOperation("TOP_UP")} type="button">
+                  Top up
+                </button>
+              ) : null}
+              {chipControlState.canRebuy ? (
+                <button className="secondary-button tray-action-button" onClick={() => handleChipOperation("REBUY")} type="button">
+                  Rebuy
+                </button>
+              ) : null}
+            </div>
+            <ProcessNotice feedback={chipFeedback} />
+            {!chipControlState.canBuyIn && !chipControlState.canTopUp && !chipControlState.canRebuy ? (
+              <p className="panel-copy">
+                {heroSeatIndex === undefined
+                  ? "Reserve a seat first so stack controls can target the right chair."
+                  : currentTablePhase === "HAND_ACTIVE"
+                    ? "Top-up and rebuy controls unlock between hands so the live hand stays stable."
+                    : "Stack controls will appear here when your seat state allows them."}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="info-block">
+            <div className="panel-head compact">
+              <p className="eyebrow">Showdown</p>
+              <h3>{settlementSummary ? `Hand ${settlementSummary.handNumber}` : "Waiting for result"}</h3>
+            </div>
+            {showdownResult ? (
+              <div className="showdown-grid">
+                {showdownResult.results.map((result) => (
+                  <div
+                    key={result.participantId}
+                    className={`showdown-card${showdownWinners.has(result.seatIndex) ? " is-winning" : ""}`}
+                  >
+                    <div className="showdown-head">
+                      <span>
+                        Seat {result.seatIndex + 1} ·{" "}
+                        {liveSnapshot?.seats[result.seatIndex]?.nickname ?? result.participantId}
+                      </span>
+                      <strong>{result.rank.label}</strong>
+                    </div>
+                    <div className="showdown-cards">
+                      {result.holeCards.map((card) => (
+                        <CardFace key={`${result.participantId}-${card}`} card={card} winning={showdownWinners.has(result.seatIndex)} />
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
+            ) : (
+              <p className="panel-copy">
+                Winning cards and pot splits will stay here until the next hand starts.
+              </p>
+            )}
 
-              <div className="subpanel-grid">
-                <div className="info-block">
-                  <div className="panel-head compact"><p className="eyebrow">Players</p><h3>{liveSnapshot.participants.length} tracked</h3></div>
-                  <ul className="participant-list">
-                    {liveSnapshot.participants.map((participant) => (
-                      <li key={participant.participantId}>
-                        <span>{participant.nickname}</span>
-                        <small>
-                          {participant.state}
-                          {participant.isReady ? " - Ready" : ""}
-                          {participant.isSittingOut ? " - Sitting out" : ""}
-                          {!participant.isConnected ? " - Disconnected" : ""}
-                          {participant.seatIndex !== undefined ? ` - Seat ${participant.seatIndex + 1}` : ""}
-                        </small>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="info-block">
-                  <div className="panel-head compact"><p className="eyebrow">Private state</p><h3>{privateState ? "Scoped" : "Public only"}</h3></div>
-                  {privateState ? (
-                    <>
-                      <div className="info-row"><span>Seat</span><strong>{privateState.seatIndex !== undefined ? `Seat ${privateState.seatIndex + 1}` : "Observer"}</strong></div>
-                      <div className="info-row"><span>Stack</span><strong>{privateState.stack?.toLocaleString() ?? "n/a"}</strong></div>
-                      <div className="info-row"><span>Can check</span><strong>{privateState.actionAffordances?.canCheck ? "Yes" : "No"}</strong></div>
-                      <div className="info-row"><span>Can fold</span><strong>{privateState.actionAffordances?.canFold ? "Yes" : "No"}</strong></div>
-                    </>
-                  ) : (
-                    <p className="panel-copy">Admins observe the public room stream while guest players also receive private action affordances.</p>
-                  )}
-                </div>
+            {settlementSummary ? (
+              <div className="settlement-list">
+                {settlementSummary.playerResults
+                  .slice()
+                  .sort((left, right) => right.netResult - left.netResult)
+                  .map((result) => (
+                    <div key={result.participantId} className="settlement-row">
+                      <span>
+                        Seat {result.seatIndex + 1} ·{" "}
+                        {liveSnapshot?.seats[result.seatIndex]?.nickname ?? result.participantId}
+                      </span>
+                      <strong className={result.netResult >= 0 ? "delta-positive" : "delta-negative"}>
+                        {result.netResult >= 0 ? "+" : ""}
+                        {result.netResult.toLocaleString()}
+                      </strong>
+                    </div>
+                  ))}
               </div>
-            </>
-          ) : (
-            <div className="gate-card muted">
-              <p className="eyebrow">Live Reducer</p>
-              <h3>Diffs will appear here</h3>
-              <p>The client keeps the last snapshot and applies only newer room event numbers so reconnects can resume cleanly.</p>
+            ) : null}
+          </div>
+
+          <div className="info-block">
+            <div className="panel-head compact">
+              <p className="eyebrow">Transcript</p>
+              <h3>{handHistory ? handHistory.handId : "Load the settled hand"}</h3>
             </div>
-          )}
-        </article>
+            {handHistory ? (
+              <>
+                <div className="info-row">
+                  <span>Actions</span>
+                  <strong>{handHistory.actions.length}</strong>
+                </div>
+                <div className="info-row">
+                  <span>Board</span>
+                  <strong>{handHistory.board.join(" ") || "No board"}</strong>
+                </div>
+                <div className="info-row">
+                  <span>Audit events</span>
+                  <strong>{handHistory.auditEvents.length}</strong>
+                </div>
+              </>
+            ) : (
+              <p className="panel-copy">
+                Request the last settled hand transcript once payouts post.
+              </p>
+            )}
+            <div className="action-row">
+              <button
+                className="secondary-button"
+                disabled={!settlementSummary}
+                onClick={handleRequestLatestHistory}
+                type="button"
+              >
+                Load transcript
+              </button>
+            </div>
+          </div>
+
+          <div className="info-block">
+            <div className="panel-head compact">
+              <p className="eyebrow">Players</p>
+              <h3>{liveSnapshot?.participants.length ?? 0} tracked</h3>
+            </div>
+            {liveSnapshot ? (
+              <ul className="participant-list">
+                {liveSnapshot.participants.map((participant) => (
+                  <li key={participant.participantId}>
+                    <span>{participant.nickname}</span>
+                    <small>
+                      {participant.state}
+                      {participant.isReady ? " - Ready" : ""}
+                      {participant.isSittingOut ? " - Sitting out" : ""}
+                      {!participant.isConnected ? " - Disconnected" : ""}
+                      {participant.seatIndex !== undefined ? ` - Seat ${participant.seatIndex + 1}` : ""}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="panel-copy">The live participant rail will populate after room subscribe.</p>
+            )}
+          </div>
+        </aside>
       </section>
     </main>
   );
