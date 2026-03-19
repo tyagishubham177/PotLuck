@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buyInResponseSchema,
   authSessionResponseSchema,
   healthResponseSchema,
   joinRoomResponseSchema,
+  rebuyResponseSchema,
   roomCreateResponseSchema,
-  seatReservationResponseSchema
+  seatReservationResponseSchema,
+  topUpResponseSchema
 } from "../src/index.js";
 
 describe("shared contracts", () => {
@@ -93,6 +96,8 @@ describe("shared contracts", () => {
           oddChipRule: "LEFT_OF_BUTTON",
           spectatorsAllowed: true,
           straddleAllowed: false,
+          rebuyEnabled: true,
+          topUpEnabled: true,
           seatReservationTimeoutSeconds: 120,
           joinCodeExpiryMinutes: 120,
           waitingListEnabled: true,
@@ -175,6 +180,8 @@ describe("shared contracts", () => {
           oddChipRule: "LEFT_OF_BUTTON",
           spectatorsAllowed: true,
           straddleAllowed: false,
+          rebuyEnabled: true,
+          topUpEnabled: true,
           seatReservationTimeoutSeconds: 120,
           joinCodeExpiryMinutes: 120,
           waitingListEnabled: true,
@@ -252,5 +259,179 @@ describe("shared contracts", () => {
     });
 
     expect(seatPayload.reservedSeatIndex).toBe(2);
+  });
+
+  it("accepts buy-in, rebuy, and top-up ledger payloads", () => {
+    const basePayload = {
+      tablePhase: "BETWEEN_HANDS",
+      seat: {
+        seatIndex: 2,
+        status: "OCCUPIED",
+        participantId: "guest_123",
+        nickname: "RiverKid",
+        stack: 7000
+      },
+      ledgerEntry: {
+        entryId: "ledger_123",
+        roomId: "room_123",
+        participantId: "guest_123",
+        seatIndex: 2,
+        type: "BUY_IN",
+        delta: 7000,
+        balanceAfter: 7000,
+        referenceId: "op_123",
+        idempotencyKey: "buyin-riverkid-1",
+        createdAt: "2026-03-19T12:05:00.000Z"
+      },
+      balance: {
+        roomId: "room_123",
+        participantId: "guest_123",
+        seatIndex: 2,
+        buyInCommitted: 7000,
+        rebuyCommitted: 0,
+        topUpCommitted: 0,
+        adjustmentTotal: 0,
+        totalCommitted: 7000,
+        netBalance: 7000,
+        liveStack: 7000
+      },
+      lobbySnapshot: {
+        room: {
+          roomId: "room_123",
+          code: "DEMO42",
+          tableName: "Practice Table",
+          status: "OPEN",
+          maxSeats: 6,
+          openSeatCount: 5,
+          reservedSeatCount: 0,
+          occupiedSeatCount: 1,
+          participantCount: 1,
+          queuedCount: 0,
+          spectatorsAllowed: true,
+          waitingListEnabled: true,
+          joinCodeExpiresAt: "2026-03-19T14:00:00.000Z",
+          createdAt: "2026-03-19T12:00:00.000Z",
+          closesAt: "2026-03-20T00:00:00.000Z"
+        },
+        config: {
+          tableName: "Practice Table",
+          maxSeats: 6,
+          variant: "HOLD_EM_NL",
+          smallBlind: 50,
+          bigBlind: 100,
+          ante: 0,
+          buyInMode: "BB_MULTIPLE",
+          minBuyIn: 40,
+          maxBuyIn: 250,
+          rakeEnabled: false,
+          rakePercent: 0,
+          rakeCap: 0,
+          oddChipRule: "LEFT_OF_BUTTON",
+          spectatorsAllowed: true,
+          straddleAllowed: false,
+          rebuyEnabled: true,
+          topUpEnabled: true,
+          seatReservationTimeoutSeconds: 120,
+          joinCodeExpiryMinutes: 120,
+          waitingListEnabled: true,
+          roomMaxDurationMinutes: 720
+        },
+        seats: Array.from({ length: 6 }, (_, seatIndex) =>
+          seatIndex === 2
+            ? {
+                seatIndex,
+                status: "OCCUPIED",
+                participantId: "guest_123",
+                nickname: "RiverKid",
+                stack: 7000
+              }
+            : {
+                seatIndex,
+                status: "EMPTY"
+              }
+        ),
+        waitingList: [],
+        participants: [
+          {
+            participantId: "guest_123",
+            nickname: "RiverKid",
+            mode: "PLAYER",
+            state: "SEATED",
+            joinedAt: "2026-03-19T12:00:00.000Z",
+            isConnected: true,
+            seatIndex: 2
+          }
+        ],
+        buyInQuote: {
+          roomId: "room_123",
+          mode: "BB_MULTIPLE",
+          minUnits: 40,
+          maxUnits: 250,
+          minChips: 4000,
+          maxChips: 25000,
+          smallBlind: 50,
+          bigBlind: 100,
+          ante: 0,
+          displayMin: "40 BB = 4,000 chips",
+          displayMax: "250 BB = 25,000 chips"
+        },
+        heroParticipantId: "guest_123",
+        heroSeatIndex: 2,
+        canJoinWaitingList: false
+      }
+    };
+
+    const buyInPayload = buyInResponseSchema.parse({
+      ...basePayload,
+      operation: "BUY_IN"
+    });
+
+    const rebuyPayload = rebuyResponseSchema.parse({
+      ...basePayload,
+      operation: "REBUY",
+      seat: {
+        ...basePayload.seat,
+        stack: 12000
+      },
+      ledgerEntry: {
+        ...basePayload.ledgerEntry,
+        type: "REBUY",
+        delta: 5000,
+        balanceAfter: 12000
+      },
+      balance: {
+        ...basePayload.balance,
+        rebuyCommitted: 5000,
+        totalCommitted: 12000,
+        netBalance: 12000,
+        liveStack: 12000
+      }
+    });
+
+    const topUpPayload = topUpResponseSchema.parse({
+      ...basePayload,
+      operation: "TOP_UP",
+      seat: {
+        ...basePayload.seat,
+        stack: 9000
+      },
+      ledgerEntry: {
+        ...basePayload.ledgerEntry,
+        type: "TOP_UP",
+        delta: 2000,
+        balanceAfter: 14000
+      },
+      balance: {
+        ...basePayload.balance,
+        topUpCommitted: 2000,
+        totalCommitted: 14000,
+        netBalance: 14000,
+        liveStack: 9000
+      }
+    });
+
+    expect(buyInPayload.ledgerEntry.type).toBe("BUY_IN");
+    expect(rebuyPayload.balance.totalCommitted).toBe(12000);
+    expect(topUpPayload.seat.stack).toBe(9000);
   });
 });

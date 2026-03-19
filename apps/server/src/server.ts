@@ -6,17 +6,23 @@ import {
   adminOtpVerifyRequestSchema,
   authSessionResponseSchema,
   authStatusResponseSchema,
+  buyInCommitRequestSchema,
+  buyInResponseSchema,
   buyInQuoteResponseSchema,
   healthResponseSchema,
   joinRoomRequestSchema,
   joinRoomResponseSchema,
   logoutResponseSchema,
   queueJoinResponseSchema,
+  rebuyRequestSchema,
+  rebuyResponseSchema,
   roomCreateRequestSchema,
   roomCreateResponseSchema,
   seatReservationRequestSchema,
   seatReservationResponseSchema,
-  roomPublicSummarySchema
+  roomPublicSummarySchema,
+  topUpRequestSchema,
+  topUpResponseSchema
 } from "@potluck/contracts";
 import { createEnginePlaceholder } from "@potluck/game-engine";
 
@@ -112,6 +118,18 @@ export function buildServer(options: BuildServerOptions = {}) {
     }
 
     return authContext;
+  };
+
+  const getIdempotencyKey = (request: FastifyRequest) => {
+    const rawHeader = request.headers["idempotency-key"];
+
+    if (Array.isArray(rawHeader)) {
+      return rawHeader[0];
+    }
+
+    return typeof rawHeader === "string" && rawHeader.trim().length > 0
+      ? rawHeader.trim()
+      : undefined;
   };
 
   app.get("/api/auth/session", async (request) => {
@@ -253,6 +271,72 @@ export function buildServer(options: BuildServerOptions = {}) {
     const roomId = (request.params as { roomId: string }).roomId;
 
     return buyInQuoteResponseSchema.parse(state.getBuyInQuote(roomId, authContext.actor));
+  });
+
+  app.post("/api/rooms/:roomId/buyin", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "GUEST") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only room guests can commit a buy-in.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    const body = buyInCommitRequestSchema.parse(request.body);
+
+    return buyInResponseSchema.parse(
+      state.buyIn(
+        roomId,
+        body.seatIndex,
+        body.amount,
+        authContext.actor,
+        getIdempotencyKey(request)
+      )
+    );
+  });
+
+  app.post("/api/rooms/:roomId/rebuy", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "GUEST") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only room guests can rebuy.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    const body = rebuyRequestSchema.parse(request.body);
+
+    return rebuyResponseSchema.parse(
+      state.rebuy(roomId, body.amount, authContext.actor, getIdempotencyKey(request))
+    );
+  });
+
+  app.post("/api/rooms/:roomId/topup", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "GUEST") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only room guests can top up.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    const body = topUpRequestSchema.parse(request.body);
+
+    return topUpResponseSchema.parse(
+      state.topUp(roomId, body.amount, authContext.actor, getIdempotencyKey(request))
+    );
   });
 
   app.post("/api/rooms/:roomId/seats/:seatIndex", async (request) => {
