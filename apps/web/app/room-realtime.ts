@@ -1,8 +1,15 @@
 import {
+  type AuthActor,
   roomRealtimeSnapshotSchema,
   type RoomDiffPatch,
-  type RoomRealtimeSnapshot
+  type RoomRealtimeSnapshot,
+  type SessionEnvelope
 } from "@potluck/contracts";
+
+export type RoomScopedAuthState = {
+  session: SessionEnvelope;
+  actor: AuthActor;
+} | null;
 
 export function toWebSocketUrl(serverOrigin: string) {
   const url = new URL(serverOrigin);
@@ -34,4 +41,19 @@ export function applyRoomDiff(
         ? current.pausedReason
         : diff.pausedReason ?? undefined
   });
+}
+
+function getGuestRoomScopeKey(authState: RoomScopedAuthState) {
+  if (!authState || authState.actor.role !== "GUEST") {
+    return null;
+  }
+
+  return `${authState.actor.roomId}:${authState.actor.guestId}:${authState.actor.roomCode}`;
+}
+
+export function shouldResetRoomState(
+  previousAuthState: RoomScopedAuthState,
+  nextAuthState: RoomScopedAuthState
+) {
+  return getGuestRoomScopeKey(previousAuthState) !== getGuestRoomScopeKey(nextAuthState);
 }

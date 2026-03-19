@@ -29,7 +29,7 @@ import {
   type SessionEnvelope
 } from "@potluck/contracts";
 
-import { applyRoomDiff, toWebSocketUrl } from "./room-realtime";
+import { applyRoomDiff, shouldResetRoomState, toWebSocketUrl } from "./room-realtime";
 
 type PhaseTwoShellProps = {
   appName: string;
@@ -213,24 +213,63 @@ export function PhaseTwoShell({
   const [privateState, setPrivateState] = useState<RoomPrivateState | null>(null);
   const [socketStatus, setSocketStatus] = useState<SocketStatus>("idle");
   const [socketFeedback, setSocketFeedback] = useState<ProcessFeedback | null>(null);
+  const authStateRef = useRef<AuthState>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
+
+  function clearRoomSessionState(options: { keepRoomCode?: string } = {}) {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
+    reconnectAttemptRef.current = 0;
+
+    if (
+      socketRef.current &&
+      (socketRef.current.readyState === WebSocket.OPEN ||
+        socketRef.current.readyState === WebSocket.CONNECTING)
+    ) {
+      socketRef.current.close();
+    }
+
+    socketRef.current = null;
+    setRoomPreview(null);
+    setLobbySnapshot(null);
+    setLiveSnapshot(null);
+    setPrivateState(null);
+    setSocketStatus("idle");
+    setSocketFeedback(null);
+
+    if (options.keepRoomCode !== undefined) {
+      setRoomCode(options.keepRoomCode);
+    }
+  }
+
+  function applyAuthState(nextState: AuthState) {
+    if (shouldResetRoomState(authStateRef.current, nextState)) {
+      clearRoomSessionState();
+    }
+
+    authStateRef.current = nextState;
+    setAuthState(nextState);
+  }
 
   async function refreshAuthState() {
     try {
       const response = await apiRequest(serverOrigin, "/api/auth/session", authStatusResponseSchema);
 
       if (!response.authenticated || !response.session || !response.actor) {
-        setAuthState(null);
+        applyAuthState(null);
         return null;
       }
 
       const nextState = { session: response.session, actor: response.actor };
-      setAuthState(nextState);
+      applyAuthState(nextState);
       return nextState;
     } catch {
-      setAuthState(null);
+      applyAuthState(null);
       return null;
     }
   }
@@ -252,8 +291,12 @@ export function PhaseTwoShell({
         const session = await refreshAuthState();
 
         if (session?.actor.role === "GUEST") {
-          await loadLobby(session.actor.roomId);
           setRoomCode(session.actor.roomCode);
+          try {
+            await loadLobby(session.actor.roomId);
+          } catch {
+            clearRoomSessionState({ keepRoomCode: session.actor.roomCode });
+          }
         }
       } finally {
         setIsBooting(false);
@@ -375,6 +418,32 @@ export function PhaseTwoShell({
             setSocketFeedback({
               tone: "pending",
               message: `Seat ${message.actingSeatIndex + 1} has ${message.secondsRemaining}s left.`
+            });
+            return;
+          }
+
+          if (message.type === "SHOWDOWN_RESULT") {
+            setSocketFeedback({
+              tone: "success",
+              message: message.awardedByFold
+                ? `Hand awarded without showdown across ${message.pots.length} pot(s).`
+                : `Showdown resolved across ${message.pots.length} pot(s).`
+            });
+            return;
+          }
+
+          if (message.type === "SETTLEMENT_POSTED") {
+            setSocketFeedback({
+              tone: "success",
+              message: `Settlement posted for ${message.settlement.totalPot.toLocaleString()} chips.`
+            });
+            return;
+          }
+
+          if (message.type === "HAND_HISTORY") {
+            setSocketFeedback({
+              tone: "success",
+              message: `History loaded for hand ${message.transcript.handId}.`
             });
             return;
           }
@@ -601,7 +670,7 @@ export function PhaseTwoShell({
           }
         );
 
-        setAuthState({ session: response.session, actor: response.actor });
+        applyAuthState({ session: response.session, actor: response.actor });
         setAdminCode("");
         setVerifyOtpFeedback({ tone: "success", message: "Admin session is ready." });
       } catch (error) {
@@ -652,6 +721,7 @@ export function PhaseTwoShell({
         setRoomPreview(summary);
         setLookupFeedback({ tone: "success", message: `${summary.tableName} is ready to join.` });
       } catch (error) {
+        clearRoomSessionState({ keepRoomCode: roomCode.trim().toUpperCase() });
         setLookupFeedback({ tone: "error", message: createErrorMessage(error) });
       }
     })();
@@ -672,7 +742,7 @@ export function PhaseTwoShell({
           }
         );
 
-        setAuthState({ session: response.session, actor: response.actor });
+        applyAuthState({ session: response.session, actor: response.actor });
         setRoomPreview(response.lobbySnapshot.room);
         setLobbySnapshot(response.lobbySnapshot);
         setJoinRoomFeedback({
@@ -680,6 +750,7 @@ export function PhaseTwoShell({
           message: `Joined ${response.lobbySnapshot.room.tableName}.`
         });
       } catch (error) {
+        clearRoomSessionState({ keepRoomCode: roomCode.trim().toUpperCase() });
         setJoinRoomFeedback({ tone: "error", message: createErrorMessage(error) });
       }
     })();
@@ -701,6 +772,7 @@ export function PhaseTwoShell({
         await apiRequest(serverOrigin, `/api/rooms/${roomId}/buyin/quote`, buyInQuoteResponseSchema);
         setLobbyFeedback({ tone: "success", message: "Lobby snapshot refreshed." });
       } catch (error) {
+        clearRoomSessionState({ keepRoomCode: roomCode });
         setLobbyFeedback({ tone: "error", message: createErrorMessage(error) });
       }
     })();
@@ -777,7 +849,7 @@ export function PhaseTwoShell({
           authSessionResponseSchema,
           { method: "POST", body: JSON.stringify({}) }
         );
-        setAuthState({ session: response.session, actor: response.actor });
+        applyAuthState({ session: response.session, actor: response.actor });
         setRefreshFeedback({ tone: "success", message: "Session refreshed successfully." });
       } catch (error) {
         setRefreshFeedback({ tone: "error", message: createErrorMessage(error) });
@@ -794,8 +866,8 @@ export function PhaseTwoShell({
           method: "POST",
           body: JSON.stringify({})
         });
-        setAuthState(null);
-        setLobbySnapshot(null);
+        clearRoomSessionState();
+        applyAuthState(null);
         setLogoutFeedback({ tone: "success", message: "Signed out successfully." });
       } catch (error) {
         setLogoutFeedback({ tone: "error", message: createErrorMessage(error) });
@@ -807,11 +879,11 @@ export function PhaseTwoShell({
     <main className="phase-shell">
       <section className="hero-panel">
         <div className="hero-copy">
-          <p className="eyebrow">Phase 04</p>
-          <h1>{appName} room actor and live transport</h1>
+          <p className="eyebrow">Phase 06</p>
+          <h1>{appName} settlement, audit, and live room history</h1>
           <p className="hero-text">
-            The docs-first lobby, wallet, and buy-in flows now stream through a single-writer
-            room actor with reconnects, ordered diffs, and turn timers.
+            The docs-first room actor now carries hands through settlement, ledger finality,
+            audit transcripts, reconnect-safe diffs, and live post-hand state updates.
           </p>
           <div className="hero-chips">
             <span>{statusLabel}</span>
@@ -1052,7 +1124,7 @@ export function PhaseTwoShell({
       <section className="panel-grid">
         <article className="panel">
           <div className="panel-head">
-            <p className="eyebrow">Phase 04</p>
+            <p className="eyebrow">Phase 06</p>
             <h2>Live room actor</h2>
           </div>
           <div className="info-block">

@@ -61,7 +61,7 @@
 | --- | --- | --- |
 | Ava | 0 | -50 |
 | Ben | 205 | +85 |
-| Cy | 265 | +65 |
+| Cy | 365 | +165 |
 | Dia | 0 | -200 |
 
 ## Worked Example 2: Folded Contributor And Odd Chip

@@ -21,6 +21,8 @@ export const ledgerEntryTypeSchema = z.enum([
   "BUY_IN",
   "REBUY",
   "TOP_UP",
+  "HAND_PAYOUT",
+  "RAKE",
   "COMPENSATING_ADJUSTMENT"
 ]);
 export const roomTablePhaseSchema = z.enum(["BETWEEN_HANDS", "HAND_ACTIVE"]);
@@ -59,6 +61,19 @@ export const cardCodeSchema = z.string().regex(/^(?:[2-9TJQKA][CDHS])$/);
 export const handStreetSchema = z.enum(["PREFLOP", "FLOP", "TURN", "RIVER", "SHOWDOWN"]);
 export const handPlayerStatusSchema = z.enum(["ACTIVE", "FOLDED", "ALL_IN"]);
 export const forcedCommitmentTypeSchema = z.enum(["ANTE", "SMALL_BLIND", "BIG_BLIND"]);
+export const handRankCategorySchema = z.enum([
+  "HIGH_CARD",
+  "ONE_PAIR",
+  "TWO_PAIR",
+  "THREE_OF_A_KIND",
+  "STRAIGHT",
+  "FLUSH",
+  "FULL_HOUSE",
+  "FOUR_OF_A_KIND",
+  "STRAIGHT_FLUSH"
+]);
+export const settlementPotTypeSchema = z.enum(["MAIN", "SIDE"]);
+export const rakeModeSchema = z.literal("PER_HAND");
 
 export const errorCodeSchema = z.enum([
   "ERR_ROOM_NOT_FOUND",
@@ -480,6 +495,135 @@ export const roomPrivateStateSchema = z.object({
   reconnect: roomReconnectMetadataSchema
 });
 
+export const handRankSchema = z.object({
+  category: handRankCategorySchema,
+  label: z.string().min(1),
+  comparisonValues: z.array(z.number().int().min(0)),
+  bestFiveCards: z.array(cardCodeSchema).length(5)
+});
+
+export const showdownResultSchema = z.object({
+  seatIndex: seatIndexSchema,
+  participantId: z.string().min(1),
+  holeCards: z.array(cardCodeSchema).length(2),
+  rank: handRankSchema
+});
+
+export const settlementPotAwardSchema = z.object({
+  seatIndex: seatIndexSchema,
+  participantId: z.string().min(1),
+  amount: z.number().int().nonnegative()
+});
+
+export const settlementPotSchema = z.object({
+  potIndex: z.number().int().nonnegative(),
+  potType: settlementPotTypeSchema,
+  capLevel: z.number().int().nonnegative(),
+  amount: z.number().int().nonnegative(),
+  contributorSeatIndexes: z.array(seatIndexSchema),
+  eligibleSeatIndexes: z.array(seatIndexSchema),
+  rakeApplied: z.number().int().nonnegative(),
+  winnerSeatIndexes: z.array(seatIndexSchema),
+  oddChipSeatIndexes: z.array(seatIndexSchema),
+  awards: z.array(settlementPotAwardSchema)
+});
+
+export const handSettlementPlayerResultSchema = z.object({
+  seatIndex: seatIndexSchema,
+  participantId: z.string().min(1),
+  contributed: z.number().int().nonnegative(),
+  won: z.number().int().nonnegative(),
+  finalStack: z.number().int().nonnegative(),
+  netResult: z.number().int()
+});
+
+export const handSettlementSchema = z.object({
+  handId: z.string().min(1),
+  handNumber: z.number().int().positive(),
+  oddChipRule: oddChipRuleSchema,
+  rakeConfig: z.object({
+    enabled: z.boolean(),
+    percent: z.number().min(0).max(100),
+    cap: z.number().int().nonnegative(),
+    mode: rakeModeSchema
+  }),
+  totalPot: z.number().int().nonnegative(),
+  totalRake: z.number().int().nonnegative(),
+  awardedByFold: z.boolean(),
+  showdownResults: z.array(showdownResultSchema),
+  pots: z.array(settlementPotSchema),
+  playerResults: z.array(handSettlementPlayerResultSchema)
+});
+
+export const handActionRecordSchema = z.object({
+  seq: z.number().int().positive(),
+  seatIndex: seatIndexSchema,
+  participantId: z.string().min(1),
+  street: z.enum(["PREFLOP", "FLOP", "TURN", "RIVER"]),
+  actionType: roomActionTypeSchema,
+  normalizedAmount: z.number().int().nonnegative().optional(),
+  contributedAmount: z.number().int().nonnegative(),
+  totalCommitted: z.number().int().nonnegative(),
+  streetCommitted: z.number().int().nonnegative()
+});
+
+export const handContributionSchema = z.object({
+  seatIndex: seatIndexSchema,
+  participantId: z.string().min(1),
+  totalCommitted: z.number().int().nonnegative(),
+  contributedByStreet: z.object({
+    PREFLOP: z.number().int().nonnegative(),
+    FLOP: z.number().int().nonnegative(),
+    TURN: z.number().int().nonnegative(),
+    RIVER: z.number().int().nonnegative()
+  })
+});
+
+export const handTranscriptAuditEventSchema = z.object({
+  eventId: z.string().min(1),
+  type: z.string().min(1),
+  occurredAt: isoTimestampSchema,
+  actorId: z.string().min(1).optional(),
+  detail: z.string().min(1)
+});
+
+export const handTranscriptSchema = z.object({
+  roomId: z.string().min(1),
+  handId: z.string().min(1),
+  handNumber: z.number().int().positive(),
+  buttonSeatIndex: seatIndexSchema.optional(),
+  smallBlindSeatIndex: seatIndexSchema.optional(),
+  bigBlindSeatIndex: seatIndexSchema.optional(),
+  startedAt: isoTimestampSchema,
+  endedAt: isoTimestampSchema,
+  board: z.array(cardCodeSchema),
+  deckCommitmentHash: z.string().min(1),
+  deckReveal: z.array(cardCodeSchema),
+  actions: z.array(handActionRecordSchema),
+  forcedCommitments: z.array(activeHandForcedCommitmentSchema),
+  contributions: z.array(handContributionSchema),
+  settlement: handSettlementSchema,
+  ledgerEntries: z.array(ledgerEntrySchema),
+  auditEvents: z.array(handTranscriptAuditEventSchema)
+});
+
+export const handHistorySummarySchema = z.object({
+  handId: z.string().min(1),
+  roomId: z.string().min(1),
+  handNumber: z.number().int().positive(),
+  startedAt: isoTimestampSchema,
+  endedAt: isoTimestampSchema,
+  playerCount: z.number().int().nonnegative(),
+  totalPot: z.number().int().nonnegative(),
+  totalRake: z.number().int().nonnegative(),
+  board: z.array(cardCodeSchema)
+});
+
+export const handHistoryListResponseSchema = z.object({
+  items: z.array(handHistorySummarySchema),
+  nextCursor: z.string().min(1).nullable()
+});
+
 export const roomSubscribeIntentSchema = z.object({
   type: z.literal("ROOM_SUBSCRIBE"),
   roomId: z.string().min(1)
@@ -598,6 +742,19 @@ export const showdownTriggeredEventSchema = handEventEnvelopeSchema.extend({
   revealOrder: z.array(seatIndexSchema)
 });
 
+export const showdownResultEventSchema = handEventEnvelopeSchema.extend({
+  type: z.literal("SHOWDOWN_RESULT"),
+  awardedByFold: z.boolean(),
+  results: z.array(showdownResultSchema),
+  pots: z.array(settlementPotSchema)
+});
+
+export const settlementPostedEventSchema = handEventEnvelopeSchema.extend({
+  type: z.literal("SETTLEMENT_POSTED"),
+  settlement: handSettlementSchema,
+  ledgerEntries: z.array(ledgerEntrySchema)
+});
+
 export const actionRejectedEventSchema = roomEventEnvelopeSchema.extend({
   type: z.literal("ACTION_REJECTED"),
   handId: z.string().min(1).optional(),
@@ -629,6 +786,11 @@ export const roomPausedEventSchema = roomEventEnvelopeSchema.extend({
   recoveryGuidance: z.string().min(1).optional()
 });
 
+export const handHistoryEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("HAND_HISTORY"),
+  transcript: handTranscriptSchema
+});
+
 export const serverErrorEventSchema = z.object({
   type: z.literal("SERVER_ERROR"),
   roomId: z.string().min(1).optional(),
@@ -647,10 +809,13 @@ export const realtimeServerMessageSchema = z.discriminatedUnion("type", [
   streetAdvancedEventSchema,
   actionAcceptedEventSchema,
   showdownTriggeredEventSchema,
+  showdownResultEventSchema,
+  settlementPostedEventSchema,
   actionRejectedEventSchema,
   playerDisconnectedEventSchema,
   playerReconnectedEventSchema,
   roomPausedEventSchema,
+  handHistoryEventSchema,
   serverErrorEventSchema
 ]);
 
@@ -667,7 +832,9 @@ export const clientSnapshotSchema = z.object({
     "phase-01-ready",
     "phase-02-ready",
     "phase-03-ready",
-    "phase-04-ready"
+    "phase-04-ready",
+    "phase-05-ready",
+    "phase-06-ready"
   ])
 });
 
@@ -694,6 +861,13 @@ export type ActiveHandSnapshot = z.infer<typeof activeHandSnapshotSchema>;
 export type RoomRealtimeSnapshot = z.infer<typeof roomRealtimeSnapshotSchema>;
 export type RoomDiffPatch = z.infer<typeof roomDiffPatchSchema>;
 export type RoomPrivateState = z.infer<typeof roomPrivateStateSchema>;
+export type HandRank = z.infer<typeof handRankSchema>;
+export type ShowdownResult = z.infer<typeof showdownResultSchema>;
+export type SettlementPot = z.infer<typeof settlementPotSchema>;
+export type HandSettlement = z.infer<typeof handSettlementSchema>;
+export type HandTranscript = z.infer<typeof handTranscriptSchema>;
+export type HandHistorySummary = z.infer<typeof handHistorySummarySchema>;
+export type HandHistoryListResponse = z.infer<typeof handHistoryListResponseSchema>;
 export type RealtimeClientMessage = z.infer<typeof realtimeClientMessageSchema>;
 export type RoomSnapshotEvent = z.infer<typeof roomSnapshotEventSchema>;
 export type RoomDiffEvent = z.infer<typeof roomDiffEventSchema>;
@@ -704,9 +878,12 @@ export type TurnWarningEvent = z.infer<typeof turnWarningEventSchema>;
 export type StreetAdvancedEvent = z.infer<typeof streetAdvancedEventSchema>;
 export type ActionAcceptedEvent = z.infer<typeof actionAcceptedEventSchema>;
 export type ShowdownTriggeredEvent = z.infer<typeof showdownTriggeredEventSchema>;
+export type ShowdownResultEvent = z.infer<typeof showdownResultEventSchema>;
+export type SettlementPostedEvent = z.infer<typeof settlementPostedEventSchema>;
 export type ActionRejectedEvent = z.infer<typeof actionRejectedEventSchema>;
 export type PlayerDisconnectedEvent = z.infer<typeof playerDisconnectedEventSchema>;
 export type PlayerReconnectedEvent = z.infer<typeof playerReconnectedEventSchema>;
 export type RoomPausedEvent = z.infer<typeof roomPausedEventSchema>;
+export type HandHistoryEvent = z.infer<typeof handHistoryEventSchema>;
 export type ServerErrorEvent = z.infer<typeof serverErrorEventSchema>;
 export type RealtimeServerMessage = z.infer<typeof realtimeServerMessageSchema>;

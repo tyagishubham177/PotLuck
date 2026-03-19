@@ -824,3 +824,687 @@ export function applyHoldemAction(
     effects
   };
 }
+
+export type HoldemSettlementPlayerState = Pick<
+  HoldemPlayerState,
+  | "seatIndex"
+  | "participantId"
+  | "startingStack"
+  | "stack"
+  | "status"
+  | "holeCards"
+  | "totalCommitted"
+  | "contributedByStreet"
+>;
+
+export type HoldemSettlementInput = {
+  handId: string;
+  handNumber: number;
+  buttonSeatIndex?: number;
+  smallBlindSeatIndex?: number;
+  bigBlindSeatIndex?: number;
+  potTotal: number;
+  board: CardCode[];
+  seatOrder: number[];
+  players: HoldemSettlementPlayerState[];
+  actionLog: HoldemActionRecord[];
+  forcedCommitments: HoldemForcedCommitment[];
+  winnerByFoldSeatIndex?: number;
+};
+
+export type HoldemOddChipRule = "LEFT_OF_BUTTON";
+export type HoldemRakeMode = "PER_HAND";
+
+export type HoldemRakeConfig = {
+  enabled: boolean;
+  percent: number;
+  cap: number;
+  mode?: HoldemRakeMode;
+};
+
+export type HoldemHandRankCategory =
+  | "HIGH_CARD"
+  | "ONE_PAIR"
+  | "TWO_PAIR"
+  | "THREE_OF_A_KIND"
+  | "STRAIGHT"
+  | "FLUSH"
+  | "FULL_HOUSE"
+  | "FOUR_OF_A_KIND"
+  | "STRAIGHT_FLUSH";
+
+export type HoldemHandRank = {
+  category: HoldemHandRankCategory;
+  label: string;
+  comparisonValues: number[];
+  bestFiveCards: [CardCode, CardCode, CardCode, CardCode, CardCode];
+};
+
+export type HoldemShowdownResult = {
+  seatIndex: number;
+  participantId: string;
+  holeCards: [CardCode, CardCode];
+  rank: HoldemHandRank;
+};
+
+export type HoldemPotAward = {
+  seatIndex: number;
+  participantId: string;
+  amount: number;
+};
+
+export type HoldemSettlementPot = {
+  potIndex: number;
+  potType: "MAIN" | "SIDE";
+  capLevel: number;
+  amount: number;
+  contributorSeatIndexes: number[];
+  eligibleSeatIndexes: number[];
+  rakeApplied: number;
+  winnerSeatIndexes: number[];
+  oddChipSeatIndexes: number[];
+  awards: HoldemPotAward[];
+};
+
+export type HoldemSettlementPlayerResult = {
+  seatIndex: number;
+  participantId: string;
+  contributed: number;
+  won: number;
+  finalStack: number;
+  netResult: number;
+};
+
+export type HoldemHandSettlement = {
+  handId: string;
+  handNumber: number;
+  oddChipRule: HoldemOddChipRule;
+  rakeConfig: Required<HoldemRakeConfig>;
+  totalPot: number;
+  totalRake: number;
+  awardedByFold: boolean;
+  showdownResults: HoldemShowdownResult[];
+  pots: HoldemSettlementPot[];
+  playerResults: HoldemSettlementPlayerResult[];
+};
+
+type EvaluatedHand = HoldemHandRank & {
+  categoryValue: number;
+};
+
+const RANK_NAME_BY_VALUE: Record<number, string> = {
+  2: "Two",
+  3: "Three",
+  4: "Four",
+  5: "Five",
+  6: "Six",
+  7: "Seven",
+  8: "Eight",
+  9: "Nine",
+  10: "Ten",
+  11: "Jack",
+  12: "Queen",
+  13: "King",
+  14: "Ace"
+};
+const RANK_PLURAL_BY_VALUE: Record<number, string> = {
+  2: "Twos",
+  3: "Threes",
+  4: "Fours",
+  5: "Fives",
+  6: "Sixes",
+  7: "Sevens",
+  8: "Eights",
+  9: "Nines",
+  10: "Tens",
+  11: "Jacks",
+  12: "Queens",
+  13: "Kings",
+  14: "Aces"
+};
+const CATEGORY_VALUE_BY_NAME: Record<HoldemHandRankCategory, number> = {
+  HIGH_CARD: 0,
+  ONE_PAIR: 1,
+  TWO_PAIR: 2,
+  THREE_OF_A_KIND: 3,
+  STRAIGHT: 4,
+  FLUSH: 5,
+  FULL_HOUSE: 6,
+  FOUR_OF_A_KIND: 7,
+  STRAIGHT_FLUSH: 8
+};
+
+function getCardRankValue(card: CardCode) {
+  return RANKS.indexOf((card[0] ?? "2") as (typeof RANKS)[number]) + 2;
+}
+
+function getCardSuitValue(card: CardCode) {
+  return card[1] ?? "";
+}
+
+function compareNumberLists(left: number[], right: number[]) {
+  const maxLength = Math.max(left.length, right.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const delta = (left[index] ?? 0) - (right[index] ?? 0);
+
+    if (delta !== 0) {
+      return delta;
+    }
+  }
+
+  return 0;
+}
+
+function compareEvaluatedHands(left: EvaluatedHand, right: EvaluatedHand) {
+  if (left.categoryValue !== right.categoryValue) {
+    return left.categoryValue - right.categoryValue;
+  }
+
+  return compareNumberLists(left.comparisonValues, right.comparisonValues);
+}
+
+function comparePublicRanks(left: HoldemHandRank, right: HoldemHandRank) {
+  const categoryDelta =
+    CATEGORY_VALUE_BY_NAME[left.category] - CATEGORY_VALUE_BY_NAME[right.category];
+
+  if (categoryDelta !== 0) {
+    return categoryDelta;
+  }
+
+  return compareNumberLists(left.comparisonValues, right.comparisonValues);
+}
+
+function normalizeRakeConfig(rakeConfig: HoldemRakeConfig): Required<HoldemRakeConfig> {
+  return {
+    enabled: rakeConfig.enabled,
+    percent: Math.max(0, rakeConfig.percent),
+    cap: Math.max(0, Math.trunc(rakeConfig.cap)),
+    mode: rakeConfig.mode ?? "PER_HAND"
+  };
+}
+
+function sortSeatIndexesBySeatOrder(seatIndexes: number[], seatOrder: number[]) {
+  return [...seatIndexes].sort((left, right) => {
+    const leftIndex = seatOrder.indexOf(left);
+    const rightIndex = seatOrder.indexOf(right);
+
+    if (leftIndex === -1 && rightIndex === -1) {
+      return left - right;
+    }
+
+    if (leftIndex === -1) {
+      return 1;
+    }
+
+    if (rightIndex === -1) {
+      return -1;
+    }
+
+    return leftIndex - rightIndex;
+  });
+}
+
+function getStraightHighCard(rankValues: number[]) {
+  const uniqueDescending = [...new Set(rankValues)].sort((left, right) => right - left);
+
+  if (uniqueDescending.includes(14)) {
+    uniqueDescending.push(1);
+  }
+
+  for (let index = 0; index <= uniqueDescending.length - 5; index += 1) {
+    const window = uniqueDescending.slice(index, index + 5);
+    const isStraight = window.every(
+      (value, windowIndex) => windowIndex === 0 || window[windowIndex - 1] === value + 1
+    );
+
+    if (isStraight) {
+      return window[0] === 1 ? 5 : window[0];
+    }
+  }
+
+  return undefined;
+}
+
+function orderCardsForStraight(cards: CardCode[], highCard: number) {
+  const desiredRanks =
+    highCard === 5
+      ? [5, 4, 3, 2, 14]
+      : [highCard, highCard - 1, highCard - 2, highCard - 3, highCard - 4];
+
+  return desiredRanks.map((value) => {
+    const matched = cards.find((card) => getCardRankValue(card) === value);
+
+    if (!matched) {
+      throw new Error("Straight card ordering failed.");
+    }
+
+    return matched;
+  }) as [CardCode, CardCode, CardCode, CardCode, CardCode];
+}
+
+function orderCardsByRanks(cards: CardCode[], ranks: number[]) {
+  const remaining = [...cards];
+
+  return ranks.map((rank) => {
+    const cardIndex = remaining.findIndex((card) => getCardRankValue(card) === rank);
+
+    if (cardIndex === -1) {
+      throw new Error("Card ordering failed.");
+    }
+
+    const [matched] = remaining.splice(cardIndex, 1);
+    return matched;
+  }) as [CardCode, CardCode, CardCode, CardCode, CardCode];
+}
+
+function evaluateFiveCardHand(cards: [CardCode, CardCode, CardCode, CardCode, CardCode]): EvaluatedHand {
+  const ranks = cards.map(getCardRankValue).sort((left, right) => right - left);
+  const isFlush = new Set(cards.map(getCardSuitValue)).size === 1;
+  const straightHighCard = getStraightHighCard(ranks);
+  const grouped = [...new Set(ranks)]
+    .map((rank) => ({
+      rank,
+      count: ranks.filter((value) => value === rank).length
+    }))
+    .sort((left, right) => {
+      if (left.count !== right.count) {
+        return right.count - left.count;
+      }
+
+      return right.rank - left.rank;
+    });
+
+  if (isFlush && straightHighCard !== undefined) {
+    return {
+      category: "STRAIGHT_FLUSH",
+      categoryValue: CATEGORY_VALUE_BY_NAME.STRAIGHT_FLUSH,
+      label: `${RANK_NAME_BY_VALUE[straightHighCard]}-high straight flush`,
+      comparisonValues: [straightHighCard],
+      bestFiveCards: orderCardsForStraight(cards, straightHighCard)
+    };
+  }
+
+  if (grouped[0]?.count === 4) {
+    const fourRank = grouped[0].rank;
+    const kicker = grouped[1]?.rank ?? 0;
+
+    return {
+      category: "FOUR_OF_A_KIND",
+      categoryValue: CATEGORY_VALUE_BY_NAME.FOUR_OF_A_KIND,
+      label: `Four of a kind, ${RANK_PLURAL_BY_VALUE[fourRank]}`,
+      comparisonValues: [fourRank, kicker],
+      bestFiveCards: orderCardsByRanks(cards, [fourRank, fourRank, fourRank, fourRank, kicker])
+    };
+  }
+
+  if (grouped[0]?.count === 3 && grouped[1]?.count === 2) {
+    const threeRank = grouped[0].rank;
+    const pairRank = grouped[1].rank;
+
+    return {
+      category: "FULL_HOUSE",
+      categoryValue: CATEGORY_VALUE_BY_NAME.FULL_HOUSE,
+      label: `${RANK_PLURAL_BY_VALUE[threeRank]} full of ${RANK_PLURAL_BY_VALUE[pairRank]}`,
+      comparisonValues: [threeRank, pairRank],
+      bestFiveCards: orderCardsByRanks(cards, [threeRank, threeRank, threeRank, pairRank, pairRank])
+    };
+  }
+
+  if (isFlush) {
+    return {
+      category: "FLUSH",
+      categoryValue: CATEGORY_VALUE_BY_NAME.FLUSH,
+      label: `${RANK_NAME_BY_VALUE[ranks[0] ?? 0]}-high flush`,
+      comparisonValues: ranks,
+      bestFiveCards: orderCardsByRanks(cards, ranks)
+    };
+  }
+
+  if (straightHighCard !== undefined) {
+    return {
+      category: "STRAIGHT",
+      categoryValue: CATEGORY_VALUE_BY_NAME.STRAIGHT,
+      label: `${RANK_NAME_BY_VALUE[straightHighCard]}-high straight`,
+      comparisonValues: [straightHighCard],
+      bestFiveCards: orderCardsForStraight(cards, straightHighCard)
+    };
+  }
+
+  if (grouped[0]?.count === 3) {
+    const threeRank = grouped[0].rank;
+    const kickers = grouped
+      .slice(1)
+      .map((group) => group.rank)
+      .sort((left, right) => right - left);
+
+    return {
+      category: "THREE_OF_A_KIND",
+      categoryValue: CATEGORY_VALUE_BY_NAME.THREE_OF_A_KIND,
+      label: `Three of a kind, ${RANK_PLURAL_BY_VALUE[threeRank]}`,
+      comparisonValues: [threeRank, ...kickers],
+      bestFiveCards: orderCardsByRanks(cards, [threeRank, threeRank, threeRank, ...kickers])
+    };
+  }
+
+  if (grouped[0]?.count === 2 && grouped[1]?.count === 2) {
+    const highPair = Math.max(grouped[0].rank, grouped[1].rank);
+    const lowPair = Math.min(grouped[0].rank, grouped[1].rank);
+    const kicker = grouped[2]?.rank ?? 0;
+
+    return {
+      category: "TWO_PAIR",
+      categoryValue: CATEGORY_VALUE_BY_NAME.TWO_PAIR,
+      label: `Two pair, ${RANK_PLURAL_BY_VALUE[highPair]} and ${RANK_PLURAL_BY_VALUE[lowPair]}`,
+      comparisonValues: [highPair, lowPair, kicker],
+      bestFiveCards: orderCardsByRanks(cards, [highPair, highPair, lowPair, lowPair, kicker])
+    };
+  }
+
+  if (grouped[0]?.count === 2) {
+    const pairRank = grouped[0].rank;
+    const kickers = grouped
+      .slice(1)
+      .map((group) => group.rank)
+      .sort((left, right) => right - left);
+
+    return {
+      category: "ONE_PAIR",
+      categoryValue: CATEGORY_VALUE_BY_NAME.ONE_PAIR,
+      label: `One pair, ${RANK_PLURAL_BY_VALUE[pairRank]}`,
+      comparisonValues: [pairRank, ...kickers],
+      bestFiveCards: orderCardsByRanks(cards, [pairRank, pairRank, ...kickers])
+    };
+  }
+
+  return {
+    category: "HIGH_CARD",
+    categoryValue: CATEGORY_VALUE_BY_NAME.HIGH_CARD,
+    label: `${RANK_NAME_BY_VALUE[ranks[0] ?? 0]} high`,
+    comparisonValues: ranks,
+    bestFiveCards: orderCardsByRanks(cards, ranks)
+  };
+}
+
+function evaluateSevenCardHand(
+  cards: [CardCode, CardCode, CardCode, CardCode, CardCode, CardCode, CardCode]
+) {
+  let bestHand: EvaluatedHand | undefined;
+
+  for (let a = 0; a < cards.length - 4; a += 1) {
+    for (let b = a + 1; b < cards.length - 3; b += 1) {
+      for (let c = b + 1; c < cards.length - 2; c += 1) {
+        for (let d = c + 1; d < cards.length - 1; d += 1) {
+          for (let e = d + 1; e < cards.length; e += 1) {
+            const nextHand = evaluateFiveCardHand([
+              cards[a],
+              cards[b],
+              cards[c],
+              cards[d],
+              cards[e]
+            ]);
+
+            if (!bestHand || compareEvaluatedHands(nextHand, bestHand) > 0) {
+              bestHand = nextHand;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (!bestHand) {
+    throw new Error("Unable to evaluate a showdown hand.");
+  }
+
+  return bestHand;
+}
+
+function buildSettlementPots(players: HoldemSettlementPlayerState[], seatOrder: number[]) {
+  const contributors = players.filter((player) => player.totalCommitted > 0);
+  const contributionLevels = [...new Set(contributors.map((player) => player.totalCommitted))].sort(
+    (left, right) => left - right
+  );
+  const pots: Array<
+    Omit<
+      HoldemSettlementPot,
+      "rakeApplied" | "winnerSeatIndexes" | "oddChipSeatIndexes" | "awards"
+    >
+  > = [];
+  let previousLevel = 0;
+
+  for (const level of contributionLevels) {
+    const potContributors = contributors.filter((player) => player.totalCommitted >= level);
+    const amount = (level - previousLevel) * potContributors.length;
+
+    if (amount > 0) {
+      pots.push({
+        potIndex: pots.length,
+        potType: pots.length === 0 ? "MAIN" : "SIDE",
+        capLevel: level,
+        amount,
+        contributorSeatIndexes: sortSeatIndexesBySeatOrder(
+          potContributors.map((player) => player.seatIndex),
+          seatOrder
+        ),
+        eligibleSeatIndexes: sortSeatIndexesBySeatOrder(
+          potContributors
+            .filter((player) => player.status !== "FOLDED")
+            .map((player) => player.seatIndex),
+          seatOrder
+        )
+      });
+    }
+
+    previousLevel = level;
+  }
+
+  return pots;
+}
+
+function getOddChipRecipients(
+  winnerSeatIndexes: number[],
+  oddChipCount: number,
+  buttonSeatIndex: number | undefined,
+  seatOrder: number[]
+) {
+  if (oddChipCount <= 0 || winnerSeatIndexes.length === 0) {
+    return [];
+  }
+
+  const clockwiseSeatOrder =
+    buttonSeatIndex === undefined
+      ? [...seatOrder]
+      : getClockwiseSeatOrderFrom(buttonSeatIndex, seatOrder).slice(1).concat(buttonSeatIndex);
+  const orderedWinners = sortSeatIndexesBySeatOrder(
+    winnerSeatIndexes,
+    clockwiseSeatOrder.filter((seatIndex) => seatOrder.includes(seatIndex))
+  );
+
+  return orderedWinners.slice(0, oddChipCount);
+}
+
+function createPotAwards(
+  potAmount: number,
+  winnerSeatIndexes: number[],
+  buttonSeatIndex: number | undefined,
+  seatOrder: number[],
+  participantsBySeat: Map<number, HoldemSettlementPlayerState>
+) {
+  if (winnerSeatIndexes.length === 0) {
+    throw new Error("Settlement cannot split a pot without winners.");
+  }
+
+  const amountPerWinner = Math.floor(potAmount / winnerSeatIndexes.length);
+  const oddChipCount = potAmount % winnerSeatIndexes.length;
+  const oddChipSeatIndexes = getOddChipRecipients(
+    winnerSeatIndexes,
+    oddChipCount,
+    buttonSeatIndex,
+    seatOrder
+  );
+  const awards = sortSeatIndexesBySeatOrder(winnerSeatIndexes, seatOrder).map((seatIndex) => ({
+    seatIndex,
+    participantId: participantsBySeat.get(seatIndex)?.participantId ?? "",
+    amount: amountPerWinner + (oddChipSeatIndexes.includes(seatIndex) ? 1 : 0)
+  }));
+
+  return { awards, oddChipSeatIndexes };
+}
+
+export function settleHoldemHand(
+  input: HoldemSettlementInput,
+  options: {
+    oddChipRule?: HoldemOddChipRule;
+    rakeConfig?: HoldemRakeConfig;
+  } = {}
+): HoldemHandSettlement {
+  const oddChipRule = options.oddChipRule ?? "LEFT_OF_BUTTON";
+  const rakeConfig = normalizeRakeConfig(
+    options.rakeConfig ?? {
+      enabled: false,
+      percent: 0,
+      cap: 0,
+      mode: "PER_HAND"
+    }
+  );
+  const participantsBySeat = new Map(input.players.map((player) => [player.seatIndex, player]));
+  const showdownResults =
+    input.board.length === 5
+      ? sortSeatIndexesBySeatOrder(
+          input.players
+            .filter((player) => player.status !== "FOLDED" && player.totalCommitted > 0)
+            .map((player) => player.seatIndex),
+          input.seatOrder
+        ).map((seatIndex) => {
+          const player = participantsBySeat.get(seatIndex);
+
+          if (!player) {
+            throw new Error("Showdown player disappeared during settlement.");
+          }
+
+          const rank = evaluateSevenCardHand([
+            player.holeCards[0],
+            player.holeCards[1],
+            input.board[0]!,
+            input.board[1]!,
+            input.board[2]!,
+            input.board[3]!,
+            input.board[4]!
+          ]);
+
+          return {
+            seatIndex: player.seatIndex,
+            participantId: player.participantId,
+            holeCards: player.holeCards,
+            rank: {
+              category: rank.category,
+              label: rank.label,
+              comparisonValues: rank.comparisonValues,
+              bestFiveCards: rank.bestFiveCards
+            }
+          } satisfies HoldemShowdownResult;
+        })
+      : [];
+  const showdownBySeat = new Map(showdownResults.map((result) => [result.seatIndex, result]));
+  const builtPots = buildSettlementPots(input.players, input.seatOrder);
+  const payoutBySeat = new Map<number, number>();
+  const pots: HoldemSettlementPot[] = [];
+  let remainingRakeCap = rakeConfig.enabled ? rakeConfig.cap : 0;
+  let totalRake = 0;
+  const awardedByFold = input.winnerByFoldSeatIndex !== undefined;
+
+  for (const builtPot of builtPots) {
+    let winnerSeatIndexes: number[] = [];
+
+    if (awardedByFold) {
+      winnerSeatIndexes = builtPot.eligibleSeatIndexes.includes(input.winnerByFoldSeatIndex!)
+        ? [input.winnerByFoldSeatIndex!]
+        : builtPot.eligibleSeatIndexes.slice(0, 1);
+    } else {
+      const eligibleShowdowns = builtPot.eligibleSeatIndexes
+        .map((seatIndex) => showdownBySeat.get(seatIndex))
+        .filter((result): result is HoldemShowdownResult => Boolean(result));
+      const bestResult = eligibleShowdowns.reduce<HoldemShowdownResult | undefined>(
+        (best, candidate) => {
+          if (!best) {
+            return candidate;
+          }
+
+          return comparePublicRanks(candidate.rank, best.rank) > 0 ? candidate : best;
+        },
+        undefined
+      );
+
+      winnerSeatIndexes = eligibleShowdowns
+        .filter((result) => bestResult && comparePublicRanks(result.rank, bestResult.rank) === 0)
+        .map((result) => result.seatIndex);
+    }
+
+    winnerSeatIndexes = sortSeatIndexesBySeatOrder(winnerSeatIndexes, input.seatOrder);
+
+    const rawRake =
+      rakeConfig.enabled && remainingRakeCap > 0
+        ? Math.min(Math.floor((builtPot.amount * rakeConfig.percent) / 100), remainingRakeCap)
+        : 0;
+    const rakeApplied = Math.max(0, Math.min(rawRake, builtPot.amount));
+    remainingRakeCap -= rakeApplied;
+    totalRake += rakeApplied;
+
+    const { awards, oddChipSeatIndexes } = createPotAwards(
+      builtPot.amount - rakeApplied,
+      winnerSeatIndexes,
+      input.buttonSeatIndex,
+      input.seatOrder,
+      participantsBySeat
+    );
+
+    for (const award of awards) {
+      payoutBySeat.set(award.seatIndex, (payoutBySeat.get(award.seatIndex) ?? 0) + award.amount);
+    }
+
+    pots.push({
+      ...builtPot,
+      rakeApplied,
+      winnerSeatIndexes,
+      oddChipSeatIndexes,
+      awards
+    });
+  }
+
+  const playerResults = sortSeatIndexesBySeatOrder(
+    input.players.map((player) => player.seatIndex),
+    input.seatOrder
+  ).map((seatIndex) => {
+    const player = participantsBySeat.get(seatIndex);
+
+    if (!player) {
+      throw new Error("Settlement player disappeared.");
+    }
+
+    const won = payoutBySeat.get(seatIndex) ?? 0;
+    const finalStack = player.stack + won;
+
+    return {
+      seatIndex,
+      participantId: player.participantId,
+      contributed: player.totalCommitted,
+      won,
+      finalStack,
+      netResult: finalStack - player.startingStack
+    } satisfies HoldemSettlementPlayerResult;
+  });
+
+  return {
+    handId: input.handId,
+    handNumber: input.handNumber,
+    oddChipRule,
+    rakeConfig,
+    totalPot: input.potTotal,
+    totalRake,
+    awardedByFold,
+    showdownResults,
+    pots,
+    playerResults
+  };
+}

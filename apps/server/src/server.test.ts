@@ -456,6 +456,96 @@ describe("phase 02 and phase 03 room flow", () => {
     });
   });
 
+  it("stores settled hand history and serves JSON and text transcript exports", async () => {
+    const adminCookieHeader = await createAdminCookieHeader();
+    const room = await createRoom(adminCookieHeader, {});
+    const alpha = await joinRoom(room.room.code, "AlphaHistory");
+    const bravo = await joinRoom(room.room.code, "BravoHistory");
+
+    await reserveSeat(room.room.roomId, 0, alpha.cookieHeader);
+    await reserveSeat(room.room.roomId, 1, bravo.cookieHeader);
+    await commitBuyIn(room.room.roomId, 0, 5000, alpha.cookieHeader, "history-alpha-buyin-1");
+    await commitBuyIn(room.room.roomId, 1, 5000, bravo.cookieHeader, "history-bravo-buyin-1");
+
+    const alphaActor = alpha.response.json().actor;
+    const bravoActor = bravo.response.json().actor;
+
+    state.playerReady(room.room.roomId, alphaActor, 0);
+    state.playerReady(room.room.roomId, bravoActor, 1);
+
+    const liveSnapshot = state.getRoomRealtimeSnapshot(room.room.roomId, alphaActor);
+
+    expect(liveSnapshot.activeHand?.handId).toBeTruthy();
+
+    await state.submitAction(room.room.roomId, alphaActor, {
+      handId: liveSnapshot.activeHand?.handId ?? "",
+      seqExpectation: liveSnapshot.activeHand?.handSeq ?? 0,
+      idempotencyKey: "history-alpha-fold-1",
+      actionType: "FOLD"
+    });
+
+    const listResponse = await app.inject({
+      method: "GET",
+      url: `/api/rooms/${room.room.roomId}/hands`,
+      headers: { cookie: adminCookieHeader }
+    });
+
+    expect(listResponse.statusCode).toBe(200);
+    expect(listResponse.json()).toMatchObject({
+      items: [
+        {
+          roomId: room.room.roomId,
+          handNumber: expect.any(Number),
+          totalPot: 150
+        }
+      ],
+      nextCursor: null
+    });
+
+    const handId = listResponse.json().items[0]?.handId as string;
+
+    const transcriptResponse = await app.inject({
+      method: "GET",
+      url: `/api/hands/${handId}`,
+      headers: { cookie: adminCookieHeader }
+    });
+
+    expect(transcriptResponse.statusCode).toBe(200);
+    expect(transcriptResponse.json()).toMatchObject({
+      handId,
+      roomId: room.room.roomId,
+      settlement: {
+        awardedByFold: true,
+        totalPot: 150
+      },
+      ledgerEntries: [
+        {
+          type: "HAND_PAYOUT",
+          delta: 150
+        }
+      ]
+    });
+
+    const exportJsonResponse = await app.inject({
+      method: "GET",
+      url: `/api/hands/${handId}/export.json`,
+      headers: { cookie: adminCookieHeader }
+    });
+
+    expect(exportJsonResponse.statusCode).toBe(200);
+    expect(exportJsonResponse.json().handId).toBe(handId);
+
+    const exportTextResponse = await app.inject({
+      method: "GET",
+      url: `/api/hands/${handId}/export.txt`,
+      headers: { cookie: adminCookieHeader }
+    });
+
+    expect(exportTextResponse.statusCode).toBe(200);
+    expect(exportTextResponse.body).toContain("PotLuck Hand Transcript");
+    expect(exportTextResponse.body).toContain(handId);
+  });
+
   it("leaves the seat unchanged when ledger commit fails", async () => {
     const failingState = createAppState({
       onLedgerEntryCommitted() {
@@ -535,6 +625,98 @@ describe("phase 02 and phase 03 room flow", () => {
         status: "RESERVED"
       });
       expect("stack" in reservedSeat).toBe(false);
+    } finally {
+      await failingApp.close();
+    }
+  });
+
+  it("pauses the room and keeps payouts hidden when settlement commit fails", async () => {
+    const failingState = createAppState({
+      onLedgerEntriesCommitted(entries) {
+        if (entries.some((entry) => entry.type === "HAND_PAYOUT" || entry.type === "RAKE")) {
+          throw new Error("settlement write failed");
+        }
+      }
+    });
+    const failingApp = buildServer({
+      env: {
+        NODE_ENV: "test",
+        PORT: "3001",
+        APP_ORIGIN: "http://localhost:3000",
+        DATABASE_URL: "postgresql://user:pass@localhost:5432/potluck?sslmode=require",
+        DIRECT_DATABASE_URL: "postgresql://user:pass@localhost:5432/potluck?sslmode=require",
+        SESSION_SIGNING_SECRET: "session-session-session-session-session",
+        GUEST_SESSION_SIGNING_SECRET: "guest-guest-guest-guest-guest-guest",
+        ADMIN_OTP_SIGNING_SECRET: "otp-otp-otp-otp-otp-otp-otp-otp-otp",
+        COOKIE_SECRET: "cookie-cookie-cookie-cookie-cookie-cookie",
+        RESEND_API_KEY: "re_dummy_resend_api_key",
+        RESEND_FROM_EMAIL: "PotLuck Sandbox <onboarding@resend.dev>",
+        REDIS_URL: "redis://default:dummy-password@localhost:6379",
+        SENTRY_DSN: "https://examplePublicKey@o0.ingest.sentry.io/0",
+        SENTRY_AUTH_TOKEN: "sntrys_dummy_auth_token",
+        OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp",
+        OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic ZHVtbXktaW5zdGFuY2U6ZHVtbXktdG9rZW4="
+      },
+      emailAdapter,
+      state: failingState
+    });
+
+    await failingApp.ready();
+
+    try {
+      const adminCookieHeader = await createAdminCookieHeader(
+        `host-${Date.now()}-settlement@example.com`,
+        failingApp
+      );
+      const room = await createRoom(adminCookieHeader, {}, failingApp);
+      const alpha = await joinRoom(room.room.code, "AlphaPause", "PLAYER", failingApp);
+      const bravo = await joinRoom(room.room.code, "BravoPause", "PLAYER", failingApp);
+
+      await reserveSeat(room.room.roomId, 0, alpha.cookieHeader, failingApp);
+      await reserveSeat(room.room.roomId, 1, bravo.cookieHeader, failingApp);
+      await commitBuyIn(room.room.roomId, 0, 5000, alpha.cookieHeader, "pause-alpha-buyin-1", failingApp);
+      await commitBuyIn(room.room.roomId, 1, 5000, bravo.cookieHeader, "pause-bravo-buyin-1", failingApp);
+
+      const alphaActor = alpha.response.json().actor;
+      const bravoActor = bravo.response.json().actor;
+
+      failingState.playerReady(room.room.roomId, alphaActor, 0);
+      failingState.playerReady(room.room.roomId, bravoActor, 1);
+
+      const liveSnapshot = failingState.getRoomRealtimeSnapshot(room.room.roomId, alphaActor);
+
+      await failingState.submitAction(room.room.roomId, alphaActor, {
+        handId: liveSnapshot.activeHand?.handId ?? "",
+        seqExpectation: liveSnapshot.activeHand?.handSeq ?? 0,
+        idempotencyKey: "pause-alpha-fold-1",
+        actionType: "FOLD"
+      });
+
+      const pausedSnapshot = failingState.getRoomRealtimeSnapshot(room.room.roomId, alphaActor);
+      const winnerSeat = pausedSnapshot.seats.find((seat) => seat.seatIndex === 1);
+
+      expect(pausedSnapshot.room.status).toBe("PAUSED");
+      expect(pausedSnapshot.tablePhase).toBe("HAND_ACTIVE");
+      expect(pausedSnapshot.activeHand?.handId).toBe(liveSnapshot.activeHand?.handId);
+      expect(pausedSnapshot.pausedReason).toContain("Settlement could not be committed");
+      expect(winnerSeat?.stack).toBe(4900);
+      expect(
+        failingState
+          .getLedgerEntries(room.room.roomId)
+          .every((entry) => entry.type !== "HAND_PAYOUT" && entry.type !== "RAKE")
+      ).toBe(true);
+
+      const historyListResponse = await failingApp.inject({
+        method: "GET",
+        url: `/api/rooms/${room.room.roomId}/hands`,
+        headers: { cookie: adminCookieHeader }
+      });
+
+      expect(historyListResponse.statusCode).toBe(200);
+      expect(historyListResponse.json()).toEqual({
+        items: [],
+        nextCursor: null
+      });
     } finally {
       await failingApp.close();
     }
