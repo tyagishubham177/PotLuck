@@ -52,6 +52,7 @@ export function createRoomRealtimeSnapshotFixture() {
       code: "FIXED1",
       tableName: "Fixture Table",
       status: "OPEN",
+      joinLocked: false,
       maxSeats: 2,
       openSeatCount: 0,
       reservedSeatCount: 0,

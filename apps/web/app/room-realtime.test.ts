@@ -25,6 +25,7 @@ describe("room realtime helpers", () => {
         code: "DEMO42",
         tableName: "Realtime Table",
         status: "OPEN",
+        joinLocked: false,
         maxSeats: 2,
         openSeatCount: 0,
         reservedSeatCount: 0,

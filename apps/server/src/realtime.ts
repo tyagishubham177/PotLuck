@@ -145,60 +145,77 @@ export function attachRealtimeGateway(
     const bindRoom = (roomId: string) => {
       context.unsubscribe?.();
       context.unsubscribe = state.subscribeToRoomEvents(roomId, (event) => {
-        if (event.type === "ROOM_DIFF") {
-          const diff = state.buildRoomRealtimeDiff(roomId, context.actor, event.changed);
+        try {
+          if (event.type === "ROOM_DIFF") {
+            const diff = state.buildRoomRealtimeDiff(roomId, context.actor, event.changed);
 
-          sendMessage(socket, {
-            type: "ROOM_DIFF",
-            roomId,
-            roomEventNo: event.roomEventNo,
-            handId: event.handId,
-            handSeq: event.handSeq,
-            diff
-          });
-          sendPrivateState(roomId);
-          return;
-        }
+            sendMessage(socket, {
+              type: "ROOM_DIFF",
+              roomId,
+              roomEventNo: event.roomEventNo,
+              handId: event.handId,
+              handSeq: event.handSeq,
+              diff
+            });
+            sendPrivateState(roomId);
+            return;
+          }
 
-        if (event.type === "HAND_STARTED") {
-          sendMessage(socket, event);
-          sendPrivateState(roomId);
-          return;
-        }
+          if (event.type === "HAND_STARTED") {
+            sendMessage(socket, event);
+            sendPrivateState(roomId);
+            return;
+          }
 
-        if (
-          event.type === "STREET_ADVANCED" ||
-          event.type === "SHOWDOWN_TRIGGERED" ||
-          event.type === "SHOWDOWN_RESULT" ||
-          event.type === "SETTLEMENT_POSTED"
-        ) {
-          sendMessage(socket, event);
-          sendPrivateState(roomId);
-          return;
-        }
+          if (
+            event.type === "STREET_ADVANCED" ||
+            event.type === "SHOWDOWN_TRIGGERED" ||
+            event.type === "SHOWDOWN_RESULT" ||
+            event.type === "SETTLEMENT_POSTED"
+          ) {
+            sendMessage(socket, event);
+            sendPrivateState(roomId);
+            return;
+          }
 
-        if (event.type === "TURN_STARTED" || event.type === "TURN_WARNING") {
-          sendMessage(socket, event);
-          sendPrivateState(roomId);
-          return;
-        }
+          if (event.type === "TURN_STARTED" || event.type === "TURN_WARNING") {
+            sendMessage(socket, event);
+            sendPrivateState(roomId);
+            return;
+          }
 
-        if (event.type === "ACTION_ACCEPTED") {
-          if (context.actor.role === "GUEST" && context.actor.guestId === event.participantId) {
+          if (event.type === "ACTION_ACCEPTED") {
+            if (context.actor.role === "GUEST" && context.actor.guestId === event.participantId) {
+              sendMessage(socket, event);
+              sendPrivateState(roomId);
+            }
+
+            return;
+          }
+
+          if (
+            event.type === "PLAYER_DISCONNECTED" ||
+            event.type === "PLAYER_RECONNECTED" ||
+            event.type === "ROOM_PAUSED" ||
+            event.type === "MODERATION_APPLIED"
+          ) {
             sendMessage(socket, event);
             sendPrivateState(roomId);
           }
+        } catch (error) {
+          if (error instanceof AppError) {
+            sendServerError(socket, error.code, error.message, roomId);
 
-          return;
-        }
+            if (
+              error.code === "ERR_AUTH_REQUIRED" ||
+              error.code === "ERR_FORBIDDEN"
+            ) {
+              socket.close(4003, error.message);
+            }
+            return;
+          }
 
-        if (
-          event.type === "PLAYER_DISCONNECTED" ||
-          event.type === "PLAYER_RECONNECTED" ||
-          event.type === "ROOM_PAUSED"
-        ) {
-          sendMessage(socket, event);
-          sendPrivateState(roomId);
+          throw error;
         }
       });
       context.roomId = roomId;

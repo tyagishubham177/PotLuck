@@ -10,21 +10,27 @@ import {
   authStatusResponseSchema,
   buyInResponseSchema,
   buyInQuoteResponseSchema,
+  handHistoryListResponseSchema,
+  handTranscriptSchema,
   joinRoomResponseSchema,
   lobbySnapshotSchema,
   logoutResponseSchema,
   queueJoinResponseSchema,
   rebuyResponseSchema,
   realtimeServerMessageSchema,
+  roomConfigUpdateResponseSchema,
   roomCreateResponseSchema,
+  roomModerationResponseSchema,
   roomRealtimeSnapshotSchema,
   roomPublicSummarySchema,
   roomPrivateStateSchema,
   seatReservationResponseSchema,
   topUpResponseSchema,
   type AuthActor,
+  type HandHistorySummary,
   type HandTranscript,
   type LobbySnapshot,
+  type ModerationRecord,
   type RoomConfig,
   type RoomJoinMode,
   type RoomPrivateState,
@@ -271,6 +277,12 @@ export function PhaseTwoShell({
   const [showdownResult, setShowdownResult] = useState<ShowdownResultEvent | null>(null);
   const [settlementPosted, setSettlementPosted] = useState<SettlementPostedEvent | null>(null);
   const [handHistory, setHandHistory] = useState<HandTranscript | null>(null);
+  const [historyItems, setHistoryItems] = useState<HandHistorySummary[]>([]);
+  const [historyNextCursor, setHistoryNextCursor] = useState<string | null>(null);
+  const [historyFeedback, setHistoryFeedback] = useState<ProcessFeedback | null>(null);
+  const [adminFeedback, setAdminFeedback] = useState<ProcessFeedback | null>(null);
+  const [adminActionReason, setAdminActionReason] = useState("");
+  const [latestModeration, setLatestModeration] = useState<ModerationRecord | null>(null);
   const authStateRef = useRef<AuthState>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -306,6 +318,11 @@ export function PhaseTwoShell({
     setShowdownResult(null);
     setSettlementPosted(null);
     setHandHistory(null);
+    setHistoryItems([]);
+    setHistoryNextCursor(null);
+    setHistoryFeedback(null);
+    setAdminFeedback(null);
+    setLatestModeration(null);
 
     if (options.keepRoomCode !== undefined) {
       setRoomCode(options.keepRoomCode);
@@ -632,6 +649,15 @@ export function PhaseTwoShell({
             return;
           }
 
+          if (message.type === "MODERATION_APPLIED") {
+            setLatestModeration(message.moderation);
+            setSocketFeedback({
+              tone: "success",
+              message: message.moderation.message
+            });
+            return;
+          }
+
           if (message.type === "SERVER_ERROR") {
             setSocketFeedback({
               tone: "error",
@@ -646,12 +672,22 @@ export function PhaseTwoShell({
         }
       });
 
-      socket.addEventListener("close", () => {
+      socket.addEventListener("close", (closeEvent) => {
         if (socketRef.current === socket) {
           socketRef.current = null;
         }
 
         if (disposed) {
+          return;
+        }
+
+        if (closeEvent.code === 4003) {
+          setSocketStatus("error");
+          setSocketFeedback({
+            tone: "error",
+            message: "This room session is no longer active."
+          });
+          void synchronizeAuthState();
           return;
         }
 
@@ -810,6 +846,24 @@ export function PhaseTwoShell({
     setStackAmount((current) => current || String(stackControlQuote.minChips));
   }, [stackControlQuote?.minChips]);
 
+  useEffect(() => {
+    const configSource = liveSnapshot?.config ?? lobbySnapshot?.config;
+
+    if (!configSource) {
+      return;
+    }
+
+    setRoomForm(configSource);
+  }, [liveSnapshot?.config, lobbySnapshot?.config]);
+
+  useEffect(() => {
+    if (!authState || !activeRoomId) {
+      return;
+    }
+
+    handleLoadHistoryList();
+  }, [activeRoomId, authState?.session.sessionId]);
+
   const activeCallAmount = actionAffordances?.callAmount ?? 0;
   const sizingAmount = clampActionAmount(Number(betAmount), actionAffordances);
   const settlementSummary = settlementPosted?.settlement ?? null;
@@ -836,9 +890,36 @@ export function PhaseTwoShell({
     : socketStatus === "reconnecting"
       ? "Trying to resume the live room stream."
       : null;
+  const isAdmin = authState?.actor.role === "ADMIN";
+  const isSpectatorSession =
+    authState?.actor.role === "GUEST" && authState.actor.mode === "SPECTATOR";
+  const lockedNotice = liveSnapshot?.room.joinLocked
+    ? "New joins are locked right now. Existing seated players can finish normally."
+    : null;
 
   function updateRoomForm<K extends keyof RoomConfig>(key: K, value: RoomConfig[K]) {
     setRoomForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function applyAuthoritativeSnapshot(snapshot: RoomRealtimeSnapshot) {
+    setLiveSnapshot(snapshot);
+    setRoomPreview(snapshot.room);
+    setLobbySnapshot((current) =>
+      current
+        ? {
+            ...current,
+            room: snapshot.room,
+            config: snapshot.config,
+            seats: snapshot.seats,
+            waitingList: snapshot.waitingList,
+            participants: snapshot.participants,
+            buyInQuote: snapshot.buyInQuote,
+            heroParticipantId: snapshot.heroParticipantId,
+            heroSeatIndex: snapshot.heroSeatIndex,
+            canJoinWaitingList: snapshot.canJoinWaitingList
+          }
+        : current
+    );
   }
 
   function resetTransientFeedback() {
@@ -1019,6 +1100,239 @@ export function PhaseTwoShell({
       roomId: activeRoomId,
       handId: settlementSummary.handId
     });
+  }
+
+  function handleLoadHistoryList(options: { cursor?: string; append?: boolean } = {}) {
+    if (!activeRoomId || !authState) {
+      return;
+    }
+
+    setHistoryFeedback({
+      tone: "pending",
+      message: options.append ? "Loading older hands." : "Loading hand history."
+    });
+
+    const query = options.cursor ? `?cursor=${encodeURIComponent(options.cursor)}` : "";
+
+    void (async () => {
+      try {
+        const response = await apiRequest(
+          serverOrigin,
+          `/api/rooms/${activeRoomId}/hands${query}`,
+          handHistoryListResponseSchema
+        );
+
+        setHistoryItems((current) =>
+          options.append ? [...current, ...response.items] : response.items
+        );
+        setHistoryNextCursor(response.nextCursor);
+        setHistoryFeedback({
+          tone: "success",
+          message: response.items.length
+            ? `Loaded ${response.items.length} hand history entr${response.items.length === 1 ? "y" : "ies"}.`
+            : "No completed hands yet."
+        });
+      } catch (error) {
+        setHistoryFeedback({ tone: "error", message: createErrorMessage(error) });
+      }
+    })();
+  }
+
+  function handleLoadHandTranscript(handId: string) {
+    setHistoryFeedback({
+      tone: "pending",
+      message: `Loading transcript ${handId}.`
+    });
+
+    void (async () => {
+      try {
+        const transcript = await apiRequest(
+          serverOrigin,
+          `/api/hands/${handId}`,
+          handTranscriptSchema
+        );
+        setHandHistory(transcript);
+        setHistoryFeedback({
+          tone: "success",
+          message: `Transcript ${handId} loaded.`
+        });
+      } catch (error) {
+        setHistoryFeedback({ tone: "error", message: createErrorMessage(error) });
+      }
+    })();
+  }
+
+  function handleExportHand(handId: string, format: "json" | "txt") {
+    window.open(`${serverOrigin}/api/hands/${handId}/export.${format}`, "_blank", "noopener,noreferrer");
+  }
+
+  function handlePauseResumeRoom(nextAction: "pause" | "resume") {
+    if (!activeRoomId || !isAdmin) {
+      return;
+    }
+
+    setAdminFeedback({
+      tone: "pending",
+      message: nextAction === "pause" ? "Pausing the room." : "Resuming the room."
+    });
+
+    void (async () => {
+      try {
+        const path = `/api/rooms/${activeRoomId}/${nextAction}`;
+        const snapshot = await apiRequest(
+          serverOrigin,
+          path,
+          roomRealtimeSnapshotSchema,
+          {
+            method: "POST",
+            body:
+              nextAction === "pause"
+                ? JSON.stringify({
+                    reason:
+                      adminActionReason.trim() || "Room manually paused by the admin."
+                  })
+                : undefined
+          }
+        );
+
+        applyAuthoritativeSnapshot(snapshot);
+        setAdminFeedback({
+          tone: "success",
+          message:
+            nextAction === "pause"
+              ? snapshot.pausedReason ?? "Room paused."
+              : "Room resumed and ready for the next safe transition."
+        });
+      } catch (error) {
+        setAdminFeedback({ tone: "error", message: createErrorMessage(error) });
+      }
+    })();
+  }
+
+  function handleToggleJoinLock(locked: boolean) {
+    if (!activeRoomId || !isAdmin) {
+      return;
+    }
+
+    setAdminFeedback({
+      tone: "pending",
+      message: locked ? "Locking the room to new joins." : "Unlocking the room."
+    });
+
+    void (async () => {
+      try {
+        const response = await apiRequest(
+          serverOrigin,
+          `/api/rooms/${activeRoomId}/lock`,
+          roomModerationResponseSchema,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              locked,
+              reason: adminActionReason.trim() || undefined
+            })
+          }
+        );
+
+        applyAuthoritativeSnapshot(response.snapshot);
+        setLatestModeration(response.moderation);
+        setAdminFeedback({
+          tone: "success",
+          message: response.moderation.message
+        });
+      } catch (error) {
+        setAdminFeedback({ tone: "error", message: createErrorMessage(error) });
+      }
+    })();
+  }
+
+  function handleSaveRoomConfig() {
+    if (!activeRoomId || !isAdmin) {
+      return;
+    }
+
+    setAdminFeedback({
+      tone: "pending",
+      message: "Saving between-hand room settings."
+    });
+
+    void (async () => {
+      try {
+        const response = await apiRequest(
+          serverOrigin,
+          `/api/rooms/${activeRoomId}/config`,
+          roomConfigUpdateResponseSchema,
+          {
+            method: "PATCH",
+            body: JSON.stringify({
+              tableName: roomForm.tableName,
+              smallBlind: roomForm.smallBlind,
+              bigBlind: roomForm.bigBlind,
+              ante: roomForm.ante,
+              buyInMode: roomForm.buyInMode,
+              minBuyIn: roomForm.minBuyIn,
+              maxBuyIn: roomForm.maxBuyIn,
+              rakeEnabled: roomForm.rakeEnabled,
+              rakePercent: roomForm.rakePercent,
+              rakeCap: roomForm.rakeCap,
+              oddChipRule: roomForm.oddChipRule,
+              spectatorsAllowed: roomForm.spectatorsAllowed,
+              straddleAllowed: roomForm.straddleAllowed,
+              rebuyEnabled: roomForm.rebuyEnabled,
+              topUpEnabled: roomForm.topUpEnabled,
+              seatReservationTimeoutSeconds: roomForm.seatReservationTimeoutSeconds,
+              joinCodeExpiryMinutes: roomForm.joinCodeExpiryMinutes,
+              waitingListEnabled: roomForm.waitingListEnabled
+            })
+          }
+        );
+
+        applyAuthoritativeSnapshot(response.snapshot);
+        setAdminFeedback({
+          tone: "success",
+          message: "Room settings updated for the next hand."
+        });
+      } catch (error) {
+        setAdminFeedback({ tone: "error", message: createErrorMessage(error) });
+      }
+    })();
+  }
+
+  function handleKickParticipant(participantId: string, nicknameLabel: string) {
+    if (!activeRoomId || !isAdmin) {
+      return;
+    }
+
+    setAdminFeedback({
+      tone: "pending",
+      message: `Removing ${nicknameLabel} from the room.`
+    });
+
+    void (async () => {
+      try {
+        const response = await apiRequest(
+          serverOrigin,
+          `/api/rooms/${activeRoomId}/kick`,
+          roomModerationResponseSchema,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              participantId,
+              reason: adminActionReason.trim() || "Removed by the admin."
+            })
+          }
+        );
+
+        applyAuthoritativeSnapshot(response.snapshot);
+        setLatestModeration(response.moderation);
+        setAdminFeedback({
+          tone: "success",
+          message: response.moderation.message
+        });
+      } catch (error) {
+        setAdminFeedback({ tone: "error", message: createErrorMessage(error) });
+      }
+    })();
   }
 
   function handleRequestOtp() {
@@ -1537,11 +1851,11 @@ export function PhaseTwoShell({
       <section className="player-table-shell">
         <article className="panel table-panel">
           <div className="panel-head">
-            <p className="eyebrow">Phase 07</p>
-            <h2>Player table</h2>
+            <p className="eyebrow">Phase 08</p>
+            <h2>Player table, admin controls, and history</h2>
             <p className="panel-copy">
-              Mobile-first seat ring, board rail, private pocket cards, and legal-action tray wired
-              to the live room actor.
+              Mobile-first seat ring, spectator-safe public state, admin moderation controls, and
+              history exports all wired to the live room actor.
             </p>
           </div>
 
@@ -1554,6 +1868,30 @@ export function PhaseTwoShell({
             <span className="table-pill">Phase {liveSnapshot?.tablePhase ?? "BETWEEN_HANDS"}</span>
           </div>
           <ProcessNotice feedback={socketFeedback} />
+          {liveSnapshot?.pausedReason ? (
+            <div className="incident-banner critical">
+              <strong>Room paused</strong>
+              <span>{liveSnapshot.pausedReason}</span>
+            </div>
+          ) : null}
+          {lockedNotice ? (
+            <div className="incident-banner warning">
+              <strong>Join lock</strong>
+              <span>{lockedNotice}</span>
+            </div>
+          ) : null}
+          {latestModeration ? (
+            <div className="incident-banner">
+              <strong>Latest moderation</strong>
+              <span>{latestModeration.message}</span>
+            </div>
+          ) : null}
+          {isSpectatorSession ? (
+            <div className="incident-banner info">
+              <strong>Spectator feed</strong>
+              <span>Private cards and action affordances stay hidden until the hand becomes public.</span>
+            </div>
+          ) : null}
 
           {liveSnapshot ? (
             <>
@@ -1665,7 +2003,13 @@ export function PhaseTwoShell({
               <div className="hero-pocket">
                 <div>
                   <p className="eyebrow">Private cards</p>
-                  <h3>{privateState?.holeCards?.length ? "Pocket cards live" : "Public-only state"}</h3>
+                  <h3>
+                    {isSpectatorSession
+                      ? "Spectator feed"
+                      : privateState?.holeCards?.length
+                        ? "Pocket cards live"
+                        : "Public-only state"}
+                  </h3>
                 </div>
                 <div className="hero-pocket-cards">
                   {privateState?.holeCards?.length ? (
@@ -1678,7 +2022,9 @@ export function PhaseTwoShell({
                   )}
                 </div>
                 <p className="panel-copy">
-                  {privateState?.holeCards?.length
+                  {isSpectatorSession
+                    ? "You are subscribed to the public table state only, so no hero-only data appears here."
+                    : privateState?.holeCards?.length
                     ? "These stay anchored near the player edge while public seats only show card backs."
                     : "Spectators and admins keep the same table layout without private information."}
                 </p>
@@ -1981,8 +2327,69 @@ export function PhaseTwoShell({
 
           <div className="info-block">
             <div className="panel-head compact">
+              <p className="eyebrow">History</p>
+              <h3>{historyItems.length} completed hands</h3>
+            </div>
+            <ProcessNotice feedback={historyFeedback} />
+            {historyItems.length ? (
+              <div className="history-list">
+                {historyItems.map((item) => (
+                  <button
+                    key={item.handId}
+                    className={`history-item${handHistory?.handId === item.handId ? " active" : ""}`}
+                    onClick={() => handleLoadHandTranscript(item.handId)}
+                    type="button"
+                  >
+                    <div className="history-item-head">
+                      <strong>Hand {item.handNumber}</strong>
+                      <span>{new Date(item.endedAt).toLocaleTimeString()}</span>
+                    </div>
+                    <small>{item.playerNames.join(", ")}</small>
+                    <div className="history-delta-row">
+                      {item.stackDeltas
+                        .slice()
+                        .sort((left, right) => right.netResult - left.netResult)
+                        .map((result) => (
+                          <span
+                            key={`${item.handId}-${result.participantId}`}
+                            className={result.netResult >= 0 ? "delta-positive" : "delta-negative"}
+                          >
+                            {result.nickname} {result.netResult >= 0 ? "+" : ""}
+                            {result.netResult.toLocaleString()}
+                          </span>
+                        ))}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="panel-copy">No completed hands yet. This list will fill as settlements finalize.</p>
+            )}
+            <div className="action-row">
+              <button className="secondary-button" onClick={() => handleLoadHistoryList()} type="button">
+                Refresh history
+              </button>
+              {historyNextCursor ? (
+                <button
+                  className="ghost-button"
+                  onClick={() => handleLoadHistoryList({ cursor: historyNextCursor, append: true })}
+                  type="button"
+                >
+                  Load more
+                </button>
+              ) : null}
+              {settlementSummary ? (
+                <button className="ghost-button" onClick={handleRequestLatestHistory} type="button">
+                  Latest via socket
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="info-block">
+            <div className="panel-head compact">
               <p className="eyebrow">Transcript</p>
-              <h3>{handHistory ? handHistory.handId : "Load the settled hand"}</h3>
+              <h3>{handHistory ? `Hand ${handHistory.handNumber}` : "Select a hand"}</h3>
             </div>
             {handHistory ? (
               <>
@@ -1998,10 +2405,24 @@ export function PhaseTwoShell({
                   <span>Audit events</span>
                   <strong>{handHistory.auditEvents.length}</strong>
                 </div>
+                <div className="info-row">
+                  <span>Total pot</span>
+                  <strong>{formatChips(handHistory.settlement.totalPot)}</strong>
+                </div>
+                <div className="history-detail-list">
+                  {handHistory.actions.map((action) => (
+                    <div key={`${handHistory.handId}-${action.seq}`} className="history-detail-row">
+                      <span>
+                        #{action.seq} Seat {action.seatIndex + 1} {action.actionType}
+                      </span>
+                      <strong>{formatChips(action.normalizedAmount ?? action.contributedAmount)}</strong>
+                    </div>
+                  ))}
+                </div>
               </>
             ) : (
               <p className="panel-copy">
-                Request the last settled hand transcript once payouts post.
+                Pick a completed hand to inspect the action stream, board, and settlement.
               </p>
             )}
             <div className="action-row">
@@ -2013,6 +2434,24 @@ export function PhaseTwoShell({
               >
                 Load transcript
               </button>
+              {handHistory ? (
+                <>
+                  <button
+                    className="ghost-button"
+                    onClick={() => handleExportHand(handHistory.handId, "json")}
+                    type="button"
+                  >
+                    Export JSON
+                  </button>
+                  <button
+                    className="ghost-button"
+                    onClick={() => handleExportHand(handHistory.handId, "txt")}
+                    type="button"
+                  >
+                    Export text
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -2024,15 +2463,26 @@ export function PhaseTwoShell({
             {liveSnapshot ? (
               <ul className="participant-list">
                 {liveSnapshot.participants.map((participant) => (
-                  <li key={participant.participantId}>
-                    <span>{participant.nickname}</span>
-                    <small>
-                      {participant.state}
-                      {participant.isReady ? " - Ready" : ""}
-                      {participant.isSittingOut ? " - Sitting out" : ""}
-                      {!participant.isConnected ? " - Disconnected" : ""}
-                      {participant.seatIndex !== undefined ? ` - Seat ${participant.seatIndex + 1}` : ""}
-                    </small>
+                  <li key={participant.participantId} className="participant-line">
+                    <div>
+                      <span>{participant.nickname}</span>
+                      <small>
+                        {participant.state}
+                        {participant.isReady ? " - Ready" : ""}
+                        {participant.isSittingOut ? " - Sitting out" : ""}
+                        {!participant.isConnected ? " - Disconnected" : ""}
+                        {participant.seatIndex !== undefined ? ` - Seat ${participant.seatIndex + 1}` : ""}
+                      </small>
+                    </div>
+                    {isAdmin ? (
+                      <button
+                        className="ghost-button compact-button"
+                        onClick={() => handleKickParticipant(participant.participantId, participant.nickname)}
+                        type="button"
+                      >
+                        Kick
+                      </button>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -2040,6 +2490,89 @@ export function PhaseTwoShell({
               <p className="panel-copy">The live participant rail will populate after room subscribe.</p>
             )}
           </div>
+
+          {isAdmin && liveSnapshot ? (
+            <div className="info-block">
+              <div className="panel-head compact">
+                <p className="eyebrow">Admin Console</p>
+                <h3>{liveSnapshot.room.joinLocked ? "Room locked to joins" : "Room open to joins"}</h3>
+              </div>
+              <label className="field">
+                <span>Reason / note</span>
+                <input
+                  onChange={(event) => setAdminActionReason(event.target.value)}
+                  value={adminActionReason}
+                />
+              </label>
+              <div className="tray-button-row">
+                <button
+                  className="secondary-button tray-action-button"
+                  onClick={() => handlePauseResumeRoom(liveSnapshot.room.status === "PAUSED" ? "resume" : "pause")}
+                  type="button"
+                >
+                  {liveSnapshot.room.status === "PAUSED" ? "Resume room" : "Pause room"}
+                </button>
+                <button
+                  className="ghost-button tray-action-button"
+                  onClick={() => handleToggleJoinLock(!liveSnapshot.room.joinLocked)}
+                  type="button"
+                >
+                  {liveSnapshot.room.joinLocked ? "Unlock joins" : "Lock joins"}
+                </button>
+                <button
+                  className="primary-button tray-action-button"
+                  onClick={handleSaveRoomConfig}
+                  type="button"
+                >
+                  Save config
+                </button>
+              </div>
+              <ProcessNotice feedback={adminFeedback} />
+              <p className="panel-copy">
+                Gameplay rules only update between hands. If a hand is active, the server will reject the edit with a timing note.
+              </p>
+              <div className="field-grid compact">
+                <label className="field">
+                  <span>Table name</span>
+                  <input value={roomForm.tableName} onChange={(event) => updateRoomForm("tableName", event.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Small blind</span>
+                  <input type="number" min={1} value={roomForm.smallBlind} onChange={(event) => updateRoomForm("smallBlind", Number(event.target.value))} />
+                </label>
+                <label className="field">
+                  <span>Big blind</span>
+                  <input type="number" min={1} value={roomForm.bigBlind} onChange={(event) => updateRoomForm("bigBlind", Number(event.target.value))} />
+                </label>
+                <label className="field">
+                  <span>Ante</span>
+                  <input type="number" min={0} value={roomForm.ante} onChange={(event) => updateRoomForm("ante", Number(event.target.value))} />
+                </label>
+                <label className="field">
+                  <span>Min buy-in</span>
+                  <input type="number" min={1} value={roomForm.minBuyIn} onChange={(event) => updateRoomForm("minBuyIn", Number(event.target.value))} />
+                </label>
+                <label className="field">
+                  <span>Max buy-in</span>
+                  <input type="number" min={1} value={roomForm.maxBuyIn} onChange={(event) => updateRoomForm("maxBuyIn", Number(event.target.value))} />
+                </label>
+              </div>
+              <div className="preset-row">
+                <button className={roomForm.spectatorsAllowed ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("spectatorsAllowed", !roomForm.spectatorsAllowed)} type="button">
+                  Spectators {roomForm.spectatorsAllowed ? "On" : "Off"}
+                </button>
+                <button className={roomForm.waitingListEnabled ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("waitingListEnabled", !roomForm.waitingListEnabled)} type="button">
+                  Waiting list {roomForm.waitingListEnabled ? "On" : "Off"}
+                </button>
+                <button className={roomForm.rebuyEnabled ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("rebuyEnabled", !roomForm.rebuyEnabled)} type="button">
+                  Rebuy {roomForm.rebuyEnabled ? "On" : "Off"}
+                </button>
+                <button className={roomForm.topUpEnabled ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("topUpEnabled", !roomForm.topUpEnabled)} type="button">
+                  Top-up {roomForm.topUpEnabled ? "On" : "Off"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </aside>
       </section>
     </main>

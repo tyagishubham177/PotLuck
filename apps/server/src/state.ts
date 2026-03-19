@@ -9,9 +9,11 @@ import {
   handSettlementSchema,
   handTranscriptSchema,
   lobbySnapshotSchema,
+  moderationRecordSchema,
   queueEntrySchema,
   rebuyResponseSchema,
   roomActionAffordancesSchema,
+  roomConfigPatchRequestSchema,
   roomConfigSchema,
   roomCreateResponseSchema,
   roomDiffPatchSchema,
@@ -27,8 +29,10 @@ import {
   type HandTranscript,
   type LedgerEntry,
   type LobbySnapshot,
+  type ModerationRecord,
   type RoomActionAffordances,
   type RoomConfig,
+  type RoomConfigPatchRequest,
   type RoomDiffPatch,
   type RoomJoinMode,
   type RoomPrivateState,
@@ -316,6 +320,12 @@ type RoomEvent =
       roomEventNo: number;
       reason: string;
       recoveryGuidance?: string;
+    }
+  | {
+      type: "MODERATION_APPLIED";
+      roomId: string;
+      roomEventNo: number;
+      moderation: ModerationRecord;
     };
 
 type RoomEventListener = (event: RoomEvent) => void;
@@ -331,6 +341,7 @@ type RoomRecord = {
   roomId: string;
   code: string;
   status: "CREATED" | "OPEN" | "PAUSED" | "CLOSED";
+  joinLocked: boolean;
   tablePhase: RoomTablePhase;
   adminId: string;
   config: RoomConfig;
@@ -827,12 +838,105 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     return room;
   }
 
+  function assertGuestHasRoomAccess(
+    room: RoomRecord,
+    actor: Extract<AuthActor, { role: "GUEST" }>
+  ) {
+    if (actor.roomId !== room.roomId) {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "This guest session is scoped to a different room.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    if (!room.participants.has(actor.guestId)) {
+      throw appError({
+        code: "ERR_AUTH_REQUIRED",
+        message: "This room session is no longer active.",
+        statusCode: 401,
+        retryable: true
+      });
+    }
+  }
+
+  function revokeParticipantSession(room: RoomRecord, participantId: string) {
+    const participant = room.participants.get(participantId);
+
+    if (!participant) {
+      return;
+    }
+
+    const session = sessions.get(participant.sessionId);
+
+    if (session) {
+      session.revokedAt = clock();
+    }
+  }
+
+  function assertAdminOwnsRoom(
+    room: RoomRecord,
+    actor: Extract<AuthActor, { role: "ADMIN" }>,
+    message: string
+  ) {
+    if (room.adminId !== actor.adminId) {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message,
+        statusCode: 403,
+        retryable: false
+      });
+    }
+  }
+
+  function createModerationRecord(
+    room: RoomRecord,
+    actor: Extract<AuthActor, { role: "ADMIN" }>,
+    input: Omit<ModerationRecord, "moderationId" | "roomId" | "adminId" | "appliedAt">
+  ) {
+    const moderation = moderationRecordSchema.parse({
+      moderationId: `moderation_${randomUUID()}`,
+      roomId: room.roomId,
+      adminId: actor.adminId,
+      appliedAt: toIso(clock()),
+      ...input
+    });
+
+    addAuditEvent({
+      type: "MODERATION_APPLIED",
+      roomId: room.roomId,
+      actorId: actor.adminId,
+      detail: moderation.message
+    });
+
+    return moderation;
+  }
+
+  function emitModerationApplied(
+    room: RoomRecord,
+    moderation: ModerationRecord,
+    changed: RoomPatchField[]
+  ) {
+    const roomEventNo = emitRoomRefresh(room, changed);
+
+    emitRoomEvent(room.roomId, {
+      type: "MODERATION_APPLIED",
+      roomId: room.roomId,
+      roomEventNo,
+      moderation
+    });
+
+    return roomEventNo;
+  }
+
   function toRoomSummary(room: RoomRecord) {
     return roomPublicSummarySchema.parse({
       roomId: room.roomId,
       code: room.code,
       tableName: room.config.tableName,
       status: room.status,
+      joinLocked: room.joinLocked,
       maxSeats: room.config.maxSeats,
       openSeatCount: room.seats.filter((seat) => seat.status === "EMPTY").length,
       reservedSeatCount: room.seats.filter((seat) => seat.status === "RESERVED").length,
@@ -1113,6 +1217,36 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         retryable: true
       });
     }
+  }
+
+  function assertRoomConfigEditable(room: RoomRecord) {
+    if (room.tablePhase === "HAND_ACTIVE") {
+      throw appError({
+        code: "ERR_CONFIG_EDIT_DURING_HAND",
+        message: "Room config can only be edited between hands.",
+        statusCode: 409,
+        retryable: true
+      });
+    }
+  }
+
+  function assertSeatedKickAllowed(room: RoomRecord, participantId: string) {
+    if (room.tablePhase !== "HAND_ACTIVE") {
+      return;
+    }
+
+    const seat = getParticipantSeat(room, participantId);
+
+    if (!seat) {
+      return;
+    }
+
+    throw appError({
+      code: "ERR_MODERATION_DURING_HAND",
+      message: "Seated players can only be removed between hands.",
+      statusCode: 409,
+      retryable: true
+    });
   }
 
   function getParticipantSeat(room: RoomRecord, participantId: string) {
@@ -1417,6 +1551,11 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         continue;
       }
 
+      if (field === "config") {
+        patch.config = snapshot.config;
+        continue;
+      }
+
       if (field === "seats") {
         patch.seats = snapshot.seats;
         continue;
@@ -1567,7 +1706,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     return auditEvents.filter((event) => event.handId === handId);
   }
 
-  function toHandHistorySummary(transcript: HandTranscript) {
+  function toHandHistorySummary(room: RoomRecord, transcript: HandTranscript) {
     return handHistorySummarySchema.parse({
       handId: transcript.handId,
       roomId: transcript.roomId,
@@ -1575,6 +1714,17 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       startedAt: transcript.startedAt,
       endedAt: transcript.endedAt,
       playerCount: transcript.contributions.length,
+      playerNames: transcript.settlement.playerResults.map(
+        (playerResult) =>
+          room.participants.get(playerResult.participantId)?.nickname ?? playerResult.participantId
+      ),
+      stackDeltas: transcript.settlement.playerResults.map((playerResult) => ({
+        seatIndex: playerResult.seatIndex,
+        participantId: playerResult.participantId,
+        nickname:
+          room.participants.get(playerResult.participantId)?.nickname ?? playerResult.participantId,
+        netResult: playerResult.netResult
+      })),
       totalPot: transcript.settlement.totalPot,
       totalRake: transcript.settlement.totalRake,
       board: transcript.board
@@ -1591,26 +1741,12 @@ export function createAppState(options: CreateAppStateOptions = {}) {
 
   function assertActorCanAccessRoomHistory(room: RoomRecord, actor: AuthActor) {
     if (actor.role === "ADMIN") {
-      if (room.adminId !== actor.adminId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This admin cannot access that room history.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertAdminOwnsRoom(room, actor, "This admin cannot access that room history.");
 
       return;
     }
 
-    if (actor.roomId !== room.roomId) {
-      throw appError({
-        code: "ERR_FORBIDDEN",
-        message: "This guest session is scoped to a different room.",
-        statusCode: 403,
-        retryable: false
-      });
-    }
+    assertGuestHasRoomAccess(room, actor);
   }
 
   function buildHandTranscript(
@@ -2460,6 +2596,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         roomId: `room_${randomUUID()}`,
         code: generateUniqueRoomCode(),
         status: "OPEN",
+        joinLocked: false,
         tablePhase: "BETWEEN_HANDS",
         adminId: actor.adminId,
         config,
@@ -2499,26 +2636,12 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       const room = getRoomRecordById(roomId);
 
       if (actor.role === "ADMIN") {
-        if (room.adminId !== actor.adminId) {
-          throw appError({
-            code: "ERR_FORBIDDEN",
-            message: "This admin cannot view that room.",
-            statusCode: 403,
-            retryable: false
-          });
-        }
+        assertAdminOwnsRoom(room, actor, "This admin cannot view that room.");
 
         return toLobbySnapshot(room);
       }
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       return toLobbySnapshot(room, actor.guestId);
     },
@@ -2526,26 +2649,12 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       const room = getRoomRecordById(roomId);
 
       if (actor.role === "ADMIN") {
-        if (room.adminId !== actor.adminId) {
-          throw appError({
-            code: "ERR_FORBIDDEN",
-            message: "This admin cannot subscribe to that room.",
-            statusCode: 403,
-            retryable: false
-          });
-        }
+        assertAdminOwnsRoom(room, actor, "This admin cannot subscribe to that room.");
 
         return toRoomRealtimeSnapshot(room, actor);
       }
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       return toRoomRealtimeSnapshot(room, actor);
     },
@@ -2556,14 +2665,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
 
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       return toRoomPrivateState(room, actor);
     },
@@ -2575,7 +2677,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         .reverse()
         .map((handId) => handHistories.get(handId)?.transcript)
         .filter((transcript): transcript is HandTranscript => Boolean(transcript))
-        .map((transcript) => toHandHistorySummary(transcript));
+        .map((transcript) => toHandHistorySummary(room, transcript));
       const normalizedLimit = Math.max(1, Math.min(limit, 50));
       const startIndex =
         cursor && summaries.some((summary) => summary.handId === cursor)
@@ -2611,22 +2713,10 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     buildRoomRealtimeDiff(roomId: string, actor: AuthActor, changed: RoomPatchField[]) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.role === "ADMIN" && room.adminId !== actor.adminId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This admin cannot subscribe to that room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
-
-      if (actor.role === "GUEST" && actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
+      if (actor.role === "ADMIN") {
+        assertAdminOwnsRoom(room, actor, "This admin cannot subscribe to that room.");
+      } else {
+        assertGuestHasRoomAccess(room, actor);
       }
 
       return buildRoomDiff(room, actor, changed);
@@ -2649,14 +2739,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     markParticipantRealtimeConnected(roomId: string, actor: Extract<AuthActor, { role: "GUEST" }>) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       const participant = room.participants.get(actor.guestId);
 
@@ -2698,14 +2781,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     ) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       const participant = room.participants.get(actor.guestId);
 
@@ -2741,6 +2817,15 @@ export function createAppState(options: CreateAppStateOptions = {}) {
           message: "This room is no longer accepting joins.",
           statusCode: 409,
           retryable: false
+        });
+      }
+
+      if (room.joinLocked) {
+        throw appError({
+          code: "ERR_ROOM_LOCKED",
+          message: "This room is temporarily locked to new joins.",
+          statusCode: 409,
+          retryable: true
         });
       }
 
@@ -2818,22 +2903,10 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     getBuyInQuote(roomId: string, actor: AuthActor) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.role === "ADMIN" && room.adminId !== actor.adminId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This admin cannot view that room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
-
-      if (actor.role === "GUEST" && actor.roomId !== roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
+      if (actor.role === "ADMIN") {
+        assertAdminOwnsRoom(room, actor, "This admin cannot view that room.");
+      } else {
+        assertGuestHasRoomAccess(room, actor);
       }
 
       return toBuyInQuote(room);
@@ -2845,14 +2918,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     ) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       if (actor.mode === "SPECTATOR") {
         throw appError({
@@ -2898,14 +2964,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     ) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       const participant = room.participants.get(actor.guestId);
 
@@ -2942,14 +3001,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     reserveSeat(roomId: string, seatIndex: number, actor: Extract<AuthActor, { role: "GUEST" }>) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       if (actor.mode === "SPECTATOR") {
         throw appError({
@@ -3029,14 +3081,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     joinWaitingList(roomId: string, actor: Extract<AuthActor, { role: "GUEST" }>) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       if (actor.mode === "SPECTATOR") {
         throw appError({
@@ -3133,14 +3178,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     ) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       if (actor.mode === "SPECTATOR") {
         throw appError({
@@ -3252,14 +3290,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     ) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       if (actor.mode === "SPECTATOR") {
         throw appError({
@@ -3375,14 +3406,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     ) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       if (actor.mode === "SPECTATOR") {
         throw appError({
@@ -3515,14 +3539,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     ) {
       const room = getRoomRecordById(roomId);
 
-      if (actor.roomId !== room.roomId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This guest session is scoped to a different room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertGuestHasRoomAccess(room, actor);
 
       return applyPlayerAction(room, actor.guestId, payload, {
         emitAcceptedEvent: false
@@ -3531,14 +3548,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     pauseRoom(roomId: string, actor: Extract<AuthActor, { role: "ADMIN" }>, reason?: string) {
       const room = getRoomRecordById(roomId);
 
-      if (room.adminId !== actor.adminId) {
-        throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This admin cannot pause that room.",
-          statusCode: 403,
-          retryable: false
-        });
-      }
+      assertAdminOwnsRoom(room, actor, "This admin cannot pause that room.");
 
       pauseRoomInternal(room, reason ?? "Room manually paused by the admin.");
       return toRoomRealtimeSnapshot(room, actor);
@@ -3546,17 +3556,114 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     resumeRoom(roomId: string, actor: Extract<AuthActor, { role: "ADMIN" }>) {
       const room = getRoomRecordById(roomId);
 
-      if (room.adminId !== actor.adminId) {
+      assertAdminOwnsRoom(room, actor, "This admin cannot resume that room.");
+
+      resumeRoomInternal(room);
+      return toRoomRealtimeSnapshot(room, actor);
+    },
+    updateRoomConfig(
+      roomId: string,
+      actor: Extract<AuthActor, { role: "ADMIN" }>,
+      input: RoomConfigPatchRequest
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      assertAdminOwnsRoom(room, actor, "This admin cannot edit that room.");
+      assertRoomConfigEditable(room);
+
+      const patch = roomConfigPatchRequestSchema.parse(input);
+      const nextConfig = roomConfigSchema.parse({
+        ...room.config,
+        ...patch
+      });
+
+      room.config = nextConfig;
+
+      if (patch.joinCodeExpiryMinutes !== undefined) {
+        room.joinCodeExpiresAt = new Date(
+          clock().getTime() + patch.joinCodeExpiryMinutes * 60 * 1000
+        );
+      }
+
+      const changes: RoomPatchField[] = ["config", "room", "buyInQuote"];
+      const moderation = createModerationRecord(room, actor, {
+        action: "ROOM_CONFIG_UPDATED",
+        message: "Room settings were updated between hands."
+      });
+
+      emitModerationApplied(room, moderation, changes);
+
+      return toRoomRealtimeSnapshot(room, actor);
+    },
+    setRoomJoinLock(
+      roomId: string,
+      actor: Extract<AuthActor, { role: "ADMIN" }>,
+      locked: boolean,
+      reason?: string
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      assertAdminOwnsRoom(room, actor, "This admin cannot lock that room.");
+      room.joinLocked = locked;
+
+      const moderation = createModerationRecord(room, actor, {
+        action: locked ? "ROOM_LOCKED" : "ROOM_UNLOCKED",
+        reason,
+        joinLocked: locked,
+        message: locked
+          ? reason
+            ? `Room locked to new joins: ${reason}`
+            : "Room locked to new joins."
+          : reason
+            ? `Room unlocked for joins: ${reason}`
+            : "Room unlocked for joins."
+      });
+
+      emitModerationApplied(room, moderation, ["room"]);
+
+      return {
+        moderation,
+        snapshot: toRoomRealtimeSnapshot(room, actor)
+      };
+    },
+    kickParticipant(
+      roomId: string,
+      actor: Extract<AuthActor, { role: "ADMIN" }>,
+      participantId: string,
+      reason: string
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      assertAdminOwnsRoom(room, actor, "This admin cannot moderate that room.");
+
+      if (!room.participants.has(participantId)) {
         throw appError({
-          code: "ERR_FORBIDDEN",
-          message: "This admin cannot resume that room.",
-          statusCode: 403,
+          code: "ERR_PARTICIPANT_NOT_FOUND",
+          message: "That participant is no longer active in the room.",
+          statusCode: 404,
           retryable: false
         });
       }
 
-      resumeRoomInternal(room);
-      return toRoomRealtimeSnapshot(room, actor);
+      assertSeatedKickAllowed(room, participantId);
+
+      const participant = room.participants.get(participantId);
+      revokeParticipantSession(room, participantId);
+      removeParticipantFromRoom(room, participantId);
+
+      const moderation = createModerationRecord(room, actor, {
+        action: "PLAYER_KICKED",
+        targetParticipantId: participantId,
+        reason,
+        message: `${participant?.nickname ?? participantId} was removed from the room: ${reason}`
+      });
+
+      emitModerationApplied(room, moderation, ["room", "seats", "participants", "waitingList"]);
+
+      return {
+        moderation,
+        snapshot: toRoomRealtimeSnapshot(room, actor)
+      };
     },
     getAuthContext(accessToken: string | undefined, env: TokenEnv): AuthContext | null {
       const session = getSessionRecordFromToken(accessToken, env, "access");
