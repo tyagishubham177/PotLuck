@@ -21,6 +21,8 @@
 | `ERR_OTP_EXPIRED` | OTP no longer valid | `401` | Yes |
 | `ERR_RATE_LIMITED` | Too many OTP or auth attempts | `429` | Yes |
 | `ERR_FORBIDDEN` | Role lacks permission | `403` | No |
+| `ERR_EMAIL_DELIVERY_FAILED` | OTP provider failed to accept or send email | `503` | Yes |
+| `ERR_INTERNAL` | Unexpected server fault before a typed domain error was produced | `500` | Maybe |
 
 ## Gameplay
 | Code | Meaning | HTTP | Retry |

@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "PotLuck",
-  description: "PotLuck foundation shell for the multiplayer poker client."
+  description: "PotLuck Phase 01 entry flow for admin OTP and guest room joins."
 };
 
 type RootLayoutProps = {

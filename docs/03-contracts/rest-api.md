@@ -8,10 +8,11 @@
 ## Auth Endpoints
 | Endpoint | Method | Request | Response |
 | --- | --- | --- | --- |
+| `/api/auth/session` | GET | cookie-backed session | authenticated flag, session envelope, actor |
 | `/api/auth/admin/request-otp` | POST | email | challenge id, cooldown |
 | `/api/auth/admin/verify-otp` | POST | challenge id, code | admin session, user profile |
-| `/api/auth/logout` | POST | session token | success |
-| `/api/auth/refresh` | POST | refresh token | rotated session |
+| `/api/auth/logout` | POST | access or refresh cookie/token | success |
+| `/api/auth/refresh` | POST | refresh cookie/token | rotated session |
 
 ## Room Endpoints
 | Endpoint | Method | Request | Response |
@@ -51,6 +52,7 @@
 ## Contract Rules
 - `room code` is for discovery and unauthenticated room entry; `roomId` is for authenticated room-scoped operations after the room is known.
 - OTP request and verify endpoints must be rate-limited per email, IP, and challenge window.
+- Session endpoints may rely on signed httpOnly cookies in the browser flow, but must also validate explicit bearer tokens when present.
 - All write endpoints require authenticated admin or room-scoped guest session tokens as appropriate.
 - All mutating requests accept an idempotency key header.
 - Validation failures return typed errors, never generic `400` text.
