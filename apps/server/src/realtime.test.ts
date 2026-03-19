@@ -381,4 +381,111 @@ describe("phase 04 realtime room actor", () => {
       unsubscribe();
     }
   });
+
+  it("streams settlement results and serves hand history over the websocket room session", async () => {
+    const state = createAppState();
+    const app = buildServer({
+      env: testEnv,
+      emailAdapter,
+      state
+    });
+
+    await app.listen({ host: "127.0.0.1", port: 0 });
+
+    try {
+      const address = app.server.address() as AddressInfo;
+      const adminCookieHeader = await createAdminCookieHeader(app);
+      const room = await createRoom(app, adminCookieHeader);
+      const alpha = await joinRoom(app, room.room.code, "AlphaHistory");
+      const bravo = await joinRoom(app, room.room.code, "BravoHistory");
+      const alphaActor = alpha.response.json().actor;
+      const bravoActor = bravo.response.json().actor;
+      const alphaAccessToken = getCookieValue(alpha.cookieHeader, ACCESS_COOKIE_NAME);
+
+      await app.inject({
+        method: "POST",
+        url: `/api/rooms/${room.room.roomId}/seats/0`,
+        headers: { cookie: alpha.cookieHeader },
+        payload: {}
+      });
+      await app.inject({
+        method: "POST",
+        url: `/api/rooms/${room.room.roomId}/seats/1`,
+        headers: { cookie: bravo.cookieHeader },
+        payload: {}
+      });
+      await app.inject({
+        method: "POST",
+        url: `/api/rooms/${room.room.roomId}/buyin`,
+        headers: { cookie: alpha.cookieHeader, "Idempotency-Key": "alpha-history-buyin-1" },
+        payload: { seatIndex: 0, amount: 5000 }
+      });
+      await app.inject({
+        method: "POST",
+        url: `/api/rooms/${room.room.roomId}/buyin`,
+        headers: { cookie: bravo.cookieHeader, "Idempotency-Key": "bravo-history-buyin-1" },
+        payload: { seatIndex: 1, amount: 5000 }
+      });
+
+      const alphaSocket = await openSocket(address.port, alphaAccessToken ?? "");
+
+      try {
+        alphaSocket.send(
+          JSON.stringify({ type: "ROOM_SUBSCRIBE", roomId: room.room.roomId })
+        );
+        await waitForMessage(alphaSocket, (message) => message.type === "ROOM_SNAPSHOT");
+
+        state.playerReady(room.room.roomId, alphaActor, 0);
+        state.playerReady(room.room.roomId, bravoActor, 1);
+
+        const liveSnapshot = state.getRoomRealtimeSnapshot(room.room.roomId, alphaActor);
+        const handId = liveSnapshot.activeHand?.handId ?? "";
+
+        await state.submitAction(room.room.roomId, alphaActor, {
+          handId,
+          seqExpectation: liveSnapshot.activeHand?.handSeq ?? 0,
+          idempotencyKey: "alpha-history-fold-1",
+          actionType: "FOLD"
+        });
+
+        const settlementMessage = await waitForMessage(
+          alphaSocket,
+          (message) => message.type === "SETTLEMENT_POSTED"
+        );
+
+        expect(settlementMessage.type).toBe("SETTLEMENT_POSTED");
+        if (settlementMessage.type !== "SETTLEMENT_POSTED") {
+          throw new Error("Expected a SETTLEMENT_POSTED event.");
+        }
+
+        expect(settlementMessage.settlement.awardedByFold).toBe(true);
+        expect(settlementMessage.settlement.totalPot).toBe(150);
+
+        alphaSocket.send(
+          JSON.stringify({
+            type: "HISTORY_REQUEST",
+            roomId: room.room.roomId,
+            handId
+          })
+        );
+
+        const historyMessage = await waitForMessage(
+          alphaSocket,
+          (message) => message.type === "HAND_HISTORY"
+        );
+
+        expect(historyMessage.type).toBe("HAND_HISTORY");
+        if (historyMessage.type !== "HAND_HISTORY") {
+          throw new Error("Expected a HAND_HISTORY event.");
+        }
+
+        expect(historyMessage.transcript.handId).toBe(handId);
+        expect(historyMessage.transcript.settlement.awardedByFold).toBe(true);
+      } finally {
+        alphaSocket.close();
+      }
+    } finally {
+      await app.close();
+    }
+  });
 });

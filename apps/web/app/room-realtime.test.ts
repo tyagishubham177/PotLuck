@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { RoomRealtimeSnapshot } from "@potluck/contracts";
 
-import { applyRoomDiff, toWebSocketUrl } from "./room-realtime";
+import {
+  applyRoomDiff,
+  createAuthStateSyncMarker,
+  shouldRefreshAuthStateFromSyncMarker,
+  shouldResetRoomState,
+  toWebSocketUrl
+} from "./room-realtime";
 
 describe("room realtime helpers", () => {
   it("derives a websocket url from the server origin", () => {
@@ -194,5 +200,136 @@ describe("room realtime helpers", () => {
     expect(updated.roomEventNo).toBe(5);
     expect(updated.tablePhase).toBe("HAND_ACTIVE");
     expect(updated.activeHand?.handId).toBe("hand_001");
+  });
+
+  it("resets room state when the guest room scope changes", () => {
+    expect(
+      shouldResetRoomState(
+        {
+          session: {
+            sessionId: "session_guest_1",
+            role: "GUEST",
+            issuedAt: "2026-03-19T12:00:00.000Z",
+            expiresAt: "2026-03-19T12:15:00.000Z",
+            refreshExpiresAt: "2026-03-26T12:00:00.000Z"
+          },
+          actor: {
+            role: "GUEST",
+            guestId: "guest_alpha",
+            nickname: "Alpha",
+            mode: "PLAYER",
+            roomId: "room_123",
+            roomCode: "DEMO42"
+          }
+        },
+        {
+          session: {
+            sessionId: "session_guest_2",
+            role: "GUEST",
+            issuedAt: "2026-03-19T12:05:00.000Z",
+            expiresAt: "2026-03-19T12:20:00.000Z",
+            refreshExpiresAt: "2026-03-26T12:05:00.000Z"
+          },
+          actor: {
+            role: "GUEST",
+            guestId: "guest_bravo",
+            nickname: "Bravo",
+            mode: "PLAYER",
+            roomId: "room_456",
+            roomCode: "TABLE2"
+          }
+        }
+      )
+    ).toBe(true);
+
+    expect(
+      shouldResetRoomState(
+        {
+          session: {
+            sessionId: "session_guest_1",
+            role: "GUEST",
+            issuedAt: "2026-03-19T12:00:00.000Z",
+            expiresAt: "2026-03-19T12:15:00.000Z",
+            refreshExpiresAt: "2026-03-26T12:00:00.000Z"
+          },
+          actor: {
+            role: "GUEST",
+            guestId: "guest_alpha",
+            nickname: "Alpha",
+            mode: "PLAYER",
+            roomId: "room_123",
+            roomCode: "DEMO42"
+          }
+        },
+        {
+          session: {
+            sessionId: "session_guest_2",
+            role: "GUEST",
+            issuedAt: "2026-03-19T12:05:00.000Z",
+            expiresAt: "2026-03-19T12:20:00.000Z",
+            refreshExpiresAt: "2026-03-26T12:05:00.000Z"
+          },
+          actor: {
+            role: "GUEST",
+            guestId: "guest_alpha",
+            nickname: "Alpha",
+            mode: "PLAYER",
+            roomId: "room_123",
+            roomCode: "DEMO42"
+          }
+        }
+      )
+    ).toBe(false);
+  });
+
+  it("creates sync markers that ignore same-scope guest refreshes", () => {
+    const authState = {
+      session: {
+        sessionId: "session_guest_1",
+        role: "GUEST" as const,
+        issuedAt: "2026-03-19T12:00:00.000Z",
+        expiresAt: "2026-03-19T12:15:00.000Z",
+        refreshExpiresAt: "2026-03-26T12:00:00.000Z"
+      },
+      actor: {
+        role: "GUEST" as const,
+        guestId: "guest_alpha",
+        nickname: "Alpha",
+        mode: "PLAYER" as const,
+        roomId: "room_123",
+        roomCode: "DEMO42"
+      }
+    };
+
+    expect(
+      shouldRefreshAuthStateFromSyncMarker(authState, createAuthStateSyncMarker(authState, 1))
+    ).toBe(false);
+
+    expect(
+      shouldRefreshAuthStateFromSyncMarker(
+        authState,
+        createAuthStateSyncMarker({
+          session: {
+            sessionId: "session_guest_2",
+            role: "GUEST",
+            issuedAt: "2026-03-19T12:05:00.000Z",
+            expiresAt: "2026-03-19T12:20:00.000Z",
+            refreshExpiresAt: "2026-03-26T12:05:00.000Z"
+          },
+          actor: {
+            role: "GUEST",
+            guestId: "guest_bravo",
+            nickname: "Bravo",
+            mode: "PLAYER",
+            roomId: "room_123",
+            roomCode: "DEMO42"
+          }
+        })
+      )
+    ).toBe(true);
+  });
+
+  it("refreshes auth state when the sync marker is malformed", () => {
+    expect(shouldRefreshAuthStateFromSyncMarker(null, "not-json")).toBe(true);
   });
 });

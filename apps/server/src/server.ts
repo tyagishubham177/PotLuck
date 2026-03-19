@@ -10,6 +10,8 @@ import {
   buyInResponseSchema,
   buyInQuoteResponseSchema,
   healthResponseSchema,
+  handHistoryListResponseSchema,
+  handTranscriptSchema,
   joinRoomRequestSchema,
   joinRoomResponseSchema,
   logoutResponseSchema,
@@ -34,6 +36,7 @@ import {
 } from "./cookies.js";
 import { createResendEmailAdapter, type EmailAdapter } from "./email.js";
 import { AppError, appError, sendAppError } from "./errors.js";
+import { formatHandTranscriptText } from "./hand-history.js";
 import { attachRealtimeGateway } from "./realtime.js";
 import { createAppState } from "./state.js";
 
@@ -377,6 +380,38 @@ export function buildServer(options: BuildServerOptions = {}) {
 
     const roomId = (request.params as { roomId: string }).roomId;
     return queueJoinResponseSchema.parse(state.joinWaitingList(roomId, authContext.actor));
+  });
+
+  app.get("/api/rooms/:roomId/hands", async (request) => {
+    const authContext = requireAuth(request);
+    const roomId = (request.params as { roomId: string }).roomId;
+    const query = request.query as { cursor?: string; limit?: string | number };
+    const limit = typeof query.limit === "string" ? Number(query.limit) : query.limit;
+
+    return handHistoryListResponseSchema.parse(
+      state.listRoomHands(roomId, authContext.actor, query.cursor, Number.isFinite(limit) ? Number(limit) : 20)
+    );
+  });
+
+  app.get("/api/hands/:handId", async (request) => {
+    const authContext = requireAuth(request);
+    const handId = (request.params as { handId: string }).handId;
+    return handTranscriptSchema.parse(state.getHandTranscript(handId, authContext.actor));
+  });
+
+  app.get("/api/hands/:handId/export.json", async (request) => {
+    const authContext = requireAuth(request);
+    const handId = (request.params as { handId: string }).handId;
+    return handTranscriptSchema.parse(state.getHandTranscript(handId, authContext.actor));
+  });
+
+  app.get("/api/hands/:handId/export.txt", async (request, reply) => {
+    const authContext = requireAuth(request);
+    const handId = (request.params as { handId: string }).handId;
+    const transcript = handTranscriptSchema.parse(state.getHandTranscript(handId, authContext.actor));
+
+    reply.type("text/plain; charset=utf-8");
+    return reply.send(formatHandTranscriptText(transcript));
   });
 
   return app;

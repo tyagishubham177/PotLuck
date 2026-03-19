@@ -29,7 +29,14 @@ import {
   type SessionEnvelope
 } from "@potluck/contracts";
 
-import { applyRoomDiff, toWebSocketUrl } from "./room-realtime";
+import {
+  applyRoomDiff,
+  authSessionSyncStorageKey,
+  createAuthStateSyncMarker,
+  shouldRefreshAuthStateFromSyncMarker,
+  shouldResetRoomState,
+  toWebSocketUrl
+} from "./room-realtime";
 
 type PhaseTwoShellProps = {
   appName: string;
@@ -213,25 +220,102 @@ export function PhaseTwoShell({
   const [privateState, setPrivateState] = useState<RoomPrivateState | null>(null);
   const [socketStatus, setSocketStatus] = useState<SocketStatus>("idle");
   const [socketFeedback, setSocketFeedback] = useState<ProcessFeedback | null>(null);
+  const authStateRef = useRef<AuthState>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
+  const authSyncInFlightRef = useRef<Promise<AuthState> | null>(null);
 
-  async function refreshAuthState() {
+  function clearRoomSessionState(options: { keepRoomCode?: string } = {}) {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
+    reconnectAttemptRef.current = 0;
+
+    if (
+      socketRef.current &&
+      (socketRef.current.readyState === WebSocket.OPEN ||
+        socketRef.current.readyState === WebSocket.CONNECTING)
+    ) {
+      socketRef.current.close();
+    }
+
+    socketRef.current = null;
+    setRoomPreview(null);
+    setLobbySnapshot(null);
+    setLiveSnapshot(null);
+    setPrivateState(null);
+    setSocketStatus("idle");
+    setSocketFeedback(null);
+
+    if (options.keepRoomCode !== undefined) {
+      setRoomCode(options.keepRoomCode);
+    }
+  }
+
+  function applyAuthState(nextState: AuthState) {
+    if (shouldResetRoomState(authStateRef.current, nextState)) {
+      clearRoomSessionState();
+    }
+
+    authStateRef.current = nextState;
+    setAuthState(nextState);
+  }
+
+  function broadcastAuthStateChange(nextState: AuthState) {
     try {
-      const response = await apiRequest(serverOrigin, "/api/auth/session", authStatusResponseSchema);
+      window.localStorage.setItem(
+        authSessionSyncStorageKey,
+        createAuthStateSyncMarker(nextState)
+      );
+    } catch {
+      // Ignore storage failures so auth mutations still complete.
+    }
+  }
 
-      if (!response.authenticated || !response.session || !response.actor) {
-        setAuthState(null);
+  async function synchronizeAuthState() {
+    if (authSyncInFlightRef.current) {
+      return authSyncInFlightRef.current;
+    }
+
+    const task = (async () => {
+      try {
+        const response = await apiRequest(serverOrigin, "/api/auth/session", authStatusResponseSchema);
+
+        if (!response.authenticated || !response.session || !response.actor) {
+          applyAuthState(null);
+          return null;
+        }
+
+        const nextState = { session: response.session, actor: response.actor };
+        applyAuthState(nextState);
+
+        if (nextState.actor.role === "GUEST") {
+          setRoomCode(nextState.actor.roomCode);
+          try {
+            await loadLobby(nextState.actor.roomId);
+          } catch {
+            clearRoomSessionState({ keepRoomCode: nextState.actor.roomCode });
+          }
+        }
+
+        return nextState;
+      } catch {
+        applyAuthState(null);
         return null;
       }
+    })();
 
-      const nextState = { session: response.session, actor: response.actor };
-      setAuthState(nextState);
-      return nextState;
-    } catch {
-      setAuthState(null);
-      return null;
+    authSyncInFlightRef.current = task;
+
+    try {
+      return await task;
+    } finally {
+      if (authSyncInFlightRef.current === task) {
+        authSyncInFlightRef.current = null;
+      }
     }
   }
 
@@ -249,16 +333,43 @@ export function PhaseTwoShell({
   useEffect(() => {
     void (async () => {
       try {
-        const session = await refreshAuthState();
-
-        if (session?.actor.role === "GUEST") {
-          await loadLobby(session.actor.roomId);
-          setRoomCode(session.actor.roomCode);
-        }
+        await synchronizeAuthState();
       } finally {
         setIsBooting(false);
       }
     })();
+  }, [serverOrigin]);
+
+  useEffect(() => {
+    function handleVisibleSessionSync() {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      void synchronizeAuthState();
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key !== authSessionSyncStorageKey) {
+        return;
+      }
+
+      if (!shouldRefreshAuthStateFromSyncMarker(authStateRef.current, event.newValue)) {
+        return;
+      }
+
+      void synchronizeAuthState();
+    }
+
+    window.addEventListener("focus", handleVisibleSessionSync);
+    window.addEventListener("storage", handleStorage);
+    document.addEventListener("visibilitychange", handleVisibleSessionSync);
+
+    return () => {
+      window.removeEventListener("focus", handleVisibleSessionSync);
+      window.removeEventListener("storage", handleStorage);
+      document.removeEventListener("visibilitychange", handleVisibleSessionSync);
+    };
   }, [serverOrigin]);
 
   useEffect(() => {
@@ -375,6 +486,32 @@ export function PhaseTwoShell({
             setSocketFeedback({
               tone: "pending",
               message: `Seat ${message.actingSeatIndex + 1} has ${message.secondsRemaining}s left.`
+            });
+            return;
+          }
+
+          if (message.type === "SHOWDOWN_RESULT") {
+            setSocketFeedback({
+              tone: "success",
+              message: message.awardedByFold
+                ? `Hand awarded without showdown across ${message.pots.length} pot(s).`
+                : `Showdown resolved across ${message.pots.length} pot(s).`
+            });
+            return;
+          }
+
+          if (message.type === "SETTLEMENT_POSTED") {
+            setSocketFeedback({
+              tone: "success",
+              message: `Settlement posted for ${message.settlement.totalPot.toLocaleString()} chips.`
+            });
+            return;
+          }
+
+          if (message.type === "HAND_HISTORY") {
+            setSocketFeedback({
+              tone: "success",
+              message: `History loaded for hand ${message.transcript.handId}.`
             });
             return;
           }
@@ -601,7 +738,9 @@ export function PhaseTwoShell({
           }
         );
 
-        setAuthState({ session: response.session, actor: response.actor });
+        const nextState = { session: response.session, actor: response.actor };
+        applyAuthState(nextState);
+        broadcastAuthStateChange(nextState);
         setAdminCode("");
         setVerifyOtpFeedback({ tone: "success", message: "Admin session is ready." });
       } catch (error) {
@@ -652,6 +791,7 @@ export function PhaseTwoShell({
         setRoomPreview(summary);
         setLookupFeedback({ tone: "success", message: `${summary.tableName} is ready to join.` });
       } catch (error) {
+        clearRoomSessionState({ keepRoomCode: roomCode.trim().toUpperCase() });
         setLookupFeedback({ tone: "error", message: createErrorMessage(error) });
       }
     })();
@@ -672,7 +812,9 @@ export function PhaseTwoShell({
           }
         );
 
-        setAuthState({ session: response.session, actor: response.actor });
+        const nextState = { session: response.session, actor: response.actor };
+        applyAuthState(nextState);
+        broadcastAuthStateChange(nextState);
         setRoomPreview(response.lobbySnapshot.room);
         setLobbySnapshot(response.lobbySnapshot);
         setJoinRoomFeedback({
@@ -680,6 +822,7 @@ export function PhaseTwoShell({
           message: `Joined ${response.lobbySnapshot.room.tableName}.`
         });
       } catch (error) {
+        clearRoomSessionState({ keepRoomCode: roomCode.trim().toUpperCase() });
         setJoinRoomFeedback({ tone: "error", message: createErrorMessage(error) });
       }
     })();
@@ -701,6 +844,7 @@ export function PhaseTwoShell({
         await apiRequest(serverOrigin, `/api/rooms/${roomId}/buyin/quote`, buyInQuoteResponseSchema);
         setLobbyFeedback({ tone: "success", message: "Lobby snapshot refreshed." });
       } catch (error) {
+        clearRoomSessionState({ keepRoomCode: roomCode });
         setLobbyFeedback({ tone: "error", message: createErrorMessage(error) });
       }
     })();
@@ -777,7 +921,9 @@ export function PhaseTwoShell({
           authSessionResponseSchema,
           { method: "POST", body: JSON.stringify({}) }
         );
-        setAuthState({ session: response.session, actor: response.actor });
+        const nextState = { session: response.session, actor: response.actor };
+        applyAuthState(nextState);
+        broadcastAuthStateChange(nextState);
         setRefreshFeedback({ tone: "success", message: "Session refreshed successfully." });
       } catch (error) {
         setRefreshFeedback({ tone: "error", message: createErrorMessage(error) });
@@ -794,8 +940,9 @@ export function PhaseTwoShell({
           method: "POST",
           body: JSON.stringify({})
         });
-        setAuthState(null);
-        setLobbySnapshot(null);
+        clearRoomSessionState();
+        applyAuthState(null);
+        broadcastAuthStateChange(null);
         setLogoutFeedback({ tone: "success", message: "Signed out successfully." });
       } catch (error) {
         setLogoutFeedback({ tone: "error", message: createErrorMessage(error) });
@@ -807,11 +954,11 @@ export function PhaseTwoShell({
     <main className="phase-shell">
       <section className="hero-panel">
         <div className="hero-copy">
-          <p className="eyebrow">Phase 04</p>
-          <h1>{appName} room actor and live transport</h1>
+          <p className="eyebrow">Phase 06</p>
+          <h1>{appName} settlement, audit, and live room history</h1>
           <p className="hero-text">
-            The docs-first lobby, wallet, and buy-in flows now stream through a single-writer
-            room actor with reconnects, ordered diffs, and turn timers.
+            The docs-first room actor now carries hands through settlement, ledger finality,
+            audit transcripts, reconnect-safe diffs, and live post-hand state updates.
           </p>
           <div className="hero-chips">
             <span>{statusLabel}</span>
@@ -1052,7 +1199,7 @@ export function PhaseTwoShell({
       <section className="panel-grid">
         <article className="panel">
           <div className="panel-head">
-            <p className="eyebrow">Phase 04</p>
+            <p className="eyebrow">Phase 06</p>
             <h2>Live room actor</h2>
           </div>
           <div className="info-block">

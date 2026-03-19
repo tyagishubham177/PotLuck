@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createClientSnapshotFixture,
+  createHandTranscriptFixture,
   createLedgerEntryFixture,
   createRoomBalanceSummaryFixture,
   createRoomRealtimeSnapshotFixture
@@ -27,5 +28,12 @@ describe("test kit fixture", () => {
 
     expect(snapshot.roomEventNo).toBe(4);
     expect(snapshot.participants[0]?.isReady).toBe(true);
+  });
+
+  it("creates a transcript fixture for settlement and history tests", () => {
+    const transcript = createHandTranscriptFixture();
+
+    expect(transcript.settlement.awardedByFold).toBe(true);
+    expect(transcript.ledgerEntries[0]?.type).toBe("HAND_PAYOUT");
   });
 });

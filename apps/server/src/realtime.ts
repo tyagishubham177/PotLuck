@@ -166,7 +166,12 @@ export function attachRealtimeGateway(
           return;
         }
 
-        if (event.type === "STREET_ADVANCED" || event.type === "SHOWDOWN_TRIGGERED") {
+        if (
+          event.type === "STREET_ADVANCED" ||
+          event.type === "SHOWDOWN_TRIGGERED" ||
+          event.type === "SHOWDOWN_RESULT" ||
+          event.type === "SETTLEMENT_POSTED"
+        ) {
           sendMessage(socket, event);
           sendPrivateState(roomId);
           return;
@@ -292,12 +297,15 @@ export function attachRealtimeGateway(
         }
 
         if (parsed.type === "HISTORY_REQUEST") {
-          sendServerError(
-            socket,
-            "ERR_ACTION_INVALID",
-            "Hand history export is not available until a later phase.",
-            parsed.roomId
-          );
+          const transcript = state.getHandTranscript(parsed.handId, context.actor);
+          const snapshot = state.getRoomRealtimeSnapshot(parsed.roomId, context.actor);
+
+          sendMessage(socket, {
+            type: "HAND_HISTORY",
+            roomId: parsed.roomId,
+            roomEventNo: snapshot.roomEventNo,
+            transcript
+          });
         }
       } catch (error) {
         if (error instanceof AppError) {

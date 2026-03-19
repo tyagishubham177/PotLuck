@@ -1,9 +1,13 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 
 import {
   adminOtpRequestResponseSchema,
   buyInResponseSchema,
   buyInQuoteResponseSchema,
+  handHistoryListResponseSchema,
+  handHistorySummarySchema,
+  handSettlementSchema,
+  handTranscriptSchema,
   lobbySnapshotSchema,
   queueEntrySchema,
   rebuyResponseSchema,
@@ -19,6 +23,8 @@ import {
   topUpResponseSchema,
   type AuthActor,
   type ErrorCode,
+  type HandSettlement,
+  type HandTranscript,
   type LedgerEntry,
   type LobbySnapshot,
   type RoomActionAffordances,
@@ -38,6 +44,7 @@ import {
   getHandSequence,
   getLegalActions as getHoldemLegalActions,
   getPlayerHoleCards,
+  settleHoldemHand,
   startHoldemHand,
   type HoldemHandState
 } from "@potluck/game-engine";
@@ -81,6 +88,7 @@ type AuditEvent = {
   type: string;
   occurredAt: string;
   roomId?: string;
+  handId?: string;
   actorId?: string;
   detail: string;
 };
@@ -119,7 +127,13 @@ type LedgerEntryRecord = {
   roomId: string;
   participantId: string;
   seatIndex?: number;
-  type: "BUY_IN" | "REBUY" | "TOP_UP" | "COMPENSATING_ADJUSTMENT";
+  type:
+    | "BUY_IN"
+    | "REBUY"
+    | "TOP_UP"
+    | "HAND_PAYOUT"
+    | "RAKE"
+    | "COMPENSATING_ADJUSTMENT";
   delta: number;
   balanceAfter: number;
   referenceId: string;
@@ -127,11 +141,16 @@ type LedgerEntryRecord = {
   createdAt: Date;
 };
 
+type HandHistoryRecord = {
+  transcript: HandTranscript;
+  endedAt: Date;
+};
+
 type BuyInResponse = ReturnType<typeof buyInResponseSchema.parse>;
 type RebuyResponse = ReturnType<typeof rebuyResponseSchema.parse>;
 type TopUpResponse = ReturnType<typeof topUpResponseSchema.parse>;
 type ChipOperationResponse = BuyInResponse | RebuyResponse | TopUpResponse;
-type ChipOperationType = Exclude<LedgerEntryRecord["type"], "COMPENSATING_ADJUSTMENT">;
+type ChipOperationType = "BUY_IN" | "REBUY" | "TOP_UP";
 
 type IdempotentLedgerOperation = {
   fingerprint: string;
@@ -245,6 +264,25 @@ type RoomEvent =
       revealOrder: number[];
     }
   | {
+      type: "SHOWDOWN_RESULT";
+      roomId: string;
+      roomEventNo: number;
+      handId: string;
+      handSeq: number;
+      awardedByFold: boolean;
+      results: HandSettlement["showdownResults"];
+      pots: HandSettlement["pots"];
+    }
+  | {
+      type: "SETTLEMENT_POSTED";
+      roomId: string;
+      roomEventNo: number;
+      handId: string;
+      handSeq: number;
+      settlement: HandSettlement;
+      ledgerEntries: LedgerEntry[];
+    }
+  | {
       type: "ACTION_REJECTED";
       roomId: string;
       roomEventNo: number;
@@ -307,6 +345,7 @@ type RoomRecord = {
   processedActionIntents: Map<string, CachedActionIntent>;
   roomEventNo: number;
   activeHand?: ActiveHandRecord;
+  handHistoryIds: string[];
   lastButtonSeatIndex?: number;
   pausedReason?: string;
   pausedTurnRemainingMs?: number;
@@ -358,6 +397,7 @@ type GuestSessionResult = IssueSessionResult & {
 type CreateAppStateOptions = {
   clock?: Clock;
   onLedgerEntryCommitted?: (entry: LedgerEntryRecord) => void;
+  onLedgerEntriesCommitted?: (entries: LedgerEntryRecord[]) => void;
 };
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
@@ -400,6 +440,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
   const sessions = new Map<string, SessionRecord>();
   const roomsByCode = new Map<string, RoomRecord>();
   const roomsById = new Map<string, RoomRecord>();
+  const handHistories = new Map<string, HandHistoryRecord>();
   const roomRuntimes = new Map<string, RoomRuntime>();
   const auditEvents: AuditEvent[] = [];
 
@@ -971,36 +1012,66 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       type: LedgerEntryRecord["type"];
       delta: number;
       idempotencyKey?: string;
+      referenceId?: string;
     }
   ) {
-    const balanceAfter = getCurrentLedgerBalance(room, payload.participantId) + payload.delta;
+    return commitLedgerEntries(room, [payload])[0]!;
+  }
 
-    if (balanceAfter < 0) {
-      throw appError({
-        code: "ERR_INTERNAL",
-        message: "Ledger balance cannot go negative.",
-        statusCode: 500,
-        retryable: false
-      });
-    }
+  function commitLedgerEntries(
+    room: RoomRecord,
+    payloads: Array<{
+      participantId: string;
+      seatIndex?: number;
+      type: LedgerEntryRecord["type"];
+      delta: number;
+      idempotencyKey?: string;
+      referenceId?: string;
+    }>
+  ) {
+    const balances = new Map<string, number>();
+    const createdAt = clock();
+    const entries = payloads.map((payload) => {
+      const currentBalance =
+        balances.get(payload.participantId) ?? getCurrentLedgerBalance(room, payload.participantId);
+      const balanceAfter = currentBalance + payload.delta;
 
-    const entry: LedgerEntryRecord = {
-      entryId: `ledger_${randomUUID()}`,
-      roomId: room.roomId,
-      participantId: payload.participantId,
-      seatIndex: payload.seatIndex,
-      type: payload.type,
-      delta: payload.delta,
-      balanceAfter,
-      referenceId: `op_${randomUUID()}`,
-      idempotencyKey: payload.idempotencyKey,
-      createdAt: clock()
-    };
+      if (balanceAfter < 0) {
+        throw appError({
+          code: "ERR_INTERNAL",
+          message: "Ledger balance cannot go negative.",
+          statusCode: 500,
+          retryable: false
+        });
+      }
+
+      balances.set(payload.participantId, balanceAfter);
+
+      return {
+        entryId: `ledger_${randomUUID()}`,
+        roomId: room.roomId,
+        participantId: payload.participantId,
+        seatIndex: payload.seatIndex,
+        type: payload.type,
+        delta: payload.delta,
+        balanceAfter,
+        referenceId: payload.referenceId ?? `op_${randomUUID()}`,
+        idempotencyKey: payload.idempotencyKey,
+        createdAt
+      } satisfies LedgerEntryRecord;
+    });
 
     try {
-      options.onLedgerEntryCommitted?.(entry);
-      room.ledgerEntries.push(entry);
-      return entry;
+      if (options.onLedgerEntriesCommitted) {
+        options.onLedgerEntriesCommitted(entries);
+      } else {
+        for (const entry of entries) {
+          options.onLedgerEntryCommitted?.(entry);
+        }
+      }
+
+      room.ledgerEntries.push(...entries);
+      return entries;
     } catch {
       throw appError({
         code: "ERR_LEDGER_COMMIT_FAILED",
@@ -1471,6 +1542,131 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     }
   }
 
+  function createRakeParticipantId(roomId: string) {
+    return `house_rake:${roomId}`;
+  }
+
+  function buildDeckReveal(engine: HoldemHandState) {
+    const orderedPlayers = engine.seatOrder
+      .map((seatIndex) => engine.players.find((player) => player.seatIndex === seatIndex))
+      .filter((player): player is HoldemHandState["players"][number] => Boolean(player));
+
+    return [
+      ...orderedPlayers.map((player) => player.holeCards[0]),
+      ...orderedPlayers.map((player) => player.holeCards[1]),
+      ...engine.board,
+      ...engine.deck
+    ];
+  }
+
+  function buildDeckCommitmentHash(engine: HoldemHandState) {
+    return createHash("sha256").update(buildDeckReveal(engine).join("|")).digest("hex");
+  }
+
+  function getAuditEventsForHand(handId: string) {
+    return auditEvents.filter((event) => event.handId === handId);
+  }
+
+  function toHandHistorySummary(transcript: HandTranscript) {
+    return handHistorySummarySchema.parse({
+      handId: transcript.handId,
+      roomId: transcript.roomId,
+      handNumber: transcript.handNumber,
+      startedAt: transcript.startedAt,
+      endedAt: transcript.endedAt,
+      playerCount: transcript.contributions.length,
+      totalPot: transcript.settlement.totalPot,
+      totalRake: transcript.settlement.totalRake,
+      board: transcript.board
+    });
+  }
+
+  function storeHandHistory(room: RoomRecord, transcript: HandTranscript) {
+    handHistories.set(transcript.handId, {
+      transcript,
+      endedAt: new Date(transcript.endedAt)
+    });
+    room.handHistoryIds.push(transcript.handId);
+  }
+
+  function assertActorCanAccessRoomHistory(room: RoomRecord, actor: AuthActor) {
+    if (actor.role === "ADMIN") {
+      if (room.adminId !== actor.adminId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This admin cannot access that room history.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      return;
+    }
+
+    if (actor.roomId !== room.roomId) {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "This guest session is scoped to a different room.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+  }
+
+  function buildHandTranscript(
+    room: RoomRecord,
+    hand: ActiveHandRecord,
+    settlement: HandSettlement,
+    ledgerEntries: LedgerEntry[],
+    endedAt: Date
+  ) {
+    return handTranscriptSchema.parse({
+      roomId: room.roomId,
+      handId: hand.engine.handId,
+      handNumber: hand.engine.handNumber,
+      buttonSeatIndex: hand.engine.buttonSeatIndex,
+      smallBlindSeatIndex: hand.engine.smallBlindSeatIndex,
+      bigBlindSeatIndex: hand.engine.bigBlindSeatIndex,
+      startedAt: toIso(hand.startedAt),
+      endedAt: toIso(endedAt),
+      board: [...hand.engine.board],
+      deckCommitmentHash: buildDeckCommitmentHash(hand.engine),
+      deckReveal: buildDeckReveal(hand.engine),
+      actions: hand.engine.actionLog.map((action) => ({
+        seq: action.seq,
+        seatIndex: action.seatIndex,
+        participantId: action.participantId,
+        street: action.street,
+        actionType: action.actionType,
+        normalizedAmount: action.normalizedAmount,
+        contributedAmount: action.contributedAmount,
+        totalCommitted: action.totalCommitted,
+        streetCommitted: action.streetCommitted
+      })),
+      forcedCommitments: hand.engine.forcedCommitments.map((commitment) => ({
+        seatIndex: commitment.seatIndex,
+        participantId: commitment.participantId,
+        type: commitment.type,
+        amount: commitment.amount
+      })),
+      contributions: hand.engine.players.map((player) => ({
+        seatIndex: player.seatIndex,
+        participantId: player.participantId,
+        totalCommitted: player.totalCommitted,
+        contributedByStreet: player.contributedByStreet
+      })),
+      settlement,
+      ledgerEntries,
+      auditEvents: getAuditEventsForHand(hand.engine.handId).map((event) => ({
+        eventId: event.eventId,
+        type: event.type,
+        occurredAt: event.occurredAt,
+        actorId: event.actorId,
+        detail: event.detail
+      }))
+    });
+  }
+
   function buildPreflopActionSeatOrder(engine: HoldemHandState) {
     const actingSeatIndex = engine.actingSeatIndex;
 
@@ -1490,7 +1686,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     ];
   }
 
-  function finishAwardedHand(room: RoomRecord, roomEventNo?: number) {
+  function settleAndFinalizeActiveHand(room: RoomRecord) {
     const hand = room.activeHand;
 
     if (!hand) {
@@ -1498,27 +1694,146 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     }
 
     clearTurnTimers(room.roomId);
-    syncSeatStacksFromActiveHand(room);
 
-    if (hand.engine.winnerByFoldSeatIndex !== undefined) {
-      const winnerSeat = room.seats.at(hand.engine.winnerByFoldSeatIndex);
+    try {
+      const settlement = handSettlementSchema.parse(
+        settleHoldemHand(
+          {
+            handId: hand.engine.handId,
+            handNumber: hand.engine.handNumber,
+            buttonSeatIndex: hand.engine.buttonSeatIndex,
+            smallBlindSeatIndex: hand.engine.smallBlindSeatIndex,
+            bigBlindSeatIndex: hand.engine.bigBlindSeatIndex,
+            potTotal: hand.engine.potTotal,
+            board: [...hand.engine.board],
+            seatOrder: [...hand.engine.seatOrder],
+            players: hand.engine.players.map((player) => ({
+              seatIndex: player.seatIndex,
+              participantId: player.participantId,
+              startingStack: player.startingStack,
+              stack: player.stack,
+              status: player.status,
+              holeCards: player.holeCards,
+              totalCommitted: player.totalCommitted,
+              contributedByStreet: player.contributedByStreet
+            })),
+            actionLog: hand.engine.actionLog.map((action) => ({
+              seq: action.seq,
+              seatIndex: action.seatIndex,
+              participantId: action.participantId,
+              street: action.street,
+              actionType: action.actionType,
+              normalizedAmount: action.normalizedAmount,
+              contributedAmount: action.contributedAmount,
+              totalCommitted: action.totalCommitted,
+              streetCommitted: action.streetCommitted
+            })),
+            forcedCommitments: hand.engine.forcedCommitments.map((commitment) => ({
+              seatIndex: commitment.seatIndex,
+              participantId: commitment.participantId,
+              type: commitment.type,
+              amount: commitment.amount
+            })),
+            winnerByFoldSeatIndex: hand.engine.winnerByFoldSeatIndex
+          },
+          {
+            oddChipRule: room.config.oddChipRule,
+            rakeConfig: {
+              enabled: room.config.rakeEnabled,
+              percent: room.config.rakePercent,
+              cap: room.config.rakeCap,
+              mode: "PER_HAND"
+            }
+          }
+        )
+      );
+      const settlementReferenceId = `settlement_${hand.engine.handId}`;
+      const committedLedgerEntries = commitLedgerEntries(room, [
+        ...settlement.playerResults
+          .filter((playerResult) => playerResult.won > 0)
+          .map((playerResult) => ({
+            participantId: playerResult.participantId,
+            seatIndex: playerResult.seatIndex,
+            type: "HAND_PAYOUT" as const,
+            delta: playerResult.won,
+            referenceId: settlementReferenceId
+          })),
+        ...(settlement.totalRake > 0
+          ? [
+              {
+                participantId: createRakeParticipantId(room.roomId),
+                type: "RAKE" as const,
+                delta: settlement.totalRake,
+                referenceId: settlementReferenceId
+              }
+            ]
+          : [])
+      ]).map((entry) => toLedgerEntry(entry));
+      const endedAt = clock();
 
-      if (winnerSeat?.status === "OCCUPIED") {
-        winnerSeat.stack = (winnerSeat.stack ?? 0) + hand.engine.potTotal;
+      for (const playerResult of settlement.playerResults) {
+        const seat = room.seats.at(playerResult.seatIndex);
+
+        if (seat?.participantId === playerResult.participantId) {
+          seat.stack = playerResult.finalStack;
+        }
       }
+
+      room.lastButtonSeatIndex = hand.engine.buttonSeatIndex;
+      room.tablePhase = "BETWEEN_HANDS";
+      room.activeHand = undefined;
+      room.pausedTurnRemainingMs = undefined;
+      clearReadyStateAfterHand(room);
+
+      addAuditEvent({
+        type: "HAND_SETTLED",
+        roomId: room.roomId,
+        handId: hand.engine.handId,
+        detail: `Hand ${hand.engine.handNumber} settled with ${settlement.totalPot.toLocaleString()} chips`,
+        actorId: room.adminId
+      });
+
+      const transcript = buildHandTranscript(
+        room,
+        hand,
+        settlement,
+        committedLedgerEntries,
+        endedAt
+      );
+      storeHandHistory(room, transcript);
+
+      const roomEventNo = emitRoomRefresh(room, ["participants", "seats", "tablePhase", "activeHand"], {
+        handId: hand.engine.handId,
+        handSeq: getHandSequence(hand.engine)
+      });
+
+      emitRoomEvent(room.roomId, {
+        type: "SHOWDOWN_RESULT",
+        roomId: room.roomId,
+        roomEventNo,
+        handId: hand.engine.handId,
+        handSeq: getHandSequence(hand.engine),
+        awardedByFold: settlement.awardedByFold,
+        results: settlement.showdownResults,
+        pots: settlement.pots
+      });
+
+      emitRoomEvent(room.roomId, {
+        type: "SETTLEMENT_POSTED",
+        roomId: room.roomId,
+        roomEventNo,
+        handId: hand.engine.handId,
+        handSeq: getHandSequence(hand.engine),
+        settlement,
+        ledgerEntries: committedLedgerEntries
+      });
+    } catch {
+      pauseRoomInternal(
+        room,
+        "Settlement could not be committed, so the room is paused before any payouts become visible.",
+        "Review the active hand state and resume after the settlement fault is resolved."
+      );
     }
-
-    room.lastButtonSeatIndex = hand.engine.buttonSeatIndex;
-    room.tablePhase = "BETWEEN_HANDS";
-    room.activeHand = undefined;
-    room.pausedTurnRemainingMs = undefined;
-    clearReadyStateAfterHand(room);
-
-    emitRoomRefresh(room, ["participants", "seats", "tablePhase", "activeHand"], {
-      roomEventNo,
-      handId: hand.engine.handId,
-      handSeq: getHandSequence(hand.engine)
-    });
   }
 
   function scheduleReservationExpiry(room: RoomRecord, seat: SeatRecord) {
@@ -1729,6 +2044,14 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       buttonSeatIndex: engine.buttonSeatIndex
     });
 
+    addAuditEvent({
+      type: "HAND_STARTED",
+      roomId: room.roomId,
+      handId: engine.handId,
+      actorId: room.adminId,
+      detail: `Hand ${engine.handNumber} started`
+    });
+
     startTurn(room, roomEventNo);
   }
 
@@ -1910,10 +2233,33 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       });
     }
 
+    addAuditEvent({
+      type: "ACTION_COMMITTED",
+      roomId: room.roomId,
+      handId: transition.state.handId,
+      actorId: participantId,
+      detail: `${transition.normalizedAction.actionType} committed from seat ${
+        seat.seatIndex + 1
+      } at hand seq ${handSeq}`
+    });
+
+    if (
+      transition.normalizedAction.actionType === "TIMEOUT_FOLD" ||
+      payload.idempotencyKey?.startsWith("timeout-")
+    ) {
+      addAuditEvent({
+        type: "TURN_TIMED_OUT",
+        roomId: room.roomId,
+        handId: transition.state.handId,
+        actorId: participantId,
+        detail: `Seat ${seat.seatIndex + 1} timed out and auto-folded`
+      });
+    }
+
     const awardedEffect = transition.effects.find((effect) => effect.type === "HAND_AWARDED");
 
     if (awardedEffect) {
-      finishAwardedHand(room, roomEventNo);
+      settleAndFinalizeActiveHand(room);
       return result;
     }
 
@@ -1954,6 +2300,11 @@ export function createAppState(options: CreateAppStateOptions = {}) {
           revealOrder: effect.revealOrder
         });
       }
+    }
+
+    if (room.activeHand?.engine.handStatus === "SHOWDOWN_PENDING") {
+      settleAndFinalizeActiveHand(room);
+      return result;
     }
 
     if (
@@ -2121,7 +2472,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         ledgerEntries: [],
         processedLedgerOperations: new Map(),
         processedActionIntents: new Map(),
-        roomEventNo: 0
+        roomEventNo: 0,
+        handHistoryIds: []
       };
 
       roomsByCode.set(room.code, room);
@@ -2214,6 +2566,47 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       }
 
       return toRoomPrivateState(room, actor);
+    },
+    listRoomHands(roomId: string, actor: AuthActor, cursor?: string, limit = 20) {
+      const room = getRoomRecordById(roomId);
+      assertActorCanAccessRoomHistory(room, actor);
+
+      const summaries = [...room.handHistoryIds]
+        .reverse()
+        .map((handId) => handHistories.get(handId)?.transcript)
+        .filter((transcript): transcript is HandTranscript => Boolean(transcript))
+        .map((transcript) => toHandHistorySummary(transcript));
+      const normalizedLimit = Math.max(1, Math.min(limit, 50));
+      const startIndex =
+        cursor && summaries.some((summary) => summary.handId === cursor)
+          ? summaries.findIndex((summary) => summary.handId === cursor) + 1
+          : 0;
+      const items = summaries.slice(startIndex, startIndex + normalizedLimit);
+      const nextCursor =
+        summaries.length > startIndex + normalizedLimit
+          ? items.at(-1)?.handId ?? null
+          : null;
+
+      return handHistoryListResponseSchema.parse({
+        items,
+        nextCursor
+      });
+    },
+    getHandTranscript(handId: string, actor: AuthActor) {
+      const record = handHistories.get(handId);
+
+      if (!record) {
+        throw appError({
+          code: "ERR_ROOM_NOT_FOUND",
+          message: "That hand history does not exist.",
+          statusCode: 404,
+          retryable: false
+        });
+      }
+
+      const room = getRoomRecordById(record.transcript.roomId);
+      assertActorCanAccessRoomHistory(room, actor);
+      return handTranscriptSchema.parse(record.transcript);
     },
     buildRoomRealtimeDiff(roomId: string, actor: AuthActor, changed: RoomPatchField[]) {
       const room = getRoomRecordById(roomId);

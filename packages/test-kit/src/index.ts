@@ -1,5 +1,6 @@
 import {
   clientSnapshotSchema,
+  handTranscriptSchema,
   ledgerEntrySchema,
   roomBalanceSummarySchema,
   roomRealtimeSnapshotSchema
@@ -146,5 +147,164 @@ export function createRoomRealtimeSnapshotFixture() {
     tablePhase: "BETWEEN_HANDS",
     roomEventNo: 4,
     activeHand: null
+  });
+}
+
+export function createHandTranscriptFixture() {
+  return handTranscriptSchema.parse({
+    roomId: "room_fixture_001",
+    handId: "hand_fixture_001",
+    handNumber: 1,
+    buttonSeatIndex: 0,
+    smallBlindSeatIndex: 0,
+    bigBlindSeatIndex: 1,
+    startedAt: "2026-03-19T12:05:00.000Z",
+    endedAt: "2026-03-19T12:05:12.000Z",
+    board: [],
+    deckCommitmentHash: "fixture-hash",
+    deckReveal: ["AS", "KH", "QD", "JC"],
+    actions: [
+      {
+        seq: 1,
+        seatIndex: 0,
+        participantId: "guest_fixture_001",
+        street: "PREFLOP",
+        actionType: "FOLD",
+        contributedAmount: 0,
+        totalCommitted: 50,
+        streetCommitted: 50
+      }
+    ],
+    forcedCommitments: [
+      {
+        seatIndex: 0,
+        participantId: "guest_fixture_001",
+        type: "SMALL_BLIND",
+        amount: 50
+      },
+      {
+        seatIndex: 1,
+        participantId: "guest_fixture_002",
+        type: "BIG_BLIND",
+        amount: 100
+      }
+    ],
+    contributions: [
+      {
+        seatIndex: 0,
+        participantId: "guest_fixture_001",
+        totalCommitted: 50,
+        contributedByStreet: {
+          PREFLOP: 50,
+          FLOP: 0,
+          TURN: 0,
+          RIVER: 0
+        }
+      },
+      {
+        seatIndex: 1,
+        participantId: "guest_fixture_002",
+        totalCommitted: 100,
+        contributedByStreet: {
+          PREFLOP: 100,
+          FLOP: 0,
+          TURN: 0,
+          RIVER: 0
+        }
+      }
+    ],
+    settlement: {
+      handId: "hand_fixture_001",
+      handNumber: 1,
+      oddChipRule: "LEFT_OF_BUTTON",
+      rakeConfig: {
+        enabled: false,
+        percent: 0,
+        cap: 0,
+        mode: "PER_HAND"
+      },
+      totalPot: 150,
+      totalRake: 0,
+      awardedByFold: true,
+      showdownResults: [],
+      pots: [
+        {
+          potIndex: 0,
+          potType: "MAIN",
+          capLevel: 50,
+          amount: 100,
+          contributorSeatIndexes: [0, 1],
+          eligibleSeatIndexes: [1],
+          rakeApplied: 0,
+          winnerSeatIndexes: [1],
+          oddChipSeatIndexes: [],
+          awards: [
+            {
+              seatIndex: 1,
+              participantId: "guest_fixture_002",
+              amount: 100
+            }
+          ]
+        },
+        {
+          potIndex: 1,
+          potType: "SIDE",
+          capLevel: 100,
+          amount: 50,
+          contributorSeatIndexes: [1],
+          eligibleSeatIndexes: [1],
+          rakeApplied: 0,
+          winnerSeatIndexes: [1],
+          oddChipSeatIndexes: [],
+          awards: [
+            {
+              seatIndex: 1,
+              participantId: "guest_fixture_002",
+              amount: 50
+            }
+          ]
+        }
+      ],
+      playerResults: [
+        {
+          seatIndex: 0,
+          participantId: "guest_fixture_001",
+          contributed: 50,
+          won: 0,
+          finalStack: 4950,
+          netResult: -50
+        },
+        {
+          seatIndex: 1,
+          participantId: "guest_fixture_002",
+          contributed: 100,
+          won: 150,
+          finalStack: 5050,
+          netResult: 50
+        }
+      ]
+    },
+    ledgerEntries: [
+      {
+        entryId: "ledger_fixture_payout_001",
+        roomId: "room_fixture_001",
+        participantId: "guest_fixture_002",
+        seatIndex: 1,
+        type: "HAND_PAYOUT",
+        delta: 150,
+        balanceAfter: 5150,
+        referenceId: "settlement_fixture_001",
+        createdAt: "2026-03-19T12:05:12.000Z"
+      }
+    ],
+    auditEvents: [
+      {
+        eventId: "audit_fixture_001",
+        type: "HAND_SETTLED",
+        occurredAt: "2026-03-19T12:05:12.000Z",
+        actorId: "admin_fixture_001",
+        detail: "Hand 1 settled with 150 chips"
+      }
+    ]
   });
 }
