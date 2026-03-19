@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   adminOtpRequestResponseSchema,
@@ -25,11 +25,6 @@ type PhaseOneShellProps = {
   statusLabel: string;
 };
 
-type ApiProblem = {
-  code?: string;
-  message: string;
-};
-
 type AuthState = {
   session: SessionEnvelope;
   actor: AuthActor;
@@ -41,6 +36,24 @@ type OtpRequestState = {
   expiresAt: string;
   cooldownSeconds: number;
 } | null;
+
+type ProcessTone = "idle" | "pending" | "success" | "error";
+
+type ProcessFeedback = {
+  tone: Exclude<ProcessTone, "idle">;
+  message: string;
+};
+
+type ProcessButtonProps = {
+  variant: "primary" | "secondary" | "ghost";
+  tone: ProcessTone;
+  idleLabel: string;
+  pendingLabel: string;
+  successLabel: string;
+  errorLabel?: string;
+  onClick: () => void;
+  disabled?: boolean;
+};
 
 const demoCodes = [
   {
@@ -60,16 +73,77 @@ const demoCodes = [
   }
 ] as const;
 
-function createApiProblem(error: unknown): ApiProblem {
+function createErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return {
-      message: error.message
-    };
+    return error.message;
   }
 
-  return {
-    message: "Something went wrong. Please try again."
-  };
+  return "Something went wrong. Please try again.";
+}
+
+function getButtonLabel({
+  tone,
+  idleLabel,
+  pendingLabel,
+  successLabel,
+  errorLabel
+}: Omit<ProcessButtonProps, "variant" | "onClick" | "disabled">) {
+  if (tone === "pending") {
+    return pendingLabel;
+  }
+
+  if (tone === "success") {
+    return successLabel;
+  }
+
+  if (tone === "error") {
+    return errorLabel ?? idleLabel;
+  }
+
+  return idleLabel;
+}
+
+function ProcessButton({
+  variant,
+  tone,
+  idleLabel,
+  pendingLabel,
+  successLabel,
+  errorLabel,
+  onClick,
+  disabled
+}: ProcessButtonProps) {
+  const toneClass = tone === "idle" ? "" : ` process-${tone}`;
+
+  return (
+    <button
+      className={`${variant}-button process-button${toneClass}`}
+      disabled={disabled || tone === "pending"}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="process-indicator" aria-hidden="true" />
+      {getButtonLabel({
+        tone,
+        idleLabel,
+        pendingLabel,
+        successLabel,
+        errorLabel
+      })}
+    </button>
+  );
+}
+
+function ProcessNotice({ feedback }: { feedback: ProcessFeedback | null }) {
+  if (!feedback) {
+    return null;
+  }
+
+  return (
+    <p className={`process-notice process-${feedback.tone}`}>
+      {feedback.message}
+    </p>
+  );
 }
 
 async function readResponse<T>(
@@ -118,8 +192,6 @@ export function PhaseOneShell({
   statusLabel
 }: PhaseOneShellProps) {
   const [authState, setAuthState] = useState<AuthState>(null);
-  const [authProblem, setAuthProblem] = useState<ApiProblem | null>(null);
-  const [joinProblem, setJoinProblem] = useState<ApiProblem | null>(null);
   const [roomPreview, setRoomPreview] = useState<RoomPublicSummary | null>(null);
   const [lobbySnapshot, setLobbySnapshot] = useState<LobbySnapshot | null>(null);
   const [otpRequestState, setOtpRequestState] = useState<OtpRequestState>(null);
@@ -129,12 +201,22 @@ export function PhaseOneShell({
   const [nickname, setNickname] = useState("RiverKid");
   const [joinMode, setJoinMode] = useState<RoomJoinMode>("PLAYER");
   const [isBooting, setIsBooting] = useState(true);
-  const [isAuthPending, startAuthTransition] = useTransition();
-  const [isJoinPending, startJoinTransition] = useTransition();
+  const [requestOtpFeedback, setRequestOtpFeedback] = useState<ProcessFeedback | null>(
+    null
+  );
+  const [verifyOtpFeedback, setVerifyOtpFeedback] = useState<ProcessFeedback | null>(
+    null
+  );
+  const [checkRoomFeedback, setCheckRoomFeedback] = useState<ProcessFeedback | null>(
+    null
+  );
+  const [joinRoomFeedback, setJoinRoomFeedback] = useState<ProcessFeedback | null>(
+    null
+  );
+  const [refreshFeedback, setRefreshFeedback] = useState<ProcessFeedback | null>(null);
+  const [logoutFeedback, setLogoutFeedback] = useState<ProcessFeedback | null>(null);
 
   async function refreshAuthState() {
-    setAuthProblem(null);
-
     try {
       const response = await apiRequest(
         serverOrigin,
@@ -151,8 +233,7 @@ export function PhaseOneShell({
         session: response.session,
         actor: response.actor
       });
-    } catch (error) {
-      setAuthProblem(createApiProblem(error));
+    } catch {
       setAuthState(null);
     }
   }
@@ -185,163 +266,252 @@ export function PhaseOneShell({
 
   const showCreateRoomGate = authState?.actor.role === "ADMIN";
 
+  const authControlsBusy =
+    requestOtpFeedback?.tone === "pending" ||
+    verifyOtpFeedback?.tone === "pending" ||
+    refreshFeedback?.tone === "pending" ||
+    logoutFeedback?.tone === "pending";
+
+  const guestControlsBusy =
+    checkRoomFeedback?.tone === "pending" || joinRoomFeedback?.tone === "pending";
+
   function handleRequestOtp() {
-    startAuthTransition(() => {
-      void (async () => {
-        setAuthProblem(null);
-
-        try {
-          const response = await apiRequest(
-            serverOrigin,
-            "/api/auth/admin/request-otp",
-            adminOtpRequestResponseSchema,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                email: adminEmail
-              })
-            }
-          );
-
-          setOtpRequestState({
-            challengeId: response.challengeId,
-            deliveryHint: response.delivery.recipientHint,
-            expiresAt: response.expiresAt,
-            cooldownSeconds: response.cooldownSeconds
-          });
-        } catch (error) {
-          setAuthProblem(createApiProblem(error));
-        }
-      })();
+    setRequestOtpFeedback({
+      tone: "pending",
+      message: "Sending your sign-in code now."
     });
+    setVerifyOtpFeedback(null);
+    setRefreshFeedback(null);
+    setLogoutFeedback(null);
+
+    void (async () => {
+      try {
+        const response = await apiRequest(
+          serverOrigin,
+          "/api/auth/admin/request-otp",
+          adminOtpRequestResponseSchema,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              email: adminEmail
+            })
+          }
+        );
+
+        setOtpRequestState({
+          challengeId: response.challengeId,
+          deliveryHint: response.delivery.recipientHint,
+          expiresAt: response.expiresAt,
+          cooldownSeconds: response.cooldownSeconds
+        });
+        setRequestOtpFeedback({
+          tone: "success",
+          message: `Code sent to ${response.delivery.recipientHint}.`
+        });
+      } catch (error) {
+        setRequestOtpFeedback({
+          tone: "error",
+          message: createErrorMessage(error)
+        });
+      }
+    })();
   }
 
   function handleVerifyOtp() {
-    startAuthTransition(() => {
-      void (async () => {
-        if (!otpRequestState) {
-          setAuthProblem({
-            message: "Request a code first so we have an active verification challenge."
-          });
-          return;
-        }
+    if (!otpRequestState) {
+      setVerifyOtpFeedback({
+        tone: "error",
+        message: "Request a code first so we have an active verification challenge."
+      });
+      return;
+    }
 
-        try {
-          const response = await apiRequest(
-            serverOrigin,
-            "/api/auth/admin/verify-otp",
-            authSessionResponseSchema,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                challengeId: otpRequestState.challengeId,
-                code: adminCode
-              })
-            }
-          );
-
-          setAuthState({
-            session: response.session,
-            actor: response.actor
-          });
-          setAdminCode("");
-          setAuthProblem(null);
-        } catch (error) {
-          setAuthProblem(createApiProblem(error));
-        }
-      })();
+    setVerifyOtpFeedback({
+      tone: "pending",
+      message: "Verifying your OTP and creating the admin session."
     });
+    setRequestOtpFeedback(null);
+    setRefreshFeedback(null);
+    setLogoutFeedback(null);
+
+    void (async () => {
+      try {
+        const response = await apiRequest(
+          serverOrigin,
+          "/api/auth/admin/verify-otp",
+          authSessionResponseSchema,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              challengeId: otpRequestState.challengeId,
+              code: adminCode
+            })
+          }
+        );
+
+        setAuthState({
+          session: response.session,
+          actor: response.actor
+        });
+        setAdminCode("");
+        setVerifyOtpFeedback({
+          tone: "success",
+          message: "OTP verified. Your admin session is ready."
+        });
+      } catch (error) {
+        setVerifyOtpFeedback({
+          tone: "error",
+          message: createErrorMessage(error)
+        });
+      }
+    })();
   }
 
-  function handleJoinRoom(checkOnly: boolean) {
-    startJoinTransition(() => {
-      void (async () => {
-        setJoinProblem(null);
-
-        try {
-          const summary = await apiRequest(
-            serverOrigin,
-            `/api/rooms/${encodeURIComponent(roomCode.trim().toUpperCase())}`,
-            roomPublicSummarySchema
-          );
-
-          setRoomPreview(summary);
-
-          if (checkOnly) {
-            return;
-          }
-
-          const response = await apiRequest(
-            serverOrigin,
-            `/api/rooms/${encodeURIComponent(roomCode.trim().toUpperCase())}/join`,
-            joinRoomResponseSchema,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                nickname,
-                mode: joinMode
-              })
-            }
-          );
-
-          setAuthState({
-            session: response.session,
-            actor: response.actor
-          });
-          setLobbySnapshot(response.lobbySnapshot);
-        } catch (error) {
-          setJoinProblem(createApiProblem(error));
-          if (!checkOnly) {
-            setLobbySnapshot(null);
-          }
-        }
-      })();
+  function handleCheckRoom() {
+    setCheckRoomFeedback({
+      tone: "pending",
+      message: "Checking that room code and loading its public state."
     });
+    setJoinRoomFeedback(null);
+
+    void (async () => {
+      try {
+        const summary = await apiRequest(
+          serverOrigin,
+          `/api/rooms/${encodeURIComponent(roomCode.trim().toUpperCase())}`,
+          roomPublicSummarySchema
+        );
+
+        setRoomPreview(summary);
+        setCheckRoomFeedback({
+          tone: "success",
+          message: `${summary.tableName} is available to review.`
+        });
+      } catch (error) {
+        setCheckRoomFeedback({
+          tone: "error",
+          message: createErrorMessage(error)
+        });
+      }
+    })();
+  }
+
+  function handleJoinRoom() {
+    setJoinRoomFeedback({
+      tone: "pending",
+      message: "Joining the room and creating your signed guest session."
+    });
+    setCheckRoomFeedback(null);
+
+    void (async () => {
+      try {
+        const summary = await apiRequest(
+          serverOrigin,
+          `/api/rooms/${encodeURIComponent(roomCode.trim().toUpperCase())}`,
+          roomPublicSummarySchema
+        );
+
+        setRoomPreview(summary);
+
+        const response = await apiRequest(
+          serverOrigin,
+          `/api/rooms/${encodeURIComponent(roomCode.trim().toUpperCase())}/join`,
+          joinRoomResponseSchema,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              nickname,
+              mode: joinMode
+            })
+          }
+        );
+
+        setAuthState({
+          session: response.session,
+          actor: response.actor
+        });
+        setLobbySnapshot(response.lobbySnapshot);
+        setJoinRoomFeedback({
+          tone: "success",
+          message: `Joined ${response.lobbySnapshot.room.tableName} successfully.`
+        });
+      } catch (error) {
+        setLobbySnapshot(null);
+        setJoinRoomFeedback({
+          tone: "error",
+          message: createErrorMessage(error)
+        });
+      }
+    })();
   }
 
   function handleRefreshSession() {
-    startAuthTransition(() => {
-      void (async () => {
-        try {
-          const response = await apiRequest(
-            serverOrigin,
-            "/api/auth/refresh",
-            authSessionResponseSchema,
-            {
-              method: "POST",
-              body: JSON.stringify({})
-            }
-          );
-
-          setAuthState({
-            session: response.session,
-            actor: response.actor
-          });
-          setAuthProblem(null);
-        } catch (error) {
-          setAuthProblem(createApiProblem(error));
-        }
-      })();
+    setRefreshFeedback({
+      tone: "pending",
+      message: "Refreshing the active session now."
     });
+    setRequestOtpFeedback(null);
+    setVerifyOtpFeedback(null);
+    setLogoutFeedback(null);
+
+    void (async () => {
+      try {
+        const response = await apiRequest(
+          serverOrigin,
+          "/api/auth/refresh",
+          authSessionResponseSchema,
+          {
+            method: "POST",
+            body: JSON.stringify({})
+          }
+        );
+
+        setAuthState({
+          session: response.session,
+          actor: response.actor
+        });
+        setRefreshFeedback({
+          tone: "success",
+          message: "Session refreshed successfully."
+        });
+      } catch (error) {
+        setRefreshFeedback({
+          tone: "error",
+          message: createErrorMessage(error)
+        });
+      }
+    })();
   }
 
   function handleLogout() {
-    startAuthTransition(() => {
-      void (async () => {
-        try {
-          await apiRequest(serverOrigin, "/api/auth/logout", logoutResponseSchema, {
-            method: "POST",
-            body: JSON.stringify({})
-          });
-
-          setAuthState(null);
-          setLobbySnapshot(null);
-          setAuthProblem(null);
-        } catch (error) {
-          setAuthProblem(createApiProblem(error));
-        }
-      })();
+    setLogoutFeedback({
+      tone: "pending",
+      message: "Signing out and clearing session cookies."
     });
+    setRequestOtpFeedback(null);
+    setVerifyOtpFeedback(null);
+    setRefreshFeedback(null);
+
+    void (async () => {
+      try {
+        await apiRequest(serverOrigin, "/api/auth/logout", logoutResponseSchema, {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+
+        setAuthState(null);
+        setLobbySnapshot(null);
+        setLogoutFeedback({
+          tone: "success",
+          message: "Signed out successfully."
+        });
+      } catch (error) {
+        setLogoutFeedback({
+          tone: "error",
+          message: createErrorMessage(error)
+        });
+      }
+    })();
   }
 
   return (
@@ -365,25 +535,30 @@ export function PhaseOneShell({
           <p className="status-label">Session status</p>
           <p className="status-text">{statusCopy}</p>
           {authState ? (
-            <div className="status-actions">
-              <button
-                className="secondary-button"
-                onClick={handleRefreshSession}
-                type="button"
-              >
-                Refresh session
-              </button>
-              <button
-                className="ghost-button"
-                onClick={handleLogout}
-                type="button"
-              >
-                Sign out
-              </button>
-            </div>
-          ) : null}
-          {authProblem ? (
-            <p className="notice error-notice">{authProblem.message}</p>
+            <>
+              <div className="status-actions">
+                <ProcessButton
+                  disabled={authControlsBusy}
+                  idleLabel="Refresh session"
+                  onClick={handleRefreshSession}
+                  pendingLabel="Refreshing session"
+                  successLabel="Session refreshed"
+                  tone={refreshFeedback?.tone ?? "idle"}
+                  variant="secondary"
+                />
+                <ProcessButton
+                  disabled={authControlsBusy}
+                  idleLabel="Sign out"
+                  onClick={handleLogout}
+                  pendingLabel="Signing out"
+                  successLabel="Signed out"
+                  tone={logoutFeedback?.tone ?? "idle"}
+                  variant="ghost"
+                />
+              </div>
+              <ProcessNotice feedback={refreshFeedback} />
+              <ProcessNotice feedback={logoutFeedback} />
+            </>
           ) : null}
         </div>
       </section>
@@ -395,7 +570,7 @@ export function PhaseOneShell({
             <h2>Join a room by code</h2>
           </div>
           <p className="panel-copy">
-            This covers the phase’s player-facing entry path: room lookup,
+            This covers the phase&apos;s player-facing entry path: room lookup,
             nickname conflict checks, spectator mode, and signed guest sessions.
           </p>
 
@@ -450,27 +625,28 @@ export function PhaseOneShell({
           </div>
 
           <div className="action-row">
-            <button
-              className="secondary-button"
-              disabled={isJoinPending}
-              onClick={() => handleJoinRoom(true)}
-              type="button"
-            >
-              Check room
-            </button>
-            <button
-              className="primary-button"
-              disabled={isJoinPending}
-              onClick={() => handleJoinRoom(false)}
-              type="button"
-            >
-              {isJoinPending ? "Working..." : "Join by code"}
-            </button>
+            <ProcessButton
+              disabled={guestControlsBusy}
+              idleLabel="Check room"
+              onClick={handleCheckRoom}
+              pendingLabel="Checking room"
+              successLabel="Room checked"
+              tone={checkRoomFeedback?.tone ?? "idle"}
+              variant="secondary"
+            />
+            <ProcessButton
+              disabled={guestControlsBusy}
+              idleLabel="Join by code"
+              onClick={handleJoinRoom}
+              pendingLabel="Joining room"
+              successLabel="Room joined"
+              tone={joinRoomFeedback?.tone ?? "idle"}
+              variant="primary"
+            />
           </div>
 
-          {joinProblem ? (
-            <p className="notice error-notice">{joinProblem.message}</p>
-          ) : null}
+          <ProcessNotice feedback={checkRoomFeedback} />
+          <ProcessNotice feedback={joinRoomFeedback} />
 
           {roomPreview ? (
             <div className="info-block">
@@ -536,15 +712,18 @@ export function PhaseOneShell({
           </label>
 
           <div className="action-row">
-            <button
-              className="primary-button"
-              disabled={isAuthPending}
+            <ProcessButton
+              disabled={authControlsBusy}
+              idleLabel="Send sign-in code"
               onClick={handleRequestOtp}
-              type="button"
-            >
-              {isAuthPending ? "Sending..." : "Send sign-in code"}
-            </button>
+              pendingLabel="Sending code"
+              successLabel="Code sent"
+              tone={requestOtpFeedback?.tone ?? "idle"}
+              variant="primary"
+            />
           </div>
+
+          <ProcessNotice feedback={requestOtpFeedback} />
 
           {otpRequestState ? (
             <div className="info-block">
@@ -579,15 +758,18 @@ export function PhaseOneShell({
           </label>
 
           <div className="action-row">
-            <button
-              className="secondary-button"
-              disabled={isAuthPending}
+            <ProcessButton
+              disabled={authControlsBusy}
+              idleLabel="Verify code"
               onClick={handleVerifyOtp}
-              type="button"
-            >
-              Verify code
-            </button>
+              pendingLabel="Verifying OTP"
+              successLabel="OTP verified"
+              tone={verifyOtpFeedback?.tone ?? "idle"}
+              variant="secondary"
+            />
           </div>
+
+          <ProcessNotice feedback={verifyOtpFeedback} />
 
           {showCreateRoomGate ? (
             <div className="gate-card">
@@ -599,7 +781,9 @@ export function PhaseOneShell({
               </p>
               <div className="info-row">
                 <span>Admin</span>
-                <strong>{authState?.actor.role === "ADMIN" ? authState.actor.email : ""}</strong>
+                <strong>
+                  {authState?.actor.role === "ADMIN" ? authState.actor.email : ""}
+                </strong>
               </div>
               <div className="info-row">
                 <span>Session expires</span>

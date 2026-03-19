@@ -265,6 +265,9 @@ input:focus {
 .primary-button,
 .secondary-button,
 .ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   border-radius: 999px;
   padding: 12px 18px;
   border: 1px solid transparent;
@@ -301,6 +304,80 @@ input:focus {
   opacity: 0.65;
   cursor: not-allowed;
   transform: none;
+}
+
+.process-button {
+  position: relative;
+}
+
+.process-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+
+.process-pending .process-indicator {
+  opacity: 1;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  background: transparent;
+  animation: spin 0.9s linear infinite;
+}
+
+.process-success .process-indicator {
+  opacity: 1;
+  background: #6ef0b0;
+  box-shadow: 0 0 0 4px rgba(110, 240, 176, 0.18);
+}
+
+.process-error .process-indicator {
+  opacity: 1;
+  background: #ff9a8d;
+  box-shadow: 0 0 0 4px rgba(255, 154, 141, 0.14);
+}
+
+.process-success.primary-button {
+  box-shadow: 0 0 0 3px rgba(110, 240, 176, 0.18);
+}
+
+.process-success.secondary-button,
+.process-success.ghost-button {
+  border-color: rgba(110, 240, 176, 0.3);
+}
+
+.process-error.primary-button,
+.process-error.secondary-button,
+.process-error.ghost-button {
+  border-color: rgba(255, 154, 141, 0.3);
+}
+
+.process-notice {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.95rem;
+}
+
+.process-notice.process-pending {
+  color: #f8eed6;
+  background: rgba(217, 177, 93, 0.12);
+  border-color: rgba(217, 177, 93, 0.25);
+}
+
+.process-notice.process-success {
+  color: #d7ffe9;
+  background: rgba(27, 110, 72, 0.34);
+  border-color: rgba(110, 240, 176, 0.22);
+}
+
+.process-notice.process-error {
+  color: #ffd6d0;
+  background: rgba(111, 22, 16, 0.38);
+  border-color: rgba(255, 142, 128, 0.28);
 }
 
 .notice {
@@ -403,6 +480,12 @@ input:focus {
   margin-top: 22px;
   padding: 18px 22px;
   border-radius: 24px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 920px) {
