@@ -12,3 +12,8 @@
 - Synthetic soak test at target room count passes.
 - Recovery from server restart during active hand is demonstrated.
 - Support workflow for dispute review is documented and tested.
+
+## Evidence To Keep
+- A saved soak report with action latency and reconnect outcomes.
+- A metrics capture proving `/metrics` exposed action, settlement, room, and ledger signals.
+- A restart rehearsal note showing the room resumed from a recovered `PAUSED` state.

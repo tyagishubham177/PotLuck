@@ -405,10 +405,96 @@ type GuestSessionResult = IssueSessionResult & {
   lobbySnapshot: LobbySnapshot;
 };
 
+type SerializedParticipantRecord = Omit<
+  ParticipantRecord,
+  "joinedAt" | "lastDisconnectedAt" | "reconnectGraceEndsAt"
+> & {
+  joinedAt: string;
+  lastDisconnectedAt?: string;
+  reconnectGraceEndsAt?: string;
+};
+
+type SerializedQueueEntryRecord = Omit<QueueEntryRecord, "joinedAt"> & {
+  joinedAt: string;
+};
+
+type SerializedSeatRecord = Omit<SeatRecord, "reservedUntil"> & {
+  reservedUntil?: string;
+};
+
+type SerializedLedgerEntryRecord = Omit<LedgerEntryRecord, "createdAt"> & {
+  createdAt: string;
+};
+
+type SerializedCachedActionIntent = CachedActionIntent;
+type SerializedIdempotentLedgerOperation = IdempotentLedgerOperation;
+
+type SerializedActiveHandRecord = Omit<ActiveHandRecord, "startedAt" | "deadlineAt"> & {
+  startedAt: string;
+  deadlineAt: string;
+};
+
+type SerializedRoomRecord = Omit<
+  RoomRecord,
+  | "createdAt"
+  | "joinCodeExpiresAt"
+  | "closesAt"
+  | "participants"
+  | "waitingList"
+  | "seats"
+  | "ledgerEntries"
+  | "processedLedgerOperations"
+  | "processedActionIntents"
+  | "activeHand"
+> & {
+  createdAt: string;
+  joinCodeExpiresAt: string;
+  closesAt: string;
+  participants: SerializedParticipantRecord[];
+  waitingList: SerializedQueueEntryRecord[];
+  seats: SerializedSeatRecord[];
+  ledgerEntries: SerializedLedgerEntryRecord[];
+  processedLedgerOperations: Array<[string, SerializedIdempotentLedgerOperation]>;
+  processedActionIntents: Array<[string, SerializedCachedActionIntent]>;
+  activeHand?: SerializedActiveHandRecord;
+};
+
+type SerializedSessionRecord = Omit<
+  SessionRecord,
+  "issuedAt" | "expiresAt" | "refreshExpiresAt" | "revokedAt"
+> & {
+  issuedAt: string;
+  expiresAt: string;
+  refreshExpiresAt: string;
+  revokedAt?: string;
+};
+
+type SerializedHandHistoryRecord = {
+  handId: string;
+  transcript: HandTranscript;
+  endedAt: string;
+};
+
+export type AppStateRecoverySnapshot = {
+  capturedAt: string;
+  sessions: SerializedSessionRecord[];
+  rooms: SerializedRoomRecord[];
+  handHistories: SerializedHandHistoryRecord[];
+  auditEvents: AuditEvent[];
+};
+
 type CreateAppStateOptions = {
   clock?: Clock;
   onLedgerEntryCommitted?: (entry: LedgerEntryRecord) => void;
   onLedgerEntriesCommitted?: (entries: LedgerEntryRecord[]) => void;
+  onRoomEventEmitted?: (event: RoomEvent) => void;
+  onSettlementResult?: (result: {
+    roomId: string;
+    handId: string;
+    durationMs: number;
+    outcome: "committed" | "paused";
+  }) => void;
+  recoverySnapshot?: AppStateRecoverySnapshot;
 };
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
@@ -440,6 +526,48 @@ function createSeatMap(maxSeats: number): SeatRecord[] {
     seatIndex,
     status: "EMPTY"
   }));
+}
+
+function reviveParticipantRecord(record: SerializedParticipantRecord): ParticipantRecord {
+  return {
+    ...record,
+    joinedAt: new Date(record.joinedAt),
+    lastDisconnectedAt: record.lastDisconnectedAt
+      ? new Date(record.lastDisconnectedAt)
+      : undefined,
+    reconnectGraceEndsAt: record.reconnectGraceEndsAt
+      ? new Date(record.reconnectGraceEndsAt)
+      : undefined
+  };
+}
+
+function reviveQueueEntryRecord(record: SerializedQueueEntryRecord): QueueEntryRecord {
+  return {
+    ...record,
+    joinedAt: new Date(record.joinedAt)
+  };
+}
+
+function reviveSeatRecord(record: SerializedSeatRecord): SeatRecord {
+  return {
+    ...record,
+    reservedUntil: record.reservedUntil ? new Date(record.reservedUntil) : undefined
+  };
+}
+
+function reviveLedgerEntryRecord(record: SerializedLedgerEntryRecord): LedgerEntryRecord {
+  return {
+    ...record,
+    createdAt: new Date(record.createdAt)
+  };
+}
+
+function reviveActiveHandRecord(record: SerializedActiveHandRecord): ActiveHandRecord {
+  return {
+    ...record,
+    startedAt: new Date(record.startedAt),
+    deadlineAt: new Date(record.deadlineAt)
+  };
 }
 
 export function createAppState(options: CreateAppStateOptions = {}) {
@@ -506,6 +634,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
   }
 
   function emitRoomEvent(roomId: string, event: RoomEvent) {
+    options.onRoomEventEmitted?.(event);
     const runtime = roomRuntimes.get(roomId);
 
     if (!runtime) {
@@ -519,6 +648,51 @@ export function createAppState(options: CreateAppStateOptions = {}) {
 
   function addAuditEvent(event: Omit<AuditEvent, "eventId" | "occurredAt">) {
     auditEvents.push({ eventId: randomUUID(), occurredAt: toIso(clock()), ...event });
+  }
+
+  if (options.recoverySnapshot) {
+    for (const session of options.recoverySnapshot.sessions) {
+      sessions.set(session.sessionId, {
+        ...session,
+        issuedAt: new Date(session.issuedAt),
+        expiresAt: new Date(session.expiresAt),
+        refreshExpiresAt: new Date(session.refreshExpiresAt),
+        revokedAt: session.revokedAt ? new Date(session.revokedAt) : undefined
+      });
+    }
+
+    for (const room of options.recoverySnapshot.rooms) {
+      const restoredRoom: RoomRecord = {
+        ...room,
+        createdAt: new Date(room.createdAt),
+        joinCodeExpiresAt: new Date(room.joinCodeExpiresAt),
+        closesAt: new Date(room.closesAt),
+        participants: new Map(
+          room.participants.map((participant) => [
+            participant.participantId,
+            reviveParticipantRecord(participant)
+          ])
+        ),
+        waitingList: room.waitingList.map(reviveQueueEntryRecord),
+        seats: room.seats.map(reviveSeatRecord),
+        ledgerEntries: room.ledgerEntries.map(reviveLedgerEntryRecord),
+        processedLedgerOperations: new Map(room.processedLedgerOperations),
+        processedActionIntents: new Map(room.processedActionIntents),
+        activeHand: room.activeHand ? reviveActiveHandRecord(room.activeHand) : undefined
+      };
+
+      roomsByCode.set(restoredRoom.code, restoredRoom);
+      roomsById.set(restoredRoom.roomId, restoredRoom);
+    }
+
+    for (const handHistory of options.recoverySnapshot.handHistories) {
+      handHistories.set(handHistory.handId, {
+        transcript: handHistory.transcript,
+        endedAt: new Date(handHistory.endedAt)
+      });
+    }
+
+    auditEvents.push(...options.recoverySnapshot.auditEvents);
   }
 
   function consumeRateLimit(key: string, limit: number, windowMs: number) {
@@ -1830,6 +2004,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     }
 
     clearTurnTimers(room.roomId);
+    const settlementStartedAt = Date.now();
 
     try {
       const settlement = handSettlementSchema.parse(
@@ -1963,12 +2138,24 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         settlement,
         ledgerEntries: committedLedgerEntries
       });
+      options.onSettlementResult?.({
+        roomId: room.roomId,
+        handId: hand.engine.handId,
+        durationMs: Date.now() - settlementStartedAt,
+        outcome: "committed"
+      });
     } catch {
       pauseRoomInternal(
         room,
         "Settlement could not be committed, so the room is paused before any payouts become visible.",
         "Review the active hand state and resume after the settlement fault is resolved."
       );
+      options.onSettlementResult?.({
+        roomId: room.roomId,
+        handId: hand.engine.handId,
+        durationMs: Date.now() - settlementStartedAt,
+        outcome: "paused"
+      });
     }
   }
 
@@ -2452,6 +2639,24 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     }
 
     return result;
+  }
+
+  for (const room of roomsById.values()) {
+    closeRoomIfExpired(room);
+
+    for (const seat of room.seats) {
+      if (seat.status === "RESERVED" && seat.reservedUntil) {
+        scheduleReservationExpiry(room, seat);
+      }
+    }
+
+    if (room.activeHand && room.status === "OPEN") {
+      pauseRoomInternal(
+        room,
+        "Room recovered after a server restart. Verify the active hand state before resuming play.",
+        "Confirm the hand transcript and player stacks, then resume the room when everyone is aligned."
+      );
+    }
   }
 
   return {
@@ -3801,6 +4006,93 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         : room.ledgerEntries;
 
       return entries.map((entry) => toLedgerEntry(entry));
+    },
+    createRecoverySnapshot(): AppStateRecoverySnapshot {
+      return {
+        capturedAt: toIso(clock()),
+        sessions: [...sessions.values()].map((session) => ({
+          ...session,
+          issuedAt: toIso(session.issuedAt),
+          expiresAt: toIso(session.expiresAt),
+          refreshExpiresAt: toIso(session.refreshExpiresAt),
+          revokedAt: session.revokedAt ? toIso(session.revokedAt) : undefined
+        })),
+        rooms: [...roomsById.values()].map((room) => ({
+          ...room,
+          createdAt: toIso(room.createdAt),
+          joinCodeExpiresAt: toIso(room.joinCodeExpiresAt),
+          closesAt: toIso(room.closesAt),
+          participants: [...room.participants.values()].map((participant) => ({
+            ...participant,
+            joinedAt: toIso(participant.joinedAt),
+            lastDisconnectedAt: participant.lastDisconnectedAt
+              ? toIso(participant.lastDisconnectedAt)
+              : undefined,
+            reconnectGraceEndsAt: participant.reconnectGraceEndsAt
+              ? toIso(participant.reconnectGraceEndsAt)
+              : undefined
+          })),
+          waitingList: room.waitingList.map((entry) => ({
+            ...entry,
+            joinedAt: toIso(entry.joinedAt)
+          })),
+          seats: room.seats.map((seat) => ({
+            ...seat,
+            reservedUntil: seat.reservedUntil ? toIso(seat.reservedUntil) : undefined
+          })),
+          ledgerEntries: room.ledgerEntries.map((entry) => ({
+            ...entry,
+            createdAt: toIso(entry.createdAt)
+          })),
+          processedLedgerOperations: [...room.processedLedgerOperations.entries()],
+          processedActionIntents: [...room.processedActionIntents.entries()],
+          activeHand: room.activeHand
+            ? {
+                ...room.activeHand,
+                startedAt: toIso(room.activeHand.startedAt),
+                deadlineAt: toIso(room.activeHand.deadlineAt)
+              }
+            : undefined
+        })),
+        handHistories: [...handHistories.entries()].map(([handId, handHistory]) => ({
+          handId,
+          transcript: handHistory.transcript,
+          endedAt: toIso(handHistory.endedAt)
+        })),
+        auditEvents: [...auditEvents]
+      };
+    },
+    getOperationalSnapshot() {
+      const activeRooms = [...roomsById.values()].filter(
+        (room) => room.status === "OPEN" || room.status === "PAUSED"
+      );
+      let seatedPlayers = 0;
+      let ledgerBalanceMismatchCount = 0;
+
+      for (const room of activeRooms) {
+        for (const seat of room.seats) {
+          if (seat.status !== "OCCUPIED" || !seat.participantId) {
+            continue;
+          }
+
+          seatedPlayers += 1;
+
+          const ledgerBalance = getCurrentLedgerBalance(room, seat.participantId);
+          const liveStack = seat.stack ?? 0;
+
+          if (ledgerBalance !== liveStack) {
+            ledgerBalanceMismatchCount += 1;
+          }
+        }
+      }
+
+      return {
+        activeRooms: activeRooms.length,
+        pausedRoomCount: activeRooms.filter((room) => room.status === "PAUSED").length,
+        seatedPlayers,
+        handsCompleted: handHistories.size,
+        ledgerBalanceMismatchCount
+      };
     },
     getAuditEvents() {
       return [...auditEvents];

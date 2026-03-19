@@ -75,6 +75,9 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
+      '@potluck/test-kit':
+        specifier: workspace:*
+        version: link:../../packages/test-kit
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -119,6 +122,13 @@ importers:
       '@potluck/contracts':
         specifier: workspace:*
         version: link:../contracts
+      ws:
+        specifier: ^8.18.3
+        version: 8.18.3
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
 
   packages/ui:
     dependencies:

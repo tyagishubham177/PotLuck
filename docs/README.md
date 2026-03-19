@@ -56,6 +56,6 @@ flowchart TD
 | 09 | Hardening Load Release | Prove reliability, accessibility, and release readiness | `hi` | `hi`, leaning `xtra hi`; release, soak, and observability decisions are operationally risky |
 
 ## Current Status
-- Repo status: docs scaffolded, no executable code yet.
-- Current implementation starting point: `phases/00-foundation/`.
+- Repo status: executable monorepo with implementation through `phases/09-hardening-load-release/`.
+- Current implementation checkpoint: release hardening, restart recovery rehearsal, observability metrics, and synthetic soak coverage are in place.
 - Branch naming convention: `codex/<task-name>`.

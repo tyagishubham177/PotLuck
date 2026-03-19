@@ -15,6 +15,7 @@ export const serverEnvSchema = z.object({
   REDIS_URL: z.string().min(1),
   SENTRY_DSN: z.string().min(1),
   SENTRY_AUTH_TOKEN: z.string().min(1),
+  OTEL_EXPORTER_OTLP_PROTOCOL: z.string().min(1),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().min(1),
   OTEL_EXPORTER_OTLP_HEADERS: z.string().min(1)
 });

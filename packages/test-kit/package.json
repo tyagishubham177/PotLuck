@@ -17,6 +17,10 @@
     "clean": "if exist dist rmdir /s /q dist"
   },
   "dependencies": {
-    "@potluck/contracts": "workspace:*"
+    "@potluck/contracts": "workspace:*",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
   }
 }

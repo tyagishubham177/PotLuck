@@ -82,7 +82,15 @@ function closeConnection(
 export function attachRealtimeGateway(
   app: FastifyInstance,
   state: RealtimeState,
-  env: ServerEnv
+  env: ServerEnv,
+  observability?: {
+    recordRealtimeAction: (result: {
+      durationMs: number;
+      outcome: "accepted" | "rejected";
+      errorCode?: string;
+    }) => void;
+    recordReconnectFailure: () => void;
+  }
 ) {
   const wss = new WebSocketServer({ noServer: true });
   const activeGuestConnections = new Map<string, ConnectionContext>();
@@ -104,6 +112,7 @@ export function attachRealtimeGateway(
     const authContext = state.getAuthContext(accessToken, env);
 
     if (!authContext) {
+      observability?.recordReconnectFailure();
       socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
       socket.destroy();
       return;
@@ -273,12 +282,19 @@ export function attachRealtimeGateway(
         }
 
         if (parsed.type === "ACTION_SUBMIT") {
+          const startedAt = Date.now();
           const result = await state.submitAction(parsed.roomId, context.actor, {
             handId: parsed.handId,
             seqExpectation: parsed.seqExpectation,
             idempotencyKey: parsed.idempotencyKey,
             actionType: parsed.actionType,
             amount: parsed.amount
+          });
+
+          observability?.recordRealtimeAction({
+            durationMs: Date.now() - startedAt,
+            outcome: result.outcome,
+            errorCode: result.outcome === "rejected" ? result.errorCode : undefined
           });
 
           if (result.outcome === "accepted") {

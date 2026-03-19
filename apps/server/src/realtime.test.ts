@@ -37,6 +37,7 @@ const testEnv = {
   REDIS_URL: "redis://default:dummy-password@localhost:6379",
   SENTRY_DSN: "https://examplePublicKey@o0.ingest.sentry.io/0",
   SENTRY_AUTH_TOKEN: "sntrys_dummy_auth_token",
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
   OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp",
   OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic ZHVtbXktaW5zdGFuY2U6ZHVtbXktdG9rZW4="
 } as const;
@@ -484,6 +485,30 @@ describe("phase 04 realtime room actor", () => {
       } finally {
         alphaSocket.close();
       }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("exposes release metrics in Prometheus format", async () => {
+    const app = buildServer({
+      env: testEnv,
+      emailAdapter
+    });
+
+    await app.ready();
+
+    try {
+      const metricsResponse = await app.inject({
+        method: "GET",
+        url: "/metrics"
+      });
+
+      expect(metricsResponse.statusCode).toBe(200);
+      expect(metricsResponse.headers["content-type"]).toContain("text/plain");
+      expect(metricsResponse.body).toContain("potluck_active_rooms");
+      expect(metricsResponse.body).toContain("potluck_action_ack_latency_p95_ms");
+      expect(metricsResponse.body).toContain("potluck_hands_completed_total");
     } finally {
       await app.close();
     }
