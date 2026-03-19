@@ -34,6 +34,7 @@ const app = buildServer({
     REDIS_URL: "redis://default:dummy-password@localhost:6379",
     SENTRY_DSN: "https://examplePublicKey@o0.ingest.sentry.io/0",
     SENTRY_AUTH_TOKEN: "sntrys_dummy_auth_token",
+    OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
     OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp",
     OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic ZHVtbXktaW5zdGFuY2U6ZHVtbXktdG9rZW4="
   },
@@ -708,6 +709,72 @@ describe("phase 02 and phase 03 room flow", () => {
     expect(exportTextResponse.body).toContain(handId);
   });
 
+  it("restores an active hand as paused from a recovery snapshot", async () => {
+    const recoveryState = createAppState();
+    const tokenEnv = {
+      SESSION_SIGNING_SECRET: "session-session-session-session-session",
+      GUEST_SESSION_SIGNING_SECRET: "guest-guest-guest-guest-guest-guest"
+    };
+    const adminActor = {
+      role: "ADMIN" as const,
+      adminId: "admin_recovery_test",
+      email: "recovery@example.com"
+    };
+    const room = recoveryState.createRoom(adminActor, {
+      tableName: "Recovery Table",
+      maxSeats: 2,
+      variant: "HOLD_EM_NL",
+      smallBlind: 50,
+      bigBlind: 100,
+      ante: 0,
+      buyInMode: "BB_MULTIPLE",
+      minBuyIn: 40,
+      maxBuyIn: 250,
+      rakeEnabled: false,
+      rakePercent: 0,
+      rakeCap: 0,
+      oddChipRule: "LEFT_OF_BUTTON",
+      spectatorsAllowed: true,
+      straddleAllowed: false,
+      rebuyEnabled: true,
+      topUpEnabled: true,
+      seatReservationTimeoutSeconds: 120,
+      joinCodeExpiryMinutes: 120,
+      waitingListEnabled: true,
+      roomMaxDurationMinutes: 720
+    });
+    const alpha = recoveryState.joinRoom(room.room.code, "Alpha", "PLAYER", tokenEnv);
+    const bravo = recoveryState.joinRoom(room.room.code, "Bravo", "PLAYER", tokenEnv);
+
+    recoveryState.reserveSeat(room.room.roomId, 0, alpha.actor);
+    recoveryState.reserveSeat(room.room.roomId, 1, bravo.actor);
+    recoveryState.buyIn(room.room.roomId, 0, 5000, alpha.actor, "recovery-alpha-buyin-1");
+    recoveryState.buyIn(room.room.roomId, 1, 5000, bravo.actor, "recovery-bravo-buyin-1");
+    recoveryState.playerReady(room.room.roomId, alpha.actor, 0);
+    recoveryState.playerReady(room.room.roomId, bravo.actor, 1);
+
+    const liveSnapshot = recoveryState.getRoomRealtimeSnapshot(room.room.roomId, alpha.actor);
+    expect(liveSnapshot.activeHand?.handId).toBeTruthy();
+    expect(liveSnapshot.room.status).toBe("OPEN");
+
+    const recoveredState = createAppState({
+      recoverySnapshot: recoveryState.createRecoverySnapshot()
+    });
+    const recoveredSnapshot = recoveredState.getRoomRealtimeSnapshot(
+      room.room.roomId,
+      alpha.actor
+    );
+
+    expect(recoveredSnapshot.room.status).toBe("PAUSED");
+    expect(recoveredSnapshot.activeHand?.handId).toBe(liveSnapshot.activeHand?.handId);
+    expect(recoveredSnapshot.pausedReason).toContain("server restart");
+
+    const resumedSnapshot = recoveredState.resumeRoom(room.room.roomId, adminActor);
+
+    expect(resumedSnapshot.room.status).toBe("OPEN");
+    expect(resumedSnapshot.activeHand?.handId).toBe(liveSnapshot.activeHand?.handId);
+  });
+
   it("leaves the seat unchanged when ledger commit fails", async () => {
     const failingState = createAppState({
       onLedgerEntryCommitted() {
@@ -730,6 +797,7 @@ describe("phase 02 and phase 03 room flow", () => {
         REDIS_URL: "redis://default:dummy-password@localhost:6379",
         SENTRY_DSN: "https://examplePublicKey@o0.ingest.sentry.io/0",
         SENTRY_AUTH_TOKEN: "sntrys_dummy_auth_token",
+        OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
         OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp",
         OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic ZHVtbXktaW5zdGFuY2U6ZHVtbXktdG9rZW4="
       },
@@ -816,6 +884,7 @@ describe("phase 02 and phase 03 room flow", () => {
         REDIS_URL: "redis://default:dummy-password@localhost:6379",
         SENTRY_DSN: "https://examplePublicKey@o0.ingest.sentry.io/0",
         SENTRY_AUTH_TOKEN: "sntrys_dummy_auth_token",
+        OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
         OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp",
         OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic ZHVtbXktaW5zdGFuY2U6ZHVtbXktdG9rZW4="
       },

@@ -941,7 +941,8 @@ export const clientSnapshotSchema = z.object({
     "phase-05-ready",
     "phase-06-ready",
     "phase-07-ready",
-    "phase-08-ready"
+    "phase-08-ready",
+    "phase-09-ready"
   ])
 });
 

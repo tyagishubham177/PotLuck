@@ -16,6 +16,13 @@
 4. If deterministic replay matches, resume room.
 5. If not, keep room paused and use compensating admin adjustments after review.
 
+## Beta Support Workflow
+1. Capture the room id, hand id, participant nicknames, and approximate incident time from the report.
+2. Export the hand transcript and compare it with the room audit trail before making any adjustment.
+3. Check `/metrics` for action latency, reconnect spikes, room pauses, and ledger mismatch signals around the incident window.
+4. If the server restarted mid-hand, verify the recovered room is paused, inspect stacks, and resume only after the transcript and live state agree.
+5. Record the final decision, any compensating adjustment, and the evidence links used for the review.
+
 ## Alert Thresholds
 - P95 settlement > 1 second.
 - More than 3 recovery pauses in 30 minutes.

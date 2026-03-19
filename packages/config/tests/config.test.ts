@@ -20,6 +20,7 @@ describe("config schemas", () => {
       REDIS_URL: "redis://default:dummy-password@localhost:6379",
       SENTRY_DSN: "https://examplePublicKey@o0.ingest.sentry.io/0",
       SENTRY_AUTH_TOKEN: "sntrys_dummy_auth_token",
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
       OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp",
       OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic ZHVtbXktaW5zdGFuY2U6ZHVtbXktdG9rZW4="
     });

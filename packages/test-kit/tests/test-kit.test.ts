@@ -5,7 +5,8 @@ import {
   createHandTranscriptFixture,
   createLedgerEntryFixture,
   createRoomBalanceSummaryFixture,
-  createRoomRealtimeSnapshotFixture
+  createRoomRealtimeSnapshotFixture,
+  createSyntheticRoomSoakThresholds
 } from "../src/index.js";
 
 describe("test kit fixture", () => {
@@ -35,5 +36,14 @@ describe("test kit fixture", () => {
 
     expect(transcript.settlement.awardedByFold).toBe(true);
     expect(transcript.ledgerEntries[0]?.type).toBe("HAND_PAYOUT");
+  });
+
+  it("creates default synthetic soak thresholds with overrides", () => {
+    const thresholds = createSyntheticRoomSoakThresholds({
+      maxActionAckP95Ms: 250
+    });
+
+    expect(thresholds.maxActionAckP95Ms).toBe(250);
+    expect(thresholds.minReconnectSuccessRate).toBe(0.95);
   });
 });

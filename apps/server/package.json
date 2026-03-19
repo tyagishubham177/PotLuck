@@ -23,6 +23,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@potluck/test-kit": "workspace:*",
     "@types/ws": "^8.18.1"
   }
 }

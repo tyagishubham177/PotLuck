@@ -43,6 +43,7 @@ import {
 import { createResendEmailAdapter, type EmailAdapter } from "./email.js";
 import { AppError, appError, sendAppError } from "./errors.js";
 import { formatHandTranscriptText } from "./hand-history.js";
+import { createObservability } from "./observability.js";
 import { attachRealtimeGateway } from "./realtime.js";
 import { createAppState } from "./state.js";
 
@@ -54,11 +55,28 @@ type BuildServerOptions = {
 
 export function buildServer(options: BuildServerOptions = {}) {
   const env = getServerEnv(options.env);
+  let state = options.state;
+  const observability = createObservability(() =>
+    state?.getOperationalSnapshot() ?? {
+      activeRooms: 0,
+      pausedRoomCount: 0,
+      seatedPlayers: 0,
+      handsCompleted: 0,
+      ledgerBalanceMismatchCount: 0
+    }
+  );
   const app = Fastify({
     logger: env.NODE_ENV !== "test"
   });
   const engine = createEngineMetadata();
-  const state = options.state ?? createAppState();
+  state ??= createAppState({
+    onRoomEventEmitted: (event) => {
+      observability.recordRoomEvent(event);
+    },
+    onSettlementResult: (result) => {
+      observability.recordSettlement(result);
+    }
+  });
   const emailAdapter =
     options.emailAdapter ??
     createResendEmailAdapter({
@@ -68,9 +86,10 @@ export function buildServer(options: BuildServerOptions = {}) {
 
   app.decorate("env", env);
   app.decorate("appState", state);
-  attachRealtimeGateway(app, state, env);
+  attachRealtimeGateway(app, state, env, observability);
 
   app.addHook("onRequest", async (request, reply) => {
+    (request as FastifyRequest & { receivedAtMs?: number }).receivedAtMs = Date.now();
     reply.header("Access-Control-Allow-Origin", env.APP_ORIGIN);
     reply.header("Access-Control-Allow-Credentials", "true");
     reply.header(
@@ -82,6 +101,14 @@ export function buildServer(options: BuildServerOptions = {}) {
 
     if (request.method === "OPTIONS") {
       return reply.code(204).send();
+    }
+  });
+
+  app.addHook("onResponse", async (request) => {
+    const receivedAtMs = (request as FastifyRequest & { receivedAtMs?: number }).receivedAtMs;
+
+    if (receivedAtMs !== undefined) {
+      observability.recordHttpRequest(request.url, Date.now() - receivedAtMs);
     }
   });
 
@@ -115,6 +142,11 @@ export function buildServer(options: BuildServerOptions = {}) {
 
   app.get("/health", healthHandler);
   app.get("/api/health", healthHandler);
+
+  app.get("/metrics", async (_request, reply) => {
+    reply.type("text/plain; version=0.0.4; charset=utf-8");
+    return reply.send(observability.renderPrometheus());
+  });
 
   const requireAuth = (request: FastifyRequest) => {
     const authContext = state.getAuthContext(getAccessToken(request), env);
