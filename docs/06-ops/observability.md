@@ -24,6 +24,7 @@
 ## Tracing
 - Trace create-room, join-room, action-submit, settlement, export generation, and reconnect flows.
 - Carry correlation ids from HTTP upgrade through websocket session where possible.
+- For Grafana Cloud OTLP ingestion, keep the protocol, endpoint, and auth header in local server env files and out of committed source.
 
 ## Alerts
 - Settlement failure > 0 in any 5-minute window.
