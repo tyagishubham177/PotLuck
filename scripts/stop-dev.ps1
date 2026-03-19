@@ -21,17 +21,18 @@ foreach ($pidFile in $pidFiles) {
     continue
   }
 
-  $pid = [int]$rawPid
+  $targetPid = [int]$rawPid
 
   try {
-    $process = Get-Process -Id $pid -ErrorAction Stop
-    Write-Host "Stopping PID $pid ($($process.ProcessName))" -ForegroundColor Yellow
-    Stop-Process -Id $pid -Force
+    $process = Get-Process -Id $targetPid -ErrorAction Stop
+    Write-Host "Stopping PID $targetPid ($($process.ProcessName))" -ForegroundColor Yellow
+    Stop-Process -Id $targetPid -Force
   } catch {
-    Write-Host "PID $pid is already stopped." -ForegroundColor DarkYellow
+    Write-Host "PID $targetPid is already stopped." -ForegroundColor DarkYellow
   }
 
   Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "Local dev processes stopped." -ForegroundColor Green
+
