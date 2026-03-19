@@ -9,7 +9,7 @@ const snapshot = clientSnapshotSchema.parse({
   appName: env.NEXT_PUBLIC_APP_NAME,
   appOrigin: env.NEXT_PUBLIC_APP_ORIGIN,
   serverOrigin: env.NEXT_PUBLIC_SERVER_ORIGIN,
-  status: "phase-02-ready"
+  status: "phase-04-ready"
 });
 
 export default function HomePage() {

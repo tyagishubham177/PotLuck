@@ -4,7 +4,7 @@
 Accepted
 
 ## Decision
-Use a TypeScript monorepo with `pnpm` and Turborepo, with Next.js for the web app, Fastify + Socket.IO for the server, Zod for contracts, Drizzle ORM for persistence, and managed Postgres as the required hosted data layer. Redis remains optional for later coordination needs, not a v1 requirement.
+Use a TypeScript monorepo with `pnpm` and Turborepo, with Next.js for the web app, Fastify + native WebSocket (`ws`) for the server transport, Zod for contracts, Drizzle ORM for persistence, and managed Postgres as the required hosted data layer. Redis remains optional for later coordination needs, not a v1 requirement.
 
 ## Why
 - Keeps contracts, engine logic, and UI types aligned.

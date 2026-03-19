@@ -54,7 +54,7 @@
 | Task runner | Turborepo | Clear package graphs and cached CI steps |
 | Web | Next.js 15 | Mature web app framework and easy Vercel deploy |
 | UI | Tailwind CSS 4 + Radix + Framer Motion | Accessible primitives with controlled motion |
-| Realtime server | Fastify + Socket.IO | Strong TypeScript ergonomics and websocket fallback model |
+| Realtime server | Fastify + native WebSocket (`ws`) | Thin transport, browser-native clients, and straightforward room-event ordering in single-process v1 |
 | Shared validation | Zod | Runtime validation and inferred types |
 | Persistence | Drizzle + Neon Postgres | Typed schema control with low-cost managed Postgres |
 | Coordination | In-process room actors, optional Redis later | Single-process v1 is sufficient for 1 to 2 concurrent rooms |

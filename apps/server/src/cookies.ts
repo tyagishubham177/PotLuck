@@ -1,3 +1,5 @@
+import type { IncomingHttpHeaders } from "node:http";
+
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 export const ACCESS_COOKIE_NAME = "potluck_access_token";
@@ -5,6 +7,11 @@ export const REFRESH_COOKIE_NAME = "potluck_refresh_token";
 
 type CookieOptions = {
   maxAgeSeconds: number;
+};
+
+type HeaderCookies = {
+  cookie?: string;
+  authorization?: string | string[];
 };
 
 function buildCookieValue(name: string, value: string, options: CookieOptions) {
@@ -17,9 +24,7 @@ function buildCookieValue(name: string, value: string, options: CookieOptions) {
   ].join("; ");
 }
 
-export function parseCookies(request: FastifyRequest) {
-  const rawCookieHeader = request.headers.cookie;
-
+export function parseCookieHeader(rawCookieHeader?: string) {
   if (!rawCookieHeader) {
     return new Map<string, string>();
   }
@@ -43,14 +48,28 @@ export function parseCookies(request: FastifyRequest) {
   );
 }
 
-export function getAccessToken(request: FastifyRequest) {
-  const authorizationHeader = request.headers.authorization;
+export function parseCookies(request: FastifyRequest) {
+  return parseCookieHeader(request.headers.cookie);
+}
 
-  if (authorizationHeader?.startsWith("Bearer ")) {
+export function getAccessTokenFromHeaders(
+  headers: HeaderCookies | IncomingHttpHeaders
+) {
+  const authorizationHeader = headers.authorization;
+
+  if (typeof authorizationHeader === "string" && authorizationHeader.startsWith("Bearer ")) {
     return authorizationHeader.slice("Bearer ".length).trim();
   }
 
-  return parseCookies(request).get(ACCESS_COOKIE_NAME);
+  if (Array.isArray(authorizationHeader) && authorizationHeader[0]?.startsWith("Bearer ")) {
+    return authorizationHeader[0].slice("Bearer ".length).trim();
+  }
+
+  return parseCookieHeader(headers.cookie).get(ACCESS_COOKIE_NAME);
+}
+
+export function getAccessToken(request: FastifyRequest) {
+  return getAccessTokenFromHeaders(request.headers);
 }
 
 export function getRefreshToken(request: FastifyRequest) {

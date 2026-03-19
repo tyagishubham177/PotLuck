@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  actionRejectedEventSchema,
   adminOtpRequestResponseSchema,
   apiErrorSchema,
   authSessionResponseSchema,
@@ -12,16 +13,23 @@ import {
   lobbySnapshotSchema,
   logoutResponseSchema,
   queueJoinResponseSchema,
+  realtimeServerMessageSchema,
   roomCreateResponseSchema,
+  roomRealtimeSnapshotSchema,
   roomPublicSummarySchema,
+  roomPrivateStateSchema,
   seatReservationResponseSchema,
   type AuthActor,
   type LobbySnapshot,
   type RoomConfig,
   type RoomJoinMode,
+  type RoomPrivateState,
   type RoomPublicSummary,
+  type RoomRealtimeSnapshot,
   type SessionEnvelope
 } from "@potluck/contracts";
+
+import { applyRoomDiff, toWebSocketUrl } from "./room-realtime";
 
 type PhaseTwoShellProps = {
   appName: string;
@@ -45,6 +53,7 @@ type OtpRequestState = {
 
 type ProcessTone = "idle" | "pending" | "success" | "error";
 type ProcessFeedback = { tone: Exclude<ProcessTone, "idle">; message: string };
+type SocketStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
 type ProcessButtonProps = {
   variant: "primary" | "secondary" | "ghost";
@@ -200,6 +209,13 @@ export function PhaseTwoShell({
   const [queueFeedback, setQueueFeedback] = useState<ProcessFeedback | null>(null);
   const [refreshFeedback, setRefreshFeedback] = useState<ProcessFeedback | null>(null);
   const [logoutFeedback, setLogoutFeedback] = useState<ProcessFeedback | null>(null);
+  const [liveSnapshot, setLiveSnapshot] = useState<RoomRealtimeSnapshot | null>(null);
+  const [privateState, setPrivateState] = useState<RoomPrivateState | null>(null);
+  const [socketStatus, setSocketStatus] = useState<SocketStatus>("idle");
+  const [socketFeedback, setSocketFeedback] = useState<ProcessFeedback | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptRef = useRef(0);
 
   async function refreshAuthState() {
     try {
@@ -250,6 +266,193 @@ export function PhaseTwoShell({
     return () => window.clearInterval(timer);
   }, []);
 
+  const activeRoomId =
+    authState?.actor.role === "GUEST"
+      ? authState.actor.roomId
+      : liveSnapshot?.room.roomId ?? lobbySnapshot?.room.roomId;
+
+  useEffect(() => {
+    function clearReconnectTimer() {
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    }
+
+    if (!authState || !activeRoomId) {
+      clearReconnectTimer();
+      socketRef.current?.close();
+      socketRef.current = null;
+      setLiveSnapshot(null);
+      setPrivateState(null);
+      setSocketStatus("idle");
+      setSocketFeedback(null);
+      return;
+    }
+
+    let disposed = false;
+
+    const connect = () => {
+      if (disposed) {
+        return;
+      }
+
+      clearReconnectTimer();
+      setSocketStatus(reconnectAttemptRef.current > 0 ? "reconnecting" : "connecting");
+      setSocketFeedback({
+        tone: "pending",
+        message:
+          reconnectAttemptRef.current > 0
+            ? "Reconnecting to the live room actor."
+            : "Connecting to the live room actor."
+      });
+
+      const socket = new WebSocket(toWebSocketUrl(serverOrigin));
+      socketRef.current = socket;
+
+      socket.addEventListener("open", () => {
+        if (disposed) {
+          socket.close();
+          return;
+        }
+
+        socket.send(JSON.stringify({ type: "ROOM_SUBSCRIBE", roomId: activeRoomId }));
+      });
+
+      socket.addEventListener("message", (event) => {
+        try {
+          const message = realtimeServerMessageSchema.parse(JSON.parse(event.data));
+
+          if (message.type === "ROOM_SNAPSHOT") {
+            reconnectAttemptRef.current = 0;
+            const snapshot = roomRealtimeSnapshotSchema.parse(message.snapshot);
+            setLiveSnapshot(snapshot);
+            setPrivateState(null);
+            setRoomPreview(snapshot.room);
+            setSocketStatus("connected");
+            setSocketFeedback({
+              tone: "success",
+              message: `Live room actor connected at event ${snapshot.roomEventNo}.`
+            });
+            return;
+          }
+
+          if (message.type === "ROOM_DIFF") {
+            setLiveSnapshot((current) =>
+              current ? applyRoomDiff(current, message.diff, message.roomEventNo) : current
+            );
+
+            if (message.diff.room) {
+              setRoomPreview(message.diff.room);
+            }
+
+            return;
+          }
+
+          if (message.type === "PRIVATE_STATE") {
+            setPrivateState(roomPrivateStateSchema.parse(message.privateState));
+            return;
+          }
+
+          if (message.type === "ACTION_ACCEPTED") {
+            setSocketFeedback({
+              tone: "success",
+              message: `${message.actionType.replaceAll("_", " ")} accepted at hand seq ${message.handSeq}.`
+            });
+            return;
+          }
+
+          if (message.type === "ACTION_REJECTED") {
+            const rejected = actionRejectedEventSchema.parse(message);
+            setSocketFeedback({
+              tone: "error",
+              message: `${rejected.errorCode}: ${rejected.message}`
+            });
+            return;
+          }
+
+          if (message.type === "TURN_WARNING") {
+            setSocketFeedback({
+              tone: "pending",
+              message: `Seat ${message.actingSeatIndex + 1} has ${message.secondsRemaining}s left.`
+            });
+            return;
+          }
+
+          if (message.type === "ROOM_PAUSED") {
+            setSocketFeedback({
+              tone: "error",
+              message: message.reason
+            });
+            return;
+          }
+
+          if (message.type === "SERVER_ERROR") {
+            setSocketFeedback({
+              tone: "error",
+              message: `${message.errorCode}: ${message.message}`
+            });
+          }
+        } catch (error) {
+          setSocketFeedback({
+            tone: "error",
+            message: createErrorMessage(error)
+          });
+        }
+      });
+
+      socket.addEventListener("close", () => {
+        if (socketRef.current === socket) {
+          socketRef.current = null;
+        }
+
+        if (disposed) {
+          return;
+        }
+
+        setSocketStatus("reconnecting");
+        setSocketFeedback({
+          tone: "pending",
+          message: "Realtime connection dropped. Retrying now."
+        });
+
+        reconnectAttemptRef.current += 1;
+        reconnectTimerRef.current = window.setTimeout(
+          connect,
+          Math.min(5000, reconnectAttemptRef.current * 1000)
+        );
+      });
+
+      socket.addEventListener("error", () => {
+        if (disposed) {
+          return;
+        }
+
+        setSocketStatus("error");
+        setSocketFeedback({
+          tone: "error",
+          message: "The realtime socket hit a transport error."
+        });
+      });
+    };
+
+    connect();
+
+    return () => {
+      disposed = true;
+      clearReconnectTimer();
+      reconnectAttemptRef.current = 0;
+      if (
+        socketRef.current &&
+        (socketRef.current.readyState === WebSocket.OPEN ||
+          socketRef.current.readyState === WebSocket.CONNECTING)
+      ) {
+        socketRef.current.close();
+      }
+      socketRef.current = null;
+    };
+  }, [activeRoomId, authState?.session.sessionId, serverOrigin]);
+
   const statusCopy = useMemo(() => {
     if (isBooting) return "Checking for an existing admin or guest session.";
     if (!authState) return "No active session yet. Use OTP to create a room or join one by code.";
@@ -261,12 +464,13 @@ export function PhaseTwoShell({
 
   const heroParticipant = useMemo(
     () =>
-      lobbySnapshot?.heroParticipantId
-        ? lobbySnapshot.participants.find(
-            (participant) => participant.participantId === lobbySnapshot.heroParticipantId
+      (liveSnapshot ?? lobbySnapshot)?.heroParticipantId
+        ? (liveSnapshot ?? lobbySnapshot)?.participants.find(
+            (participant) =>
+              participant.participantId === (liveSnapshot ?? lobbySnapshot)?.heroParticipantId
           ) ?? null
         : null,
-    [lobbySnapshot]
+    [liveSnapshot, lobbySnapshot]
   );
 
   const derivedBuyInExample =
@@ -284,6 +488,62 @@ export function PhaseTwoShell({
     setLobbyFeedback(null);
     setReserveFeedback(null);
     setQueueFeedback(null);
+  }
+
+  function sendRealtimeMessage(payload: Record<string, unknown>) {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      setSocketFeedback({
+        tone: "error",
+        message: "Live room actor is not connected yet."
+      });
+      return;
+    }
+
+    socketRef.current.send(JSON.stringify(payload));
+  }
+
+  function handleReadyForHand() {
+    if (authState?.actor.role !== "GUEST" || !activeRoomId) {
+      return;
+    }
+
+    sendRealtimeMessage({
+      type: "PLAYER_READY",
+      roomId: activeRoomId,
+      seatIndex: privateState?.seatIndex
+    });
+  }
+
+  function handleSitOutNow() {
+    if (authState?.actor.role !== "GUEST" || !activeRoomId) {
+      return;
+    }
+
+    sendRealtimeMessage({
+      type: "PLAYER_SIT_OUT",
+      roomId: activeRoomId,
+      effectiveTiming: "NOW"
+    });
+  }
+
+  function handleSubmitRealtimeAction(actionType: "CHECK" | "FOLD") {
+    if (
+      authState?.actor.role !== "GUEST" ||
+      !activeRoomId ||
+      !liveSnapshot?.activeHand ||
+      !privateState?.actionAffordances
+    ) {
+      return;
+    }
+
+    sendRealtimeMessage({
+      type: "ACTION_SUBMIT",
+      roomId: activeRoomId,
+      handId: liveSnapshot.activeHand.handId,
+      seqExpectation: liveSnapshot.activeHand.handSeq,
+      idempotencyKey: `${actionType.toLowerCase()}-${liveSnapshot.activeHand.handId}-${liveSnapshot.activeHand.handSeq}`,
+      actionType
+    });
   }
 
   function handleRequestOtp() {
@@ -547,11 +807,11 @@ export function PhaseTwoShell({
     <main className="phase-shell">
       <section className="hero-panel">
         <div className="hero-copy">
-          <p className="eyebrow">Phase 02</p>
-          <h1>{appName} room, lobby, and seating</h1>
+          <p className="eyebrow">Phase 04</p>
+          <h1>{appName} room actor and live transport</h1>
           <p className="hero-text">
-            Admin room creation, join-by-code, seat reservation timers, waiting lists, and
-            buy-in quoting are now wired into one lobby flow.
+            The docs-first lobby, wallet, and buy-in flows now stream through a single-writer
+            room actor with reconnects, ordered diffs, and turn timers.
           </p>
           <div className="hero-chips">
             <span>{statusLabel}</span>
@@ -784,6 +1044,173 @@ export function PhaseTwoShell({
               <p className="eyebrow">Ready When You Are</p>
               <h3>No lobby loaded yet</h3>
               <p>Create a room as admin or join one by code to load the Phase 2 lobby snapshot.</p>
+            </div>
+          )}
+        </article>
+      </section>
+
+      <section className="panel-grid">
+        <article className="panel">
+          <div className="panel-head">
+            <p className="eyebrow">Phase 04</p>
+            <h2>Live room actor</h2>
+          </div>
+          <div className="info-block">
+            <div className="info-row"><span>Socket</span><strong>{socketStatus}</strong></div>
+            <div className="info-row"><span>Room</span><strong>{liveSnapshot?.room.code ?? roomPreview?.code ?? "Not connected"}</strong></div>
+            <div className="info-row"><span>Room event</span><strong>{liveSnapshot?.roomEventNo ?? 0}</strong></div>
+            <div className="info-row"><span>Table phase</span><strong>{liveSnapshot?.tablePhase ?? "BETWEEN_HANDS"}</strong></div>
+          </div>
+          <ProcessNotice feedback={socketFeedback} />
+
+          {liveSnapshot ? (
+            <>
+              <div className="stat-grid">
+                <div className="stat-card"><span>Status</span><strong>{liveSnapshot.room.status}</strong></div>
+                <div className="stat-card"><span>Hero seat</span><strong>{privateState?.seatIndex !== undefined ? `Seat ${privateState.seatIndex + 1}` : "Observer"}</strong></div>
+                <div className="stat-card"><span>Stack</span><strong>{privateState?.stack?.toLocaleString() ?? "n/a"}</strong></div>
+                <div className="stat-card"><span>Reconnect</span><strong>{privateState?.reconnect.isReconnecting ? "Grace window" : "Stable"}</strong></div>
+              </div>
+
+              <div className="action-row">
+                <ProcessButton
+                  variant="primary"
+                  tone={socketStatus === "connected" ? "success" : socketStatus === "error" ? "error" : socketStatus === "reconnecting" || socketStatus === "connecting" ? "pending" : "idle"}
+                  idleLabel="Live idle"
+                  pendingLabel="Connecting live"
+                  successLabel="Live connected"
+                  errorLabel="Live retrying"
+                  onClick={() => {}}
+                  disabled
+                />
+                <ProcessButton
+                  variant="secondary"
+                  tone="idle"
+                  idleLabel="Ready for hand"
+                  pendingLabel="Ready for hand"
+                  successLabel="Ready for hand"
+                  onClick={handleReadyForHand}
+                  disabled={
+                    authState?.actor.role !== "GUEST" ||
+                    privateState?.seatIndex === undefined ||
+                    liveSnapshot.tablePhase === "HAND_ACTIVE"
+                  }
+                />
+                <ProcessButton
+                  variant="ghost"
+                  tone="idle"
+                  idleLabel="Sit out now"
+                  pendingLabel="Sitting out"
+                  successLabel="Sitting out"
+                  onClick={handleSitOutNow}
+                  disabled={authState?.actor.role !== "GUEST" || privateState?.seatIndex === undefined}
+                />
+                <ProcessButton
+                  variant="secondary"
+                  tone="idle"
+                  idleLabel="Check"
+                  pendingLabel="Checking"
+                  successLabel="Checked"
+                  onClick={() => handleSubmitRealtimeAction("CHECK")}
+                  disabled={!privateState?.actionAffordances?.canCheck}
+                />
+                <ProcessButton
+                  variant="ghost"
+                  tone="idle"
+                  idleLabel="Fold"
+                  pendingLabel="Folding"
+                  successLabel="Folded"
+                  onClick={() => handleSubmitRealtimeAction("FOLD")}
+                  disabled={!privateState?.actionAffordances?.canFold}
+                />
+              </div>
+
+              {liveSnapshot.activeHand ? (
+                <div className="info-block">
+                  <div className="info-row"><span>Hand</span><strong>{liveSnapshot.activeHand.handId}</strong></div>
+                  <div className="info-row"><span>Acting seat</span><strong>Seat {liveSnapshot.activeHand.actingSeatIndex + 1}</strong></div>
+                  <div className="info-row"><span>Deadline</span><strong>{new Date(liveSnapshot.activeHand.deadlineAt).toLocaleTimeString()}</strong></div>
+                  <div className="info-row"><span>Hand seq</span><strong>{liveSnapshot.activeHand.handSeq}</strong></div>
+                </div>
+              ) : (
+                <div className="gate-card muted">
+                  <p className="eyebrow">Between Hands</p>
+                  <h3>Ready marks drive the placeholder hand loop</h3>
+                  <p>Seat two players, click ready, and the actor will start a timed placeholder turn cycle with ordered diffs.</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="gate-card muted">
+              <p className="eyebrow">Realtime</p>
+              <h3>No live room snapshot yet</h3>
+              <p>Create or join a room and the websocket client will subscribe automatically.</p>
+            </div>
+          )}
+        </article>
+
+        <article className="panel">
+          <div className="panel-head">
+            <p className="eyebrow">Live State</p>
+            <h2>Ordered seat and player diffs</h2>
+          </div>
+          {liveSnapshot ? (
+            <>
+              <div className="seat-grid">
+                {liveSnapshot.seats.map((seat) => (
+                  <div key={seat.seatIndex} className={`seat-card seat-${seat.status.toLowerCase()}`}>
+                    <span>Seat {seat.seatIndex + 1}</span>
+                    <strong>{seat.nickname ?? seat.status}</strong>
+                    <small>
+                      {seat.stack !== undefined
+                        ? `${seat.stack.toLocaleString()} chips`
+                        : seat.reservedUntil
+                          ? `Reserved ${formatCountdown(seat.reservedUntil, nowMs)}`
+                          : "Waiting"}
+                    </small>
+                  </div>
+                ))}
+              </div>
+
+              <div className="subpanel-grid">
+                <div className="info-block">
+                  <div className="panel-head compact"><p className="eyebrow">Players</p><h3>{liveSnapshot.participants.length} tracked</h3></div>
+                  <ul className="participant-list">
+                    {liveSnapshot.participants.map((participant) => (
+                      <li key={participant.participantId}>
+                        <span>{participant.nickname}</span>
+                        <small>
+                          {participant.state}
+                          {participant.isReady ? " - Ready" : ""}
+                          {participant.isSittingOut ? " - Sitting out" : ""}
+                          {!participant.isConnected ? " - Disconnected" : ""}
+                          {participant.seatIndex !== undefined ? ` - Seat ${participant.seatIndex + 1}` : ""}
+                        </small>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="info-block">
+                  <div className="panel-head compact"><p className="eyebrow">Private state</p><h3>{privateState ? "Scoped" : "Public only"}</h3></div>
+                  {privateState ? (
+                    <>
+                      <div className="info-row"><span>Seat</span><strong>{privateState.seatIndex !== undefined ? `Seat ${privateState.seatIndex + 1}` : "Observer"}</strong></div>
+                      <div className="info-row"><span>Stack</span><strong>{privateState.stack?.toLocaleString() ?? "n/a"}</strong></div>
+                      <div className="info-row"><span>Can check</span><strong>{privateState.actionAffordances?.canCheck ? "Yes" : "No"}</strong></div>
+                      <div className="info-row"><span>Can fold</span><strong>{privateState.actionAffordances?.canFold ? "Yes" : "No"}</strong></div>
+                    </>
+                  ) : (
+                    <p className="panel-copy">Admins observe the public room stream while guest players also receive private action affordances.</p>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="gate-card muted">
+              <p className="eyebrow">Live Reducer</p>
+              <h3>Diffs will appear here</h3>
+              <p>The client keeps the last snapshot and applies only newer room event numbers so reconnects can resume cleanly.</p>
             </div>
           )}
         </article>
