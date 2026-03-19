@@ -73,6 +73,8 @@ const initialRoomForm: RoomConfig = {
   oddChipRule: "LEFT_OF_BUTTON",
   spectatorsAllowed: true,
   straddleAllowed: false,
+  rebuyEnabled: true,
+  topUpEnabled: true,
   seatReservationTimeoutSeconds: 120,
   joinCodeExpiryMinutes: 120,
   waitingListEnabled: true,
@@ -652,6 +654,8 @@ export function PhaseTwoShell({
             <button className={roomForm.spectatorsAllowed ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("spectatorsAllowed", !roomForm.spectatorsAllowed)} type="button">Spectators {roomForm.spectatorsAllowed ? "On" : "Off"}</button>
             <button className={roomForm.waitingListEnabled ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("waitingListEnabled", !roomForm.waitingListEnabled)} type="button">Waiting list {roomForm.waitingListEnabled ? "On" : "Off"}</button>
             <button className={roomForm.straddleAllowed ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("straddleAllowed", !roomForm.straddleAllowed)} type="button">Straddle {roomForm.straddleAllowed ? "On" : "Off"}</button>
+            <button className={roomForm.rebuyEnabled ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("rebuyEnabled", !roomForm.rebuyEnabled)} type="button">Rebuy {roomForm.rebuyEnabled ? "On" : "Off"}</button>
+            <button className={roomForm.topUpEnabled ? "mode-chip active" : "mode-chip"} onClick={() => updateRoomForm("topUpEnabled", !roomForm.topUpEnabled)} type="button">Top-up {roomForm.topUpEnabled ? "On" : "Off"}</button>
           </div>
           <div className="info-block">
             <div className="info-row"><span>Derived min example</span><strong>{derivedBuyInExample}</strong></div>

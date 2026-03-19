@@ -2,17 +2,24 @@ import { randomInt, randomUUID } from "node:crypto";
 
 import {
   adminOtpRequestResponseSchema,
+  buyInResponseSchema,
   buyInQuoteResponseSchema,
   lobbySnapshotSchema,
   queueEntrySchema,
+  rebuyResponseSchema,
   roomConfigSchema,
   roomCreateResponseSchema,
   roomPublicSummarySchema,
+  roomBalanceSummarySchema,
   seatReservationResponseSchema,
+  topUpResponseSchema,
   type AuthActor,
+  type LedgerEntry,
   type LobbySnapshot,
   type RoomConfig,
   type RoomJoinMode,
+  type RoomTablePhase,
+  type RoomBalanceSummary,
   type SessionEnvelope,
   type SessionRole
 } from "@potluck/contracts";
@@ -81,10 +88,35 @@ type SeatRecord = {
   stack?: number;
 };
 
+type LedgerEntryRecord = {
+  entryId: string;
+  roomId: string;
+  participantId: string;
+  seatIndex?: number;
+  type: "BUY_IN" | "REBUY" | "TOP_UP" | "COMPENSATING_ADJUSTMENT";
+  delta: number;
+  balanceAfter: number;
+  referenceId: string;
+  idempotencyKey?: string;
+  createdAt: Date;
+};
+
+type BuyInResponse = ReturnType<typeof buyInResponseSchema.parse>;
+type RebuyResponse = ReturnType<typeof rebuyResponseSchema.parse>;
+type TopUpResponse = ReturnType<typeof topUpResponseSchema.parse>;
+type ChipOperationResponse = BuyInResponse | RebuyResponse | TopUpResponse;
+type ChipOperationType = Exclude<LedgerEntryRecord["type"], "COMPENSATING_ADJUSTMENT">;
+
+type IdempotentLedgerOperation = {
+  fingerprint: string;
+  response: ChipOperationResponse;
+};
+
 type RoomRecord = {
   roomId: string;
   code: string;
   status: "CREATED" | "OPEN" | "PAUSED" | "CLOSED";
+  tablePhase: RoomTablePhase;
   adminId: string;
   config: RoomConfig;
   createdAt: Date;
@@ -93,6 +125,8 @@ type RoomRecord = {
   participants: Map<string, ParticipantRecord>;
   waitingList: QueueEntryRecord[];
   seats: SeatRecord[];
+  ledgerEntries: LedgerEntryRecord[];
+  processedLedgerOperations: Map<string, IdempotentLedgerOperation>;
 };
 
 type SessionRecord = {
@@ -138,6 +172,11 @@ type GuestSessionResult = IssueSessionResult & {
   lobbySnapshot: LobbySnapshot;
 };
 
+type CreateAppStateOptions = {
+  clock?: Clock;
+  onLedgerEntryCommitted?: (entry: LedgerEntryRecord) => void;
+};
+
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 const normalizeRoomCode = (code: string) => code.trim().toUpperCase();
 const normalizeNickname = (nickname: string) => nickname.trim().replace(/\s+/g, " ");
@@ -169,7 +208,7 @@ function createSeatMap(maxSeats: number): SeatRecord[] {
   }));
 }
 
-export function createAppState(options: { clock?: Clock } = {}) {
+export function createAppState(options: CreateAppStateOptions = {}) {
   const clock = options.clock ?? (() => new Date());
   const adminProfiles = new Map<string, AdminProfileRecord>();
   const otpChallenges = new Map<string, OtpChallenge>();
@@ -529,6 +568,216 @@ export function createAppState(options: { clock?: Clock } = {}) {
     });
   }
 
+  function getChipRange(room: RoomRecord) {
+    const quote = toBuyInQuote(room);
+
+    return {
+      minChips: quote.minChips,
+      maxChips: quote.maxChips
+    };
+  }
+
+  function getLedgerEntriesForParticipant(room: RoomRecord, participantId: string) {
+    return room.ledgerEntries.filter((entry) => entry.participantId === participantId);
+  }
+
+  function getCurrentLedgerBalance(room: RoomRecord, participantId: string) {
+    return getLedgerEntriesForParticipant(room, participantId).reduce(
+      (total, entry) => total + entry.delta,
+      0
+    );
+  }
+
+  function toLedgerEntry(entry: LedgerEntryRecord): LedgerEntry {
+    return {
+      entryId: entry.entryId,
+      roomId: entry.roomId,
+      participantId: entry.participantId,
+      seatIndex: entry.seatIndex,
+      type: entry.type,
+      delta: entry.delta,
+      balanceAfter: entry.balanceAfter,
+      referenceId: entry.referenceId,
+      idempotencyKey: entry.idempotencyKey,
+      createdAt: toIso(entry.createdAt)
+    };
+  }
+
+  function toRoomBalanceSummary(room: RoomRecord, participantId: string): RoomBalanceSummary {
+    const ledgerEntries = getLedgerEntriesForParticipant(room, participantId);
+    const seat = getParticipantSeat(room, participantId);
+
+    let buyInCommitted = 0;
+    let rebuyCommitted = 0;
+    let topUpCommitted = 0;
+    let adjustmentTotal = 0;
+
+    for (const entry of ledgerEntries) {
+      if (entry.type === "BUY_IN") {
+        buyInCommitted += entry.delta;
+        continue;
+      }
+
+      if (entry.type === "REBUY") {
+        rebuyCommitted += entry.delta;
+        continue;
+      }
+
+      if (entry.type === "TOP_UP") {
+        topUpCommitted += entry.delta;
+        continue;
+      }
+
+      adjustmentTotal += entry.delta;
+    }
+
+    const totalCommitted = buyInCommitted + rebuyCommitted + topUpCommitted;
+    const netBalance = totalCommitted + adjustmentTotal;
+
+    return roomBalanceSummarySchema.parse({
+      roomId: room.roomId,
+      participantId,
+      seatIndex: seat?.seatIndex,
+      buyInCommitted,
+      rebuyCommitted,
+      topUpCommitted,
+      adjustmentTotal,
+      totalCommitted,
+      netBalance,
+      liveStack: seat?.stack ?? 0
+    });
+  }
+
+  function getCachedLedgerOperation(
+    room: RoomRecord,
+    participantId: string,
+    operation: ChipOperationType,
+    idempotencyKey: string | undefined,
+    fingerprint: string
+  ) {
+    if (!idempotencyKey) {
+      return null;
+    }
+
+    const cacheKey = `${participantId}:${operation}:${idempotencyKey}`;
+    const cached = room.processedLedgerOperations.get(cacheKey);
+
+    if (!cached) {
+      return null;
+    }
+
+    if (cached.fingerprint !== fingerprint) {
+      throw appError({
+        code: "ERR_ACTION_INVALID",
+        message: "That idempotency key was already used for a different request.",
+        statusCode: 409,
+        retryable: false
+      });
+    }
+
+    return cached.response;
+  }
+
+  function storeLedgerOperation(
+    room: RoomRecord,
+    participantId: string,
+    operation: ChipOperationType,
+    idempotencyKey: string | undefined,
+    fingerprint: string,
+    response: ChipOperationResponse
+  ) {
+    if (!idempotencyKey) {
+      return;
+    }
+
+    const cacheKey = `${participantId}:${operation}:${idempotencyKey}`;
+    room.processedLedgerOperations.set(cacheKey, {
+      fingerprint,
+      response
+    });
+  }
+
+  function commitLedgerEntry(
+    room: RoomRecord,
+    payload: {
+      participantId: string;
+      seatIndex?: number;
+      type: LedgerEntryRecord["type"];
+      delta: number;
+      idempotencyKey?: string;
+    }
+  ) {
+    const balanceAfter = getCurrentLedgerBalance(room, payload.participantId) + payload.delta;
+
+    if (balanceAfter < 0) {
+      throw appError({
+        code: "ERR_INTERNAL",
+        message: "Ledger balance cannot go negative.",
+        statusCode: 500,
+        retryable: false
+      });
+    }
+
+    const entry: LedgerEntryRecord = {
+      entryId: `ledger_${randomUUID()}`,
+      roomId: room.roomId,
+      participantId: payload.participantId,
+      seatIndex: payload.seatIndex,
+      type: payload.type,
+      delta: payload.delta,
+      balanceAfter,
+      referenceId: `op_${randomUUID()}`,
+      idempotencyKey: payload.idempotencyKey,
+      createdAt: clock()
+    };
+
+    try {
+      options.onLedgerEntryCommitted?.(entry);
+      room.ledgerEntries.push(entry);
+      return entry;
+    } catch {
+      throw appError({
+        code: "ERR_LEDGER_COMMIT_FAILED",
+        message: "The room ledger could not be updated.",
+        statusCode: 503,
+        retryable: true
+      });
+    }
+  }
+
+  function assertBuyInAmountWithinRange(room: RoomRecord, amount: number) {
+    const { minChips, maxChips } = getChipRange(room);
+
+    if (amount < minChips) {
+      throw appError({
+        code: "ERR_MIN_BUYIN",
+        message: `Buy-in must be at least ${minChips.toLocaleString()} chips.`,
+        statusCode: 422,
+        retryable: true
+      });
+    }
+
+    if (amount > maxChips) {
+      throw appError({
+        code: "ERR_MAX_BUYIN",
+        message: `Buy-in cannot exceed ${maxChips.toLocaleString()} chips.`,
+        statusCode: 422,
+        retryable: true
+      });
+    }
+  }
+
+  function assertRoomIsBetweenHands(room: RoomRecord) {
+    if (room.tablePhase === "HAND_ACTIVE") {
+      throw appError({
+        code: "ERR_TOPUP_DURING_HAND",
+        message: "Top-ups are only allowed between hands.",
+        statusCode: 409,
+        retryable: true
+      });
+    }
+  }
+
   function getParticipantSeat(room: RoomRecord, participantId: string) {
     return room.seats.find((seat) => seat.participantId === participantId);
   }
@@ -536,6 +785,21 @@ export function createAppState(options: { clock?: Clock } = {}) {
   function getQueuePosition(room: RoomRecord, participantId: string) {
     const index = room.waitingList.findIndex((entry) => entry.participantId === participantId);
     return index >= 0 ? index + 1 : undefined;
+  }
+
+  function toSeatSnapshot(room: RoomRecord, seat: SeatRecord) {
+    const participant = seat.participantId
+      ? room.participants.get(seat.participantId)
+      : undefined;
+
+    return {
+      seatIndex: seat.seatIndex,
+      status: seat.status,
+      participantId: seat.participantId,
+      nickname: participant?.nickname,
+      reservedUntil: seat.reservedUntil ? toIso(seat.reservedUntil) : undefined,
+      stack: seat.stack
+    };
   }
 
   function toLobbySnapshot(room: RoomRecord, heroParticipantId?: string) {
@@ -554,20 +818,7 @@ export function createAppState(options: { clock?: Clock } = {}) {
     return lobbySnapshotSchema.parse({
       room: toRoomSummary(room),
       config: roomConfigSchema.parse(room.config),
-      seats: room.seats.map((seat) => {
-        const participant = seat.participantId
-          ? room.participants.get(seat.participantId)
-          : undefined;
-
-        return {
-          seatIndex: seat.seatIndex,
-          status: seat.status,
-          participantId: seat.participantId,
-          nickname: participant?.nickname,
-          reservedUntil: seat.reservedUntil ? toIso(seat.reservedUntil) : undefined,
-          stack: seat.stack
-        };
-      }),
+      seats: room.seats.map((seat) => toSeatSnapshot(room, seat)),
       waitingList: room.waitingList.map((entry, index) =>
         queueEntrySchema.parse({
           entryId: entry.entryId,
@@ -751,6 +1002,7 @@ export function createAppState(options: { clock?: Clock } = {}) {
         roomId: `room_${randomUUID()}`,
         code: generateUniqueRoomCode(),
         status: "OPEN",
+        tablePhase: "BETWEEN_HANDS",
         adminId: actor.adminId,
         config,
         createdAt: now,
@@ -758,7 +1010,9 @@ export function createAppState(options: { clock?: Clock } = {}) {
         closesAt: new Date(now.getTime() + config.roomMaxDurationMinutes * 60 * 1000),
         participants: new Map(),
         waitingList: [],
-        seats: createSeatMap(config.maxSeats)
+        seats: createSeatMap(config.maxSeats),
+        ledgerEntries: [],
+        processedLedgerOperations: new Map()
       };
 
       roomsByCode.set(room.code, room);
@@ -1086,6 +1340,372 @@ export function createAppState(options: { clock?: Clock } = {}) {
         lobbySnapshot: toLobbySnapshot(room, actor.guestId)
       };
     },
+    buyIn(
+      roomId: string,
+      seatIndex: number,
+      amount: number,
+      actor: Extract<AuthActor, { role: "GUEST" }>,
+      idempotencyKey?: string
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (actor.mode === "SPECTATOR") {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "Spectators cannot commit a buy-in.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      const participant = room.participants.get(actor.guestId);
+      const seat = room.seats.at(seatIndex);
+
+      if (!participant) {
+        throw appError({
+          code: "ERR_AUTH_REQUIRED",
+          message: "An active room session is required.",
+          statusCode: 401,
+          retryable: true
+        });
+      }
+
+      if (!seat) {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "That seat does not exist.",
+          statusCode: 422,
+          retryable: false
+        });
+      }
+
+      const fingerprint = JSON.stringify({ seatIndex, amount });
+      const cached = getCachedLedgerOperation(
+        room,
+        actor.guestId,
+        "BUY_IN",
+        idempotencyKey,
+        fingerprint
+      );
+
+      if (cached) {
+        return buyInResponseSchema.parse(cached);
+      }
+
+      if (seat.status !== "RESERVED" || seat.participantId !== actor.guestId) {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "A matching seat reservation is required before buying in.",
+          statusCode: 422,
+          retryable: false
+        });
+      }
+
+      assertBuyInAmountWithinRange(room, amount);
+
+      const ledgerEntry = commitLedgerEntry(room, {
+        participantId: actor.guestId,
+        seatIndex,
+        type: "BUY_IN",
+        delta: amount,
+        idempotencyKey
+      });
+
+      seat.status = "OCCUPIED";
+      seat.reservedUntil = undefined;
+      seat.stack = amount;
+
+      addAuditEvent({
+        type: "BUYIN_COMMITTED",
+        roomId,
+        actorId: actor.guestId,
+        detail: `${participant.nickname} committed ${amount.toLocaleString()} chips at seat ${
+          seatIndex + 1
+        }`
+      });
+
+      const lobbySnapshot = toLobbySnapshot(room, actor.guestId);
+      const response = buyInResponseSchema.parse({
+        operation: "BUY_IN",
+        tablePhase: room.tablePhase,
+        seat: toSeatSnapshot(room, seat),
+        ledgerEntry: toLedgerEntry(ledgerEntry),
+        balance: toRoomBalanceSummary(room, actor.guestId),
+        lobbySnapshot
+      });
+
+      storeLedgerOperation(
+        room,
+        actor.guestId,
+        "BUY_IN",
+        idempotencyKey,
+        fingerprint,
+        response
+      );
+
+      return response;
+    },
+    rebuy(
+      roomId: string,
+      amount: number,
+      actor: Extract<AuthActor, { role: "GUEST" }>,
+      idempotencyKey?: string
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (actor.mode === "SPECTATOR") {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "Spectators cannot rebuy.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (!room.config.rebuyEnabled) {
+        throw appError({
+          code: "ERR_REBUY_DISABLED",
+          message: "Rebuys are disabled for this room.",
+          statusCode: 409,
+          retryable: false
+        });
+      }
+
+      const participant = room.participants.get(actor.guestId);
+      const seat = getParticipantSeat(room, actor.guestId);
+
+      if (!participant) {
+        throw appError({
+          code: "ERR_AUTH_REQUIRED",
+          message: "An active room session is required.",
+          statusCode: 401,
+          retryable: true
+        });
+      }
+
+      if (!seat || seat.status !== "OCCUPIED") {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "You need an occupied seat to rebuy.",
+          statusCode: 422,
+          retryable: false
+        });
+      }
+
+      if ((seat.stack ?? 0) > 0) {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "Rebuy is only available after your current stack reaches zero.",
+          statusCode: 422,
+          retryable: true
+        });
+      }
+
+      const fingerprint = JSON.stringify({ amount });
+      const cached = getCachedLedgerOperation(
+        room,
+        actor.guestId,
+        "REBUY",
+        idempotencyKey,
+        fingerprint
+      );
+
+      if (cached) {
+        return rebuyResponseSchema.parse(cached);
+      }
+
+      assertBuyInAmountWithinRange(room, amount);
+
+      const ledgerEntry = commitLedgerEntry(room, {
+        participantId: actor.guestId,
+        seatIndex: seat.seatIndex,
+        type: "REBUY",
+        delta: amount,
+        idempotencyKey
+      });
+
+      seat.stack = amount;
+
+      addAuditEvent({
+        type: "BUYIN_COMMITTED",
+        roomId,
+        actorId: actor.guestId,
+        detail: `${participant.nickname} rebought ${amount.toLocaleString()} chips at seat ${
+          seat.seatIndex + 1
+        }`
+      });
+
+      const lobbySnapshot = toLobbySnapshot(room, actor.guestId);
+      const response = rebuyResponseSchema.parse({
+        operation: "REBUY",
+        tablePhase: room.tablePhase,
+        seat: toSeatSnapshot(room, seat),
+        ledgerEntry: toLedgerEntry(ledgerEntry),
+        balance: toRoomBalanceSummary(room, actor.guestId),
+        lobbySnapshot
+      });
+
+      storeLedgerOperation(
+        room,
+        actor.guestId,
+        "REBUY",
+        idempotencyKey,
+        fingerprint,
+        response
+      );
+
+      return response;
+    },
+    topUp(
+      roomId: string,
+      amount: number,
+      actor: Extract<AuthActor, { role: "GUEST" }>,
+      idempotencyKey?: string
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (actor.mode === "SPECTATOR") {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "Spectators cannot top up a seat.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (!room.config.topUpEnabled) {
+        throw appError({
+          code: "ERR_TOPUP_DISABLED",
+          message: "Top-ups are disabled for this room.",
+          statusCode: 409,
+          retryable: false
+        });
+      }
+
+      assertRoomIsBetweenHands(room);
+
+      const participant = room.participants.get(actor.guestId);
+      const seat = getParticipantSeat(room, actor.guestId);
+
+      if (!participant) {
+        throw appError({
+          code: "ERR_AUTH_REQUIRED",
+          message: "An active room session is required.",
+          statusCode: 401,
+          retryable: true
+        });
+      }
+
+      if (!seat || seat.status !== "OCCUPIED") {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "You need an occupied seat to top up.",
+          statusCode: 422,
+          retryable: false
+        });
+      }
+
+      if ((seat.stack ?? 0) <= 0) {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "Use rebuy after your stack reaches zero.",
+          statusCode: 422,
+          retryable: true
+        });
+      }
+
+      const { maxChips } = getChipRange(room);
+      const nextStack = (seat.stack ?? 0) + amount;
+
+      if (nextStack > maxChips) {
+        throw appError({
+          code: "ERR_MAX_BUYIN",
+          message: `Top-up cannot take you above ${maxChips.toLocaleString()} chips.`,
+          statusCode: 422,
+          retryable: true
+        });
+      }
+
+      const fingerprint = JSON.stringify({ amount });
+      const cached = getCachedLedgerOperation(
+        room,
+        actor.guestId,
+        "TOP_UP",
+        idempotencyKey,
+        fingerprint
+      );
+
+      if (cached) {
+        return topUpResponseSchema.parse(cached);
+      }
+
+      const ledgerEntry = commitLedgerEntry(room, {
+        participantId: actor.guestId,
+        seatIndex: seat.seatIndex,
+        type: "TOP_UP",
+        delta: amount,
+        idempotencyKey
+      });
+
+      seat.stack = nextStack;
+
+      addAuditEvent({
+        type: "BUYIN_COMMITTED",
+        roomId,
+        actorId: actor.guestId,
+        detail: `${participant.nickname} topped up ${amount.toLocaleString()} chips at seat ${
+          seat.seatIndex + 1
+        }`
+      });
+
+      const lobbySnapshot = toLobbySnapshot(room, actor.guestId);
+      const response = topUpResponseSchema.parse({
+        operation: "TOP_UP",
+        tablePhase: room.tablePhase,
+        seat: toSeatSnapshot(room, seat),
+        ledgerEntry: toLedgerEntry(ledgerEntry),
+        balance: toRoomBalanceSummary(room, actor.guestId),
+        lobbySnapshot
+      });
+
+      storeLedgerOperation(
+        room,
+        actor.guestId,
+        "TOP_UP",
+        idempotencyKey,
+        fingerprint,
+        response
+      );
+
+      return response;
+    },
     getAuthContext(accessToken: string | undefined, env: TokenEnv): AuthContext | null {
       const session = getSessionRecordFromToken(accessToken, env, "access");
 
@@ -1161,6 +1781,66 @@ export function createAppState(options: { clock?: Clock } = {}) {
         accessMaxAgeSeconds: Math.floor(ACCESS_TTL_MS / 1000),
         refreshMaxAgeSeconds: Math.floor(REFRESH_TTL_MS / 1000)
       };
+    },
+    setRoomTablePhaseForTests(roomId: string, tablePhase: RoomTablePhase) {
+      const room = getRoomRecordById(roomId);
+      room.tablePhase = tablePhase;
+    },
+    setSeatStackForTests(roomId: string, participantId: string, stack: number) {
+      const room = getRoomRecordById(roomId);
+      const seat = getParticipantSeat(room, participantId);
+
+      if (!seat) {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "That participant does not currently hold a seat.",
+          statusCode: 422,
+          retryable: false
+        });
+      }
+
+      seat.status = "OCCUPIED";
+      seat.stack = stack;
+      seat.reservedUntil = undefined;
+    },
+    applyCompensatingAdjustmentForTests(
+      roomId: string,
+      participantId: string,
+      amount: number,
+      idempotencyKey?: string
+    ) {
+      const room = getRoomRecordById(roomId);
+      const seat = getParticipantSeat(room, participantId);
+      const currentStack = seat?.stack ?? 0;
+      const nextStack = Math.max(0, currentStack - amount);
+      const ledgerEntry = commitLedgerEntry(room, {
+        participantId,
+        seatIndex: seat?.seatIndex,
+        type: "COMPENSATING_ADJUSTMENT",
+        delta: -Math.abs(amount),
+        idempotencyKey
+      });
+
+      if (seat) {
+        seat.stack = nextStack;
+      }
+
+      return {
+        ledgerEntry: toLedgerEntry(ledgerEntry),
+        balance: toRoomBalanceSummary(room, participantId)
+      };
+    },
+    getRoomBalanceSummary(roomId: string, participantId: string) {
+      const room = getRoomRecordById(roomId);
+      return toRoomBalanceSummary(room, participantId);
+    },
+    getLedgerEntries(roomId: string, participantId?: string) {
+      const room = getRoomRecordById(roomId);
+      const entries = participantId
+        ? getLedgerEntriesForParticipant(room, participantId)
+        : room.ledgerEntries;
+
+      return entries.map((entry) => toLedgerEntry(entry));
     },
     getAuditEvents() {
       return [...auditEvents];

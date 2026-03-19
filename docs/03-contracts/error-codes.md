@@ -40,6 +40,7 @@
 | `ERR_MIN_BUYIN` | Amount below room minimum | `422` | Yes |
 | `ERR_MAX_BUYIN` | Amount above room maximum | `422` | Yes |
 | `ERR_TOPUP_DURING_HAND` | Top-up attempted while hand active | `409` | Later |
+| `ERR_TOPUP_DISABLED` | Room does not allow top-ups | `409` | No |
 | `ERR_REBUY_DISABLED` | Room does not allow rebuy in current state | `409` | No |
 | `ERR_LEDGER_COMMIT_FAILED` | Durable write failed | `503` | Maybe |
 
