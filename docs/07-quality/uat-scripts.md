@@ -23,3 +23,7 @@
 ## UAT-06 Spectator Restrictions
 - Join as spectator during live hand.
 - Pass if public state renders and no hidden cards leak.
+
+## UAT-07 Session Isolation And Stale-State Cleanup
+- Join a room in one tab as a player, then join the same room from another tab or browser context as a different guest and also try an invalid room lookup afterwards.
+- Pass if each tab shows the correct hero identity, stale room data is cleared after failed lookup or join, and no tab retains the previous player's seat, stack, or action controls once the auth session changes.

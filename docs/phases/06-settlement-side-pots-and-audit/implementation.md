@@ -5,7 +5,8 @@
 2. Evaluate winner sets per pot and split with odd-chip handling.
 3. Apply optional rake once per hand subject to cap.
 4. Commit settlement rows, ledger entries, and audit events transactionally.
-5. Add JSON and text transcript exports and golden scenario tests.
+5. Integrate settlement outputs into the room actor and web client so post-hand stacks, hero identity, and room snapshots remain coherent across reconnects and tab/session churn.
+6. Add JSON and text transcript exports and golden scenario tests.
 
 ## Keys and Inputs
 ### File Targets
@@ -20,3 +21,4 @@
 - Keep scope inside this phase unless a documented seam is needed.
 - Update authoritative docs if implementation discovers a durable design change.
 - Add tests at the same time as core behavior, not after.
+- Treat room-session coherence as part of settlement integration, not a later polish task. The Phase 5 Playwright pass found that failed room lookups can leave older room data visible and that joining a second guest in the same browser context can silently replace the first tab's hero identity unless the client clears and rebuilds state.
