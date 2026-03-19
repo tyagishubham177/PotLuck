@@ -87,7 +87,11 @@ export function attachRealtimeGateway(
   const wss = new WebSocketServer({ noServer: true });
   const activeGuestConnections = new Map<string, ConnectionContext>();
 
-  const handleUpgrade = (request: Parameters<typeof wss.handleUpgrade>[0], socket: any, head: Buffer) => {
+  const handleUpgrade = (
+    request: Parameters<typeof wss.handleUpgrade>[0],
+    socket: Parameters<typeof wss.handleUpgrade>[1],
+    head: Buffer
+  ) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
     if (url.pathname !== "/ws") {
