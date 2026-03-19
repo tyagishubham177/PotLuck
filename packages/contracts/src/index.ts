@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const isoTimestampSchema = z.string().datetime({ offset: true });
+const seatIndexSchema = z.number().int().min(0).max(8);
 
 export const healthResponseSchema = z.object({
   status: z.literal("ok"),
@@ -36,6 +37,22 @@ export const participantStateSchema = z.enum([
   "SEATED",
   "QUEUED"
 ]);
+export const submittedRoomActionTypeSchema = z.enum([
+  "CHECK",
+  "FOLD",
+  "CALL",
+  "RAISE",
+  "ALL_IN"
+]);
+export const roomActionTypeSchema = z.enum([
+  "CHECK",
+  "FOLD",
+  "CALL",
+  "RAISE",
+  "ALL_IN",
+  "TIMEOUT_FOLD"
+]);
+export const playerSitOutTimingSchema = z.enum(["NOW", "NEXT_HAND"]);
 
 export const errorCodeSchema = z.enum([
   "ERR_ROOM_NOT_FOUND",
@@ -164,7 +181,7 @@ export const roomPublicSummarySchema = z.object({
 });
 
 export const seatSnapshotSchema = z.object({
-  seatIndex: z.number().int().min(0).max(8),
+  seatIndex: seatIndexSchema,
   status: seatStatusSchema,
   participantId: z.string().min(1).optional(),
   nickname: z.string().min(2).max(20).optional(),
@@ -201,7 +218,7 @@ export const lobbyParticipantSchema = z.object({
   state: participantStateSchema,
   joinedAt: isoTimestampSchema,
   isConnected: z.boolean(),
-  seatIndex: z.number().int().min(0).max(8).optional(),
+  seatIndex: seatIndexSchema.optional(),
   reservationExpiresAt: isoTimestampSchema.optional(),
   queuePosition: z.number().int().positive().optional()
 });
@@ -214,7 +231,7 @@ export const lobbySnapshotSchema = z.object({
   participants: z.array(lobbyParticipantSchema),
   buyInQuote: buyInQuoteResponseSchema,
   heroParticipantId: z.string().min(1).optional(),
-  heroSeatIndex: z.number().int().min(0).max(8).optional(),
+  heroSeatIndex: seatIndexSchema.optional(),
   canJoinWaitingList: z.boolean()
 });
 
@@ -281,7 +298,7 @@ export const roomCreateResponseSchema = z.object({
 export const seatReservationRequestSchema = z.object({});
 
 export const seatReservationResponseSchema = z.object({
-  reservedSeatIndex: z.number().int().min(0).max(8),
+  reservedSeatIndex: seatIndexSchema,
   reservedUntil: isoTimestampSchema,
   buyInQuote: buyInQuoteResponseSchema,
   lobbySnapshot: lobbySnapshotSchema
@@ -295,7 +312,7 @@ export const queueJoinResponseSchema = z.object({
 const chipAmountSchema = z.number().int().positive();
 
 export const buyInCommitRequestSchema = z.object({
-  seatIndex: z.number().int().min(0).max(8),
+  seatIndex: seatIndexSchema,
   amount: chipAmountSchema
 });
 
@@ -311,7 +328,7 @@ export const ledgerEntrySchema = z.object({
   entryId: z.string().min(1),
   roomId: z.string().min(1),
   participantId: z.string().min(1),
-  seatIndex: z.number().int().min(0).max(8).optional(),
+  seatIndex: seatIndexSchema.optional(),
   type: ledgerEntryTypeSchema,
   delta: z.number().int(),
   balanceAfter: z.number().int().min(0),
@@ -323,7 +340,7 @@ export const ledgerEntrySchema = z.object({
 export const roomBalanceSummarySchema = z.object({
   roomId: z.string().min(1),
   participantId: z.string().min(1),
-  seatIndex: z.number().int().min(0).max(8).optional(),
+  seatIndex: seatIndexSchema.optional(),
   buyInCommitted: z.number().int().min(0),
   rebuyCommitted: z.number().int().min(0),
   topUpCommitted: z.number().int().min(0),
@@ -353,6 +370,236 @@ export const topUpResponseSchema = chipOperationResponseBaseSchema.extend({
   operation: z.literal("TOP_UP")
 });
 
+export const roomActionAffordancesSchema = z.object({
+  canFold: z.boolean(),
+  canCheck: z.boolean(),
+  callAmount: z.number().int().min(0).optional(),
+  minRaiseTo: z.number().int().min(0).optional(),
+  maxRaiseTo: z.number().int().min(0).optional(),
+  allInAmount: z.number().int().min(0).optional(),
+  presetAmounts: z.array(z.number().int().min(0)).default([])
+});
+
+export const roomParticipantRealtimeSchema = lobbyParticipantSchema.extend({
+  isReady: z.boolean(),
+  isSittingOut: z.boolean(),
+  lastDisconnectedAt: isoTimestampSchema.optional(),
+  reconnectGraceEndsAt: isoTimestampSchema.optional()
+});
+
+export const activeHandSnapshotSchema = z.object({
+  handId: z.string().min(1),
+  handNumber: z.number().int().positive(),
+  handSeq: z.number().int().nonnegative(),
+  actingSeatIndex: seatIndexSchema,
+  eligibleSeatOrder: z.array(seatIndexSchema),
+  foldedSeatIndexes: z.array(seatIndexSchema),
+  actedSeatIndexes: z.array(seatIndexSchema),
+  startedAt: isoTimestampSchema,
+  deadlineAt: isoTimestampSchema
+});
+
+export const roomRealtimeSnapshotSchema = z.object({
+  room: roomPublicSummarySchema,
+  config: roomConfigSchema,
+  seats: z.array(seatSnapshotSchema),
+  waitingList: z.array(queueEntrySchema),
+  participants: z.array(roomParticipantRealtimeSchema),
+  buyInQuote: buyInQuoteResponseSchema,
+  heroParticipantId: z.string().min(1).optional(),
+  heroSeatIndex: seatIndexSchema.optional(),
+  canJoinWaitingList: z.boolean(),
+  tablePhase: roomTablePhaseSchema,
+  roomEventNo: z.number().int().nonnegative(),
+  activeHand: activeHandSnapshotSchema.nullable().optional(),
+  pausedReason: z.string().min(1).nullable().optional()
+});
+
+export const roomDiffPatchSchema = z.object({
+  room: roomPublicSummarySchema.optional(),
+  seats: z.array(seatSnapshotSchema).optional(),
+  participants: z.array(roomParticipantRealtimeSchema).optional(),
+  waitingList: z.array(queueEntrySchema).optional(),
+  buyInQuote: buyInQuoteResponseSchema.optional(),
+  tablePhase: roomTablePhaseSchema.optional(),
+  activeHand: activeHandSnapshotSchema.nullable().optional(),
+  pausedReason: z.string().min(1).nullable().optional()
+});
+
+export const roomReconnectMetadataSchema = z.object({
+  isReconnecting: z.boolean(),
+  disconnectedAt: isoTimestampSchema.optional(),
+  reconnectGraceEndsAt: isoTimestampSchema.optional()
+});
+
+export const roomPrivateStateSchema = z.object({
+  roomId: z.string().min(1),
+  participantId: z.string().min(1),
+  roomEventNo: z.number().int().nonnegative(),
+  seatIndex: seatIndexSchema.optional(),
+  stack: z.number().int().min(0).optional(),
+  actionAffordances: roomActionAffordancesSchema.optional(),
+  reconnect: roomReconnectMetadataSchema
+});
+
+export const roomSubscribeIntentSchema = z.object({
+  type: z.literal("ROOM_SUBSCRIBE"),
+  roomId: z.string().min(1)
+});
+
+export const roomUnsubscribeIntentSchema = z.object({
+  type: z.literal("ROOM_UNSUBSCRIBE"),
+  roomId: z.string().min(1)
+});
+
+export const playerReadyIntentSchema = z.object({
+  type: z.literal("PLAYER_READY"),
+  roomId: z.string().min(1),
+  seatIndex: seatIndexSchema.optional()
+});
+
+export const playerSitOutIntentSchema = z.object({
+  type: z.literal("PLAYER_SIT_OUT"),
+  roomId: z.string().min(1),
+  effectiveTiming: playerSitOutTimingSchema.default("NEXT_HAND")
+});
+
+export const actionSubmitIntentSchema = z.object({
+  type: z.literal("ACTION_SUBMIT"),
+  roomId: z.string().min(1),
+  handId: z.string().min(1),
+  seqExpectation: z.number().int().nonnegative(),
+  idempotencyKey: z.string().min(1),
+  actionType: submittedRoomActionTypeSchema,
+  amount: z.number().int().min(0).optional()
+});
+
+export const historyRequestIntentSchema = z.object({
+  type: z.literal("HISTORY_REQUEST"),
+  roomId: z.string().min(1),
+  handId: z.string().min(1)
+});
+
+export const realtimeClientMessageSchema = z.discriminatedUnion("type", [
+  roomSubscribeIntentSchema,
+  roomUnsubscribeIntentSchema,
+  playerReadyIntentSchema,
+  playerSitOutIntentSchema,
+  actionSubmitIntentSchema,
+  historyRequestIntentSchema
+]);
+
+const roomEventEnvelopeSchema = z.object({
+  roomId: z.string().min(1),
+  roomEventNo: z.number().int().nonnegative()
+});
+
+const handEventEnvelopeSchema = roomEventEnvelopeSchema.extend({
+  handId: z.string().min(1),
+  handSeq: z.number().int().nonnegative()
+});
+
+export const roomSnapshotEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("ROOM_SNAPSHOT"),
+  snapshot: roomRealtimeSnapshotSchema
+});
+
+export const roomDiffEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("ROOM_DIFF"),
+  handId: z.string().min(1).optional(),
+  handSeq: z.number().int().nonnegative().optional(),
+  diff: roomDiffPatchSchema
+});
+
+export const privateStateEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("PRIVATE_STATE"),
+  privateState: roomPrivateStateSchema
+});
+
+export const handStartedEventSchema = handEventEnvelopeSchema.extend({
+  type: z.literal("HAND_STARTED"),
+  handNumber: z.number().int().positive(),
+  buttonSeatIndex: seatIndexSchema.optional(),
+  blindSeatIndexes: z.array(seatIndexSchema),
+  actionSeatOrder: z.array(seatIndexSchema)
+});
+
+export const turnStartedEventSchema = handEventEnvelopeSchema.extend({
+  type: z.literal("TURN_STARTED"),
+  actingSeatIndex: seatIndexSchema,
+  deadlineAt: isoTimestampSchema,
+  legalActions: roomActionAffordancesSchema
+});
+
+export const turnWarningEventSchema = handEventEnvelopeSchema.extend({
+  type: z.literal("TURN_WARNING"),
+  actingSeatIndex: seatIndexSchema,
+  secondsRemaining: z.number().int().nonnegative()
+});
+
+export const actionAcceptedEventSchema = handEventEnvelopeSchema.extend({
+  type: z.literal("ACTION_ACCEPTED"),
+  participantId: z.string().min(1),
+  seatIndex: seatIndexSchema,
+  idempotencyKey: z.string().min(1),
+  actionType: roomActionTypeSchema,
+  normalizedAmount: z.number().int().min(0).optional()
+});
+
+export const actionRejectedEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("ACTION_REJECTED"),
+  handId: z.string().min(1).optional(),
+  handSeq: z.number().int().nonnegative().optional(),
+  idempotencyKey: z.string().min(1).optional(),
+  errorCode: errorCodeSchema,
+  message: z.string().min(1),
+  expectedSeq: z.number().int().nonnegative().optional()
+});
+
+export const playerDisconnectedEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("PLAYER_DISCONNECTED"),
+  participantId: z.string().min(1),
+  seatIndex: seatIndexSchema.optional(),
+  disconnectedAt: isoTimestampSchema,
+  reconnectGraceEndsAt: isoTimestampSchema.optional()
+});
+
+export const playerReconnectedEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("PLAYER_RECONNECTED"),
+  participantId: z.string().min(1),
+  seatIndex: seatIndexSchema.optional(),
+  reconnectedAt: isoTimestampSchema
+});
+
+export const roomPausedEventSchema = roomEventEnvelopeSchema.extend({
+  type: z.literal("ROOM_PAUSED"),
+  reason: z.string().min(1),
+  recoveryGuidance: z.string().min(1).optional()
+});
+
+export const serverErrorEventSchema = z.object({
+  type: z.literal("SERVER_ERROR"),
+  roomId: z.string().min(1).optional(),
+  roomEventNo: z.number().int().nonnegative().optional(),
+  errorCode: errorCodeSchema,
+  message: z.string().min(1)
+});
+
+export const realtimeServerMessageSchema = z.discriminatedUnion("type", [
+  roomSnapshotEventSchema,
+  roomDiffEventSchema,
+  privateStateEventSchema,
+  handStartedEventSchema,
+  turnStartedEventSchema,
+  turnWarningEventSchema,
+  actionAcceptedEventSchema,
+  actionRejectedEventSchema,
+  playerDisconnectedEventSchema,
+  playerReconnectedEventSchema,
+  roomPausedEventSchema,
+  serverErrorEventSchema
+]);
+
 export const logoutResponseSchema = z.object({
   success: z.literal(true)
 });
@@ -361,7 +608,13 @@ export const clientSnapshotSchema = z.object({
   appName: z.string().min(1),
   appOrigin: z.string().url(),
   serverOrigin: z.string().url(),
-  status: z.enum(["foundation-ready", "phase-01-ready", "phase-02-ready"])
+  status: z.enum([
+    "foundation-ready",
+    "phase-01-ready",
+    "phase-02-ready",
+    "phase-03-ready",
+    "phase-04-ready"
+  ])
 });
 
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
@@ -381,3 +634,23 @@ export type SessionRole = z.infer<typeof sessionRoleSchema>;
 export type RoomTablePhase = z.infer<typeof roomTablePhaseSchema>;
 export type LedgerEntry = z.infer<typeof ledgerEntrySchema>;
 export type RoomBalanceSummary = z.infer<typeof roomBalanceSummarySchema>;
+export type RoomActionAffordances = z.infer<typeof roomActionAffordancesSchema>;
+export type RoomParticipantRealtime = z.infer<typeof roomParticipantRealtimeSchema>;
+export type ActiveHandSnapshot = z.infer<typeof activeHandSnapshotSchema>;
+export type RoomRealtimeSnapshot = z.infer<typeof roomRealtimeSnapshotSchema>;
+export type RoomDiffPatch = z.infer<typeof roomDiffPatchSchema>;
+export type RoomPrivateState = z.infer<typeof roomPrivateStateSchema>;
+export type RealtimeClientMessage = z.infer<typeof realtimeClientMessageSchema>;
+export type RoomSnapshotEvent = z.infer<typeof roomSnapshotEventSchema>;
+export type RoomDiffEvent = z.infer<typeof roomDiffEventSchema>;
+export type PrivateStateEvent = z.infer<typeof privateStateEventSchema>;
+export type HandStartedEvent = z.infer<typeof handStartedEventSchema>;
+export type TurnStartedEvent = z.infer<typeof turnStartedEventSchema>;
+export type TurnWarningEvent = z.infer<typeof turnWarningEventSchema>;
+export type ActionAcceptedEvent = z.infer<typeof actionAcceptedEventSchema>;
+export type ActionRejectedEvent = z.infer<typeof actionRejectedEventSchema>;
+export type PlayerDisconnectedEvent = z.infer<typeof playerDisconnectedEventSchema>;
+export type PlayerReconnectedEvent = z.infer<typeof playerReconnectedEventSchema>;
+export type RoomPausedEvent = z.infer<typeof roomPausedEventSchema>;
+export type ServerErrorEvent = z.infer<typeof serverErrorEventSchema>;
+export type RealtimeServerMessage = z.infer<typeof realtimeServerMessageSchema>;

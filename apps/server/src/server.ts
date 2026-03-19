@@ -34,6 +34,7 @@ import {
 } from "./cookies.js";
 import { createResendEmailAdapter, type EmailAdapter } from "./email.js";
 import { AppError, appError, sendAppError } from "./errors.js";
+import { attachRealtimeGateway } from "./realtime.js";
 import { createAppState } from "./state.js";
 
 type BuildServerOptions = {
@@ -58,6 +59,7 @@ export function buildServer(options: BuildServerOptions = {}) {
 
   app.decorate("env", env);
   app.decorate("appState", state);
+  attachRealtimeGateway(app, state, env);
 
   app.addHook("onRequest", async (request, reply) => {
     reply.header("Access-Control-Allow-Origin", env.APP_ORIGIN);

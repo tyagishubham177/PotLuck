@@ -9,7 +9,7 @@
 - `docs/README.md`: master index and reading order.
 - `docs/phases/`: numbered implementation packs. Build in order.
 - `apps/web`: reserved for the Next.js client.
-- `apps/server`: reserved for the Fastify + Socket.IO authoritative server.
+- `apps/server`: reserved for the Fastify + native WebSocket (`ws`) authoritative server.
 - `packages/contracts`: shared Zod schemas, error codes, and DTOs.
 - `packages/game-engine`: deterministic poker rules and settlement logic.
 - `packages/ui`: shared UI and design tokens.

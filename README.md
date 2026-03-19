@@ -10,7 +10,7 @@ PotLuck is a docs-first monorepo for a realtime multiplayer poker app with an au
 ## Stack
 - Monorepo: `pnpm` + Turborepo
 - Web: Next.js 15, React 19, TypeScript
-- Server: Fastify, Socket.IO, Zod, Drizzle ORM
+- Server: Fastify, native WebSocket (`ws`), Zod, Drizzle ORM
 - Shared: workspace packages for contracts, config, UI, game-engine, and test helpers
 - Tooling: ESLint, TypeScript, Vitest, GitHub Actions CI
 

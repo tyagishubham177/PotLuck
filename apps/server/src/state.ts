@@ -7,17 +7,26 @@ import {
   lobbySnapshotSchema,
   queueEntrySchema,
   rebuyResponseSchema,
+  roomActionAffordancesSchema,
   roomConfigSchema,
   roomCreateResponseSchema,
+  roomDiffPatchSchema,
+  roomPrivateStateSchema,
   roomPublicSummarySchema,
   roomBalanceSummarySchema,
+  roomRealtimeSnapshotSchema,
   seatReservationResponseSchema,
   topUpResponseSchema,
   type AuthActor,
+  type ErrorCode,
   type LedgerEntry,
   type LobbySnapshot,
+  type RoomActionAffordances,
   type RoomConfig,
+  type RoomDiffPatch,
   type RoomJoinMode,
+  type RoomPrivateState,
+  type RoomRealtimeSnapshot,
   type RoomTablePhase,
   type RoomBalanceSummary,
   type SessionEnvelope,
@@ -35,6 +44,9 @@ const OTP_REQUEST_LIMIT = 5;
 const OTP_VERIFY_LIMIT = 5;
 const ACCESS_TTL_MS = 15 * 60 * 1000;
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const TURN_DURATION_MS = 15 * 1000;
+const TURN_WARNING_MS = 5 * 1000;
+const RECONNECT_GRACE_MS = 20 * 1000;
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const ROOM_CODE_LENGTH = 6;
 
@@ -71,6 +83,10 @@ type ParticipantRecord = {
   mode: RoomJoinMode;
   joinedAt: Date;
   isConnected: boolean;
+  isReady: boolean;
+  isSittingOut: boolean;
+  lastDisconnectedAt?: Date;
+  reconnectGraceEndsAt?: Date;
 };
 
 type QueueEntryRecord = {
@@ -86,6 +102,7 @@ type SeatRecord = {
   participantId?: string;
   reservedUntil?: Date;
   stack?: number;
+  reservationToken?: string;
 };
 
 type LedgerEntryRecord = {
@@ -112,6 +129,143 @@ type IdempotentLedgerOperation = {
   response: ChipOperationResponse;
 };
 
+type CachedActionIntent = {
+  fingerprint: string;
+  result:
+    | {
+        outcome: "accepted";
+        roomEventNo: number;
+        handId: string;
+        handSeq: number;
+        participantId: string;
+        seatIndex: number;
+        idempotencyKey: string;
+        actionType: "CHECK" | "FOLD" | "CALL" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
+        normalizedAmount?: number;
+      }
+    | {
+        outcome: "rejected";
+        roomEventNo: number;
+        handId?: string;
+        handSeq?: number;
+        idempotencyKey?: string;
+        errorCode: ErrorCode;
+        message: string;
+        expectedSeq?: number;
+      };
+};
+
+type ActiveHandRecord = {
+  handId: string;
+  handNumber: number;
+  handSeq: number;
+  seatOrder: number[];
+  actingSeatPointer: number;
+  foldedParticipantIds: Set<string>;
+  actedParticipantIds: Set<string>;
+  startedAt: Date;
+  deadlineAt: Date;
+  timerToken: string;
+};
+
+type RoomPatchField = keyof RoomDiffPatch;
+
+type RoomEvent =
+  | {
+      type: "ROOM_DIFF";
+      roomId: string;
+      roomEventNo: number;
+      changed: RoomPatchField[];
+      handId?: string;
+      handSeq?: number;
+    }
+  | {
+      type: "HAND_STARTED";
+      roomId: string;
+      roomEventNo: number;
+      handId: string;
+      handSeq: number;
+      handNumber: number;
+      actionSeatOrder: number[];
+      blindSeatIndexes: number[];
+      buttonSeatIndex?: number;
+    }
+  | {
+      type: "TURN_STARTED";
+      roomId: string;
+      roomEventNo: number;
+      handId: string;
+      handSeq: number;
+      actingSeatIndex: number;
+      deadlineAt: string;
+      legalActions: RoomActionAffordances;
+    }
+  | {
+      type: "TURN_WARNING";
+      roomId: string;
+      roomEventNo: number;
+      handId: string;
+      handSeq: number;
+      actingSeatIndex: number;
+      secondsRemaining: number;
+    }
+  | {
+      type: "ACTION_ACCEPTED";
+      roomId: string;
+      roomEventNo: number;
+      handId: string;
+      handSeq: number;
+      participantId: string;
+      seatIndex: number;
+      idempotencyKey: string;
+      actionType: "CHECK" | "FOLD" | "CALL" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
+      normalizedAmount?: number;
+    }
+  | {
+      type: "ACTION_REJECTED";
+      roomId: string;
+      roomEventNo: number;
+      handId?: string;
+      handSeq?: number;
+      idempotencyKey?: string;
+      errorCode: ErrorCode;
+      message: string;
+      expectedSeq?: number;
+    }
+  | {
+      type: "PLAYER_DISCONNECTED";
+      roomId: string;
+      roomEventNo: number;
+      participantId: string;
+      seatIndex?: number;
+      disconnectedAt: string;
+      reconnectGraceEndsAt?: string;
+    }
+  | {
+      type: "PLAYER_RECONNECTED";
+      roomId: string;
+      roomEventNo: number;
+      participantId: string;
+      seatIndex?: number;
+      reconnectedAt: string;
+    }
+  | {
+      type: "ROOM_PAUSED";
+      roomId: string;
+      roomEventNo: number;
+      reason: string;
+      recoveryGuidance?: string;
+    };
+
+type RoomEventListener = (event: RoomEvent) => void;
+
+type RoomRuntime = {
+  subscribers: Set<RoomEventListener>;
+  reservationTimers: Map<number, ReturnType<typeof setTimeout>>;
+  turnWarningTimer?: ReturnType<typeof setTimeout>;
+  turnExpiryTimer?: ReturnType<typeof setTimeout>;
+};
+
 type RoomRecord = {
   roomId: string;
   code: string;
@@ -127,6 +281,11 @@ type RoomRecord = {
   seats: SeatRecord[];
   ledgerEntries: LedgerEntryRecord[];
   processedLedgerOperations: Map<string, IdempotentLedgerOperation>;
+  processedActionIntents: Map<string, CachedActionIntent>;
+  roomEventNo: number;
+  activeHand?: ActiveHandRecord;
+  pausedReason?: string;
+  pausedTurnRemainingMs?: number;
 };
 
 type SessionRecord = {
@@ -217,7 +376,70 @@ export function createAppState(options: CreateAppStateOptions = {}) {
   const sessions = new Map<string, SessionRecord>();
   const roomsByCode = new Map<string, RoomRecord>();
   const roomsById = new Map<string, RoomRecord>();
+  const roomRuntimes = new Map<string, RoomRuntime>();
   const auditEvents: AuditEvent[] = [];
+
+  function getOrCreateRoomRuntime(roomId: string) {
+    const existing = roomRuntimes.get(roomId);
+
+    if (existing) {
+      return existing;
+    }
+
+    const created: RoomRuntime = {
+      subscribers: new Set(),
+      reservationTimers: new Map()
+    };
+    roomRuntimes.set(roomId, created);
+    return created;
+  }
+
+  function clearTurnTimers(roomId: string) {
+    const runtime = roomRuntimes.get(roomId);
+
+    if (!runtime) {
+      return;
+    }
+
+    if (runtime.turnWarningTimer) {
+      clearTimeout(runtime.turnWarningTimer);
+      runtime.turnWarningTimer = undefined;
+    }
+
+    if (runtime.turnExpiryTimer) {
+      clearTimeout(runtime.turnExpiryTimer);
+      runtime.turnExpiryTimer = undefined;
+    }
+  }
+
+  function clearReservationTimer(roomId: string, seatIndex: number) {
+    const runtime = roomRuntimes.get(roomId);
+    const timeout = runtime?.reservationTimers.get(seatIndex);
+
+    if (!runtime || !timeout) {
+      return;
+    }
+
+    clearTimeout(timeout);
+    runtime.reservationTimers.delete(seatIndex);
+  }
+
+  function nextRoomEventNo(room: RoomRecord) {
+    room.roomEventNo += 1;
+    return room.roomEventNo;
+  }
+
+  function emitRoomEvent(roomId: string, event: RoomEvent) {
+    const runtime = roomRuntimes.get(roomId);
+
+    if (!runtime) {
+      return;
+    }
+
+    for (const listener of [...runtime.subscribers]) {
+      listener(event);
+    }
+  }
 
   function addAuditEvent(event: Omit<AuditEvent, "eventId" | "occurredAt">) {
     auditEvents.push({ eventId: randomUUID(), occurredAt: toIso(clock()), ...event });
@@ -421,22 +643,40 @@ export function createAppState(options: CreateAppStateOptions = {}) {
 
   function removeParticipantFromRoom(room: RoomRecord, participantId: string) {
     room.waitingList = room.waitingList.filter((entry) => entry.participantId !== participantId);
+    let removedSeatIndex: number | undefined;
 
     for (const seat of room.seats) {
       if (seat.participantId === participantId) {
+        removedSeatIndex = seat.seatIndex;
+        clearReservationTimer(room.roomId, seat.seatIndex);
         seat.status = "EMPTY";
         seat.participantId = undefined;
         seat.reservedUntil = undefined;
+        seat.reservationToken = undefined;
         seat.stack = undefined;
       }
     }
 
     room.participants.delete(participantId);
+
+    if (
+      removedSeatIndex !== undefined &&
+      room.activeHand?.seatOrder.includes(removedSeatIndex)
+    ) {
+      pauseRoomInternal(
+        room,
+        "A seated player disconnected during an active hand.",
+        "Resume after verifying the room state."
+      );
+    }
   }
 
   function closeRoomIfExpired(room: RoomRecord) {
     if (room.status !== "CLOSED" && room.closesAt.getTime() <= clock().getTime()) {
       room.status = "CLOSED";
+      room.pausedReason = undefined;
+      room.activeHand = undefined;
+      clearTurnTimers(room.roomId);
     }
   }
 
@@ -449,9 +689,11 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         seat.reservedUntil &&
         seat.reservedUntil.getTime() <= nowMs
       ) {
+        clearReservationTimer(room.roomId, seat.seatIndex);
         seat.status = "EMPTY";
         seat.reservedUntil = undefined;
         seat.participantId = undefined;
+        seat.reservationToken = undefined;
       }
     }
   }
@@ -860,6 +1102,744 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     });
   }
 
+  function toRealtimeParticipant(room: RoomRecord, participant: ParticipantRecord) {
+    const seat = getParticipantSeat(room, participant.participantId);
+    const queuePosition = getQueuePosition(room, participant.participantId);
+
+    return {
+      participantId: participant.participantId,
+      nickname: participant.nickname,
+      mode: participant.mode,
+      state:
+        participant.mode === "SPECTATOR"
+          ? "SPECTATING"
+          : seat?.status === "RESERVED"
+            ? "RESERVED"
+            : seat?.status === "OCCUPIED"
+              ? "SEATED"
+              : queuePosition
+                ? "QUEUED"
+                : "LOBBY",
+      joinedAt: toIso(participant.joinedAt),
+      isConnected: participant.isConnected,
+      seatIndex: seat?.seatIndex,
+      reservationExpiresAt: seat?.reservedUntil ? toIso(seat.reservedUntil) : undefined,
+      queuePosition,
+      isReady: participant.isReady,
+      isSittingOut: participant.isSittingOut,
+      lastDisconnectedAt: participant.lastDisconnectedAt
+        ? toIso(participant.lastDisconnectedAt)
+        : undefined,
+      reconnectGraceEndsAt: participant.reconnectGraceEndsAt
+        ? toIso(participant.reconnectGraceEndsAt)
+        : undefined
+    };
+  }
+
+  function getCurrentActingSeatIndex(room: RoomRecord) {
+    if (!room.activeHand) {
+      return undefined;
+    }
+
+    return room.activeHand.seatOrder[room.activeHand.actingSeatPointer];
+  }
+
+  function getCurrentActingParticipantId(room: RoomRecord) {
+    const actingSeatIndex = getCurrentActingSeatIndex(room);
+
+    if (actingSeatIndex === undefined) {
+      return undefined;
+    }
+
+    return room.seats.at(actingSeatIndex)?.participantId;
+  }
+
+  function getEligibleReadySeatOrder(room: RoomRecord) {
+    return room.seats
+      .filter(
+        (seat) =>
+          seat.status === "OCCUPIED" &&
+          Boolean(seat.participantId) &&
+          room.participants.get(seat.participantId ?? "")?.mode === "PLAYER" &&
+          room.participants.get(seat.participantId ?? "")?.isReady &&
+          !room.participants.get(seat.participantId ?? "")?.isSittingOut
+      )
+      .map((seat) => seat.seatIndex)
+      .sort((left, right) => left - right);
+  }
+
+  function toActiveHandSnapshot(room: RoomRecord) {
+    if (!room.activeHand) {
+      return null;
+    }
+
+    return {
+      handId: room.activeHand.handId,
+      handNumber: room.activeHand.handNumber,
+      handSeq: room.activeHand.handSeq,
+      actingSeatIndex: getCurrentActingSeatIndex(room) ?? room.activeHand.seatOrder[0] ?? 0,
+      eligibleSeatOrder: room.activeHand.seatOrder,
+      foldedSeatIndexes: room.activeHand.seatOrder.filter((seatIndex) => {
+        const participantId = room.seats.at(seatIndex)?.participantId;
+        return participantId
+          ? room.activeHand?.foldedParticipantIds.has(participantId)
+          : false;
+      }),
+      actedSeatIndexes: room.activeHand.seatOrder.filter((seatIndex) => {
+        const participantId = room.seats.at(seatIndex)?.participantId;
+        return participantId
+          ? room.activeHand?.actedParticipantIds.has(participantId)
+          : false;
+      }),
+      startedAt: toIso(room.activeHand.startedAt),
+      deadlineAt: toIso(room.activeHand.deadlineAt)
+    };
+  }
+
+  function toRoomRealtimeSnapshot(room: RoomRecord, actor: AuthActor): RoomRealtimeSnapshot {
+    cleanupRoom(room);
+
+    const heroParticipantId = actor.role === "GUEST" ? actor.guestId : undefined;
+    const heroSeat = heroParticipantId
+      ? getParticipantSeat(room, heroParticipantId)
+      : undefined;
+    const canJoinWaitingList =
+      Boolean(heroParticipantId) &&
+      room.config.waitingListEnabled &&
+      room.seats.every((seat) => seat.status !== "EMPTY") &&
+      !heroSeat &&
+      !room.waitingList.some((entry) => entry.participantId === heroParticipantId);
+
+    return roomRealtimeSnapshotSchema.parse({
+      room: toRoomSummary(room),
+      config: roomConfigSchema.parse(room.config),
+      seats: room.seats.map((seat) => toSeatSnapshot(room, seat)),
+      waitingList: room.waitingList.map((entry, index) => ({
+        entryId: entry.entryId,
+        participantId: entry.participantId,
+        nickname: entry.nickname,
+        joinedAt: toIso(entry.joinedAt),
+        position: index + 1
+      })),
+      participants: [...room.participants.values()].map((participant) =>
+        toRealtimeParticipant(room, participant)
+      ),
+      buyInQuote: toBuyInQuote(room),
+      heroParticipantId,
+      heroSeatIndex: heroSeat?.seatIndex,
+      canJoinWaitingList,
+      tablePhase: room.tablePhase,
+      roomEventNo: room.roomEventNo,
+      activeHand: toActiveHandSnapshot(room),
+      pausedReason: room.pausedReason ?? null
+    });
+  }
+
+  function getActionAffordances(room: RoomRecord, participantId: string) {
+    const seat = getParticipantSeat(room, participantId);
+    const actingSeatIndex = getCurrentActingSeatIndex(room);
+
+    if (
+      !room.activeHand ||
+      room.status !== "OPEN" ||
+      seat?.seatIndex === undefined ||
+      actingSeatIndex !== seat.seatIndex
+    ) {
+      return undefined;
+    }
+
+    return roomActionAffordancesSchema.parse({
+      canFold: true,
+      canCheck: true,
+      presetAmounts: []
+    });
+  }
+
+  function toRoomPrivateState(
+    room: RoomRecord,
+    actor: Extract<AuthActor, { role: "GUEST" }>
+  ): RoomPrivateState {
+    cleanupRoom(room);
+
+    const participant = room.participants.get(actor.guestId);
+    const seat = getParticipantSeat(room, actor.guestId);
+
+    return roomPrivateStateSchema.parse({
+      roomId: room.roomId,
+      participantId: actor.guestId,
+      roomEventNo: room.roomEventNo,
+      seatIndex: seat?.seatIndex,
+      stack: seat?.stack,
+      actionAffordances: getActionAffordances(room, actor.guestId),
+      reconnect: {
+        isReconnecting: Boolean(
+          participant?.lastDisconnectedAt && participant.reconnectGraceEndsAt
+        ),
+        disconnectedAt: participant?.lastDisconnectedAt
+          ? toIso(participant.lastDisconnectedAt)
+          : undefined,
+        reconnectGraceEndsAt: participant?.reconnectGraceEndsAt
+          ? toIso(participant.reconnectGraceEndsAt)
+          : undefined
+      }
+    });
+  }
+
+  function buildRoomDiff(
+    room: RoomRecord,
+    actor: AuthActor,
+    changed: RoomPatchField[]
+  ): RoomDiffPatch {
+    const snapshot = toRoomRealtimeSnapshot(room, actor);
+    const patch: RoomDiffPatch = {};
+
+    for (const field of changed) {
+      if (field === "room") {
+        patch.room = snapshot.room;
+        continue;
+      }
+
+      if (field === "seats") {
+        patch.seats = snapshot.seats;
+        continue;
+      }
+
+      if (field === "participants") {
+        patch.participants = snapshot.participants;
+        continue;
+      }
+
+      if (field === "waitingList") {
+        patch.waitingList = snapshot.waitingList;
+        continue;
+      }
+
+      if (field === "buyInQuote") {
+        patch.buyInQuote = snapshot.buyInQuote;
+        continue;
+      }
+
+      if (field === "tablePhase") {
+        patch.tablePhase = snapshot.tablePhase;
+        continue;
+      }
+
+      if (field === "activeHand") {
+        patch.activeHand = snapshot.activeHand ?? null;
+        continue;
+      }
+
+      if (field === "pausedReason") {
+        patch.pausedReason = snapshot.pausedReason ?? null;
+      }
+    }
+
+    return roomDiffPatchSchema.parse(patch);
+  }
+
+  function emitRoomRefresh(
+    room: RoomRecord,
+    changed: RoomPatchField[],
+    options: { roomEventNo?: number; handId?: string; handSeq?: number } = {}
+  ) {
+    const roomEventNo = options.roomEventNo ?? nextRoomEventNo(room);
+
+    emitRoomEvent(room.roomId, {
+      type: "ROOM_DIFF",
+      roomId: room.roomId,
+      roomEventNo,
+      changed,
+      handId: options.handId,
+      handSeq: options.handSeq
+    });
+
+    return roomEventNo;
+  }
+
+  function getCachedActionIntent(
+    room: RoomRecord,
+    participantId: string,
+    idempotencyKey: string | undefined,
+    fingerprint: string
+  ) {
+    if (!idempotencyKey) {
+      return null;
+    }
+
+    const cacheKey = `${participantId}:${idempotencyKey}`;
+    const cached = room.processedActionIntents.get(cacheKey);
+
+    if (!cached) {
+      return null;
+    }
+
+    if (cached.fingerprint !== fingerprint) {
+      throw appError({
+        code: "ERR_ACTION_INVALID",
+        message: "That idempotency key was already used for a different hand action.",
+        statusCode: 409,
+        retryable: false
+      });
+    }
+
+    return cached.result;
+  }
+
+  function storeActionIntent(
+    room: RoomRecord,
+    participantId: string,
+    idempotencyKey: string | undefined,
+    fingerprint: string,
+    result: CachedActionIntent["result"]
+  ) {
+    if (!idempotencyKey) {
+      return;
+    }
+
+    room.processedActionIntents.set(`${participantId}:${idempotencyKey}`, {
+      fingerprint,
+      result
+    });
+  }
+
+  function clearReadyStateAfterHand(room: RoomRecord) {
+    for (const participant of room.participants.values()) {
+      if (participant.mode === "PLAYER") {
+        participant.isReady = false;
+      }
+    }
+  }
+
+  function finishPlaceholderHand(room: RoomRecord, roomEventNo?: number) {
+    const hand = room.activeHand;
+
+    if (!hand) {
+      return;
+    }
+
+    clearTurnTimers(room.roomId);
+    room.tablePhase = "BETWEEN_HANDS";
+    room.activeHand = undefined;
+    room.pausedTurnRemainingMs = undefined;
+    clearReadyStateAfterHand(room);
+
+    emitRoomRefresh(room, ["participants", "tablePhase", "activeHand"], {
+      roomEventNo,
+      handId: hand.handId,
+      handSeq: hand.handSeq
+    });
+  }
+
+  function scheduleReservationExpiry(room: RoomRecord, seat: SeatRecord) {
+    if (!seat.reservedUntil) {
+      return;
+    }
+
+    clearReservationTimer(room.roomId, seat.seatIndex);
+    const runtime = getOrCreateRoomRuntime(room.roomId);
+    const reservationToken = seat.reservationToken ?? randomUUID();
+    seat.reservationToken = reservationToken;
+
+    runtime.reservationTimers.set(
+      seat.seatIndex,
+      setTimeout(() => {
+        const currentRoom = roomsById.get(room.roomId);
+        const currentSeat = currentRoom?.seats.at(seat.seatIndex);
+
+        if (
+          !currentRoom ||
+          !currentSeat ||
+          currentSeat.status !== "RESERVED" ||
+          currentSeat.reservationToken !== reservationToken
+        ) {
+          return;
+        }
+
+        currentSeat.status = "EMPTY";
+        currentSeat.participantId = undefined;
+        currentSeat.reservedUntil = undefined;
+        currentSeat.reservationToken = undefined;
+        clearReservationTimer(currentRoom.roomId, currentSeat.seatIndex);
+
+        emitRoomRefresh(currentRoom, ["room", "seats", "participants"]);
+      }, Math.max(0, seat.reservedUntil.getTime() - clock().getTime()))
+    );
+  }
+
+  function scheduleTurnTimers(room: RoomRecord) {
+    if (!room.activeHand) {
+      return;
+    }
+
+    clearTurnTimers(room.roomId);
+    const runtime = getOrCreateRoomRuntime(room.roomId);
+    const timerToken = room.activeHand.timerToken;
+
+    runtime.turnWarningTimer = setTimeout(() => {
+      const currentRoom = roomsById.get(room.roomId);
+
+      if (
+        !currentRoom?.activeHand ||
+        currentRoom.activeHand.timerToken !== timerToken ||
+        currentRoom.status !== "OPEN"
+      ) {
+        return;
+      }
+
+      const actingSeatIndex = getCurrentActingSeatIndex(currentRoom);
+
+      if (actingSeatIndex === undefined) {
+        return;
+      }
+
+      emitRoomEvent(currentRoom.roomId, {
+        type: "TURN_WARNING",
+        roomId: currentRoom.roomId,
+        roomEventNo: nextRoomEventNo(currentRoom),
+        handId: currentRoom.activeHand.handId,
+        handSeq: currentRoom.activeHand.handSeq,
+        actingSeatIndex,
+        secondsRemaining: Math.ceil(TURN_WARNING_MS / 1000)
+      });
+    }, Math.max(0, room.activeHand.deadlineAt.getTime() - clock().getTime() - TURN_WARNING_MS));
+
+    runtime.turnExpiryTimer = setTimeout(() => {
+      const currentRoom = roomsById.get(room.roomId);
+
+      if (
+        !currentRoom?.activeHand ||
+        currentRoom.activeHand.timerToken !== timerToken ||
+        currentRoom.status !== "OPEN"
+      ) {
+        return;
+      }
+
+      const participantId = getCurrentActingParticipantId(currentRoom);
+
+      if (!participantId) {
+        return;
+      }
+
+      void applyPlayerAction(currentRoom, participantId, {
+        handId: currentRoom.activeHand.handId,
+        seqExpectation: currentRoom.activeHand.handSeq,
+        idempotencyKey: `timeout-${currentRoom.activeHand.handId}-${currentRoom.activeHand.handSeq}`,
+        actionType: "TIMEOUT_FOLD"
+      });
+    }, Math.max(0, room.activeHand.deadlineAt.getTime() - clock().getTime()));
+  }
+
+  function startTurn(room: RoomRecord, roomEventNo?: number) {
+    if (!room.activeHand) {
+      return;
+    }
+
+    room.activeHand.deadlineAt = new Date(
+      clock().getTime() + (room.pausedTurnRemainingMs ?? TURN_DURATION_MS)
+    );
+    room.activeHand.timerToken = randomUUID();
+    room.pausedTurnRemainingMs = undefined;
+
+    const actingSeatIndex = getCurrentActingSeatIndex(room);
+
+    if (actingSeatIndex === undefined) {
+      return;
+    }
+
+    const participantId = getCurrentActingParticipantId(room);
+    const legalActions =
+      participantId &&
+      roomActionAffordancesSchema.parse({
+        canFold: true,
+        canCheck: true,
+        presetAmounts: []
+      });
+    const eventNo = roomEventNo ?? nextRoomEventNo(room);
+
+    if (legalActions) {
+      emitRoomEvent(room.roomId, {
+        type: "TURN_STARTED",
+        roomId: room.roomId,
+        roomEventNo: eventNo,
+        handId: room.activeHand.handId,
+        handSeq: room.activeHand.handSeq,
+        actingSeatIndex,
+        deadlineAt: toIso(room.activeHand.deadlineAt),
+        legalActions
+      });
+    }
+
+    scheduleTurnTimers(room);
+  }
+
+  function resolveNextActingPointer(room: RoomRecord) {
+    if (!room.activeHand) {
+      return null;
+    }
+
+    for (let offset = 1; offset <= room.activeHand.seatOrder.length; offset += 1) {
+      const pointer =
+        (room.activeHand.actingSeatPointer + offset) % room.activeHand.seatOrder.length;
+      const seatIndex = room.activeHand.seatOrder[pointer];
+      const participantId = room.seats.at(seatIndex)?.participantId;
+
+      if (!participantId || room.activeHand.foldedParticipantIds.has(participantId)) {
+        continue;
+      }
+
+      if (room.activeHand.actedParticipantIds.has(participantId)) {
+        continue;
+      }
+
+      return pointer;
+    }
+
+    return null;
+  }
+
+  function startPlaceholderHandIfReady(room: RoomRecord) {
+    if (room.status !== "OPEN" || room.tablePhase !== "BETWEEN_HANDS" || room.activeHand) {
+      return;
+    }
+
+    const seatOrder = getEligibleReadySeatOrder(room);
+
+    if (seatOrder.length < 2) {
+      return;
+    }
+
+    room.tablePhase = "HAND_ACTIVE";
+    room.activeHand = {
+      handId: `hand_${randomUUID()}`,
+      handNumber: room.roomEventNo + 1,
+      handSeq: 0,
+      seatOrder,
+      actingSeatPointer: 0,
+      foldedParticipantIds: new Set(),
+      actedParticipantIds: new Set(),
+      startedAt: clock(),
+      deadlineAt: clock(),
+      timerToken: randomUUID()
+    };
+
+    const roomEventNo = emitRoomRefresh(room, ["participants", "tablePhase", "activeHand"]);
+
+    emitRoomEvent(room.roomId, {
+      type: "HAND_STARTED",
+      roomId: room.roomId,
+      roomEventNo,
+      handId: room.activeHand.handId,
+      handSeq: room.activeHand.handSeq,
+      handNumber: room.activeHand.handNumber,
+      actionSeatOrder: room.activeHand.seatOrder,
+      blindSeatIndexes: room.activeHand.seatOrder.slice(0, 2),
+      buttonSeatIndex: room.activeHand.seatOrder[0]
+    });
+
+    startTurn(room, roomEventNo);
+  }
+
+  function pauseRoomInternal(room: RoomRecord, reason: string, recoveryGuidance?: string) {
+    if (room.status === "PAUSED") {
+      return;
+    }
+
+    room.status = "PAUSED";
+    room.pausedReason = reason;
+
+    if (room.activeHand) {
+      room.pausedTurnRemainingMs = Math.max(
+        0,
+        room.activeHand.deadlineAt.getTime() - clock().getTime()
+      );
+    }
+
+    clearTurnTimers(room.roomId);
+    const roomEventNo = emitRoomRefresh(room, ["room", "pausedReason", "activeHand"]);
+
+    emitRoomEvent(room.roomId, {
+      type: "ROOM_PAUSED",
+      roomId: room.roomId,
+      roomEventNo,
+      reason,
+      recoveryGuidance
+    });
+  }
+
+  function resumeRoomInternal(room: RoomRecord) {
+    if (room.status !== "PAUSED") {
+      return;
+    }
+
+    room.status = "OPEN";
+    room.pausedReason = undefined;
+    const roomEventNo = emitRoomRefresh(room, ["room", "pausedReason"]);
+
+    if (room.activeHand) {
+      startTurn(room, roomEventNo);
+      return;
+    }
+
+    startPlaceholderHandIfReady(room);
+  }
+
+  async function applyPlayerAction(
+    room: RoomRecord,
+    participantId: string,
+    payload: {
+      handId: string;
+      seqExpectation: number;
+      idempotencyKey?: string;
+      actionType: "CHECK" | "FOLD" | "CALL" | "RAISE" | "ALL_IN" | "TIMEOUT_FOLD";
+      amount?: number;
+    },
+    options: { emitAcceptedEvent?: boolean } = {}
+  ) {
+    const fingerprint = JSON.stringify(payload);
+    const cached = getCachedActionIntent(room, participantId, payload.idempotencyKey, fingerprint);
+
+    if (cached) {
+      return cached;
+    }
+
+    const reject = (options: {
+      errorCode: ErrorCode;
+      message: string;
+      expectedSeq?: number;
+    }) => {
+      const result: CachedActionIntent["result"] = {
+        outcome: "rejected",
+        roomEventNo: nextRoomEventNo(room),
+        handId: room.activeHand?.handId,
+        handSeq: room.activeHand?.handSeq,
+        idempotencyKey: payload.idempotencyKey,
+        errorCode: options.errorCode,
+        message: options.message,
+        expectedSeq: options.expectedSeq
+      };
+
+      storeActionIntent(room, participantId, payload.idempotencyKey, fingerprint, result);
+      return result;
+    };
+
+    if (room.status === "PAUSED") {
+      return reject({
+        errorCode: "ERR_ROOM_PAUSED",
+        message: "The room is paused and cannot accept hand actions right now."
+      });
+    }
+
+    if (!room.activeHand) {
+      return reject({
+        errorCode: "ERR_ACTION_INVALID",
+        message: "There is no active hand to act in."
+      });
+    }
+
+    if (room.activeHand.handId !== payload.handId) {
+      return reject({
+        errorCode: "ERR_STALE_SEQUENCE",
+        message: "That hand is no longer active.",
+        expectedSeq: room.activeHand.handSeq
+      });
+    }
+
+    if (room.activeHand.handSeq !== payload.seqExpectation) {
+      return reject({
+        errorCode: "ERR_STALE_SEQUENCE",
+        message: "The expected hand sequence no longer matches the authoritative room state.",
+        expectedSeq: room.activeHand.handSeq
+      });
+    }
+
+    const seat = getParticipantSeat(room, participantId);
+    const actingSeatIndex = getCurrentActingSeatIndex(room);
+
+    if (!seat || actingSeatIndex !== seat.seatIndex) {
+      return reject({
+        errorCode: "ERR_NOT_YOUR_TURN",
+        message: "It is not your turn to act."
+      });
+    }
+
+    if (!["CHECK", "FOLD", "TIMEOUT_FOLD"].includes(payload.actionType)) {
+      return reject({
+        errorCode: "ERR_ACTION_INVALID",
+        message: "Phase 04 placeholder play currently supports check and fold only."
+      });
+    }
+
+    clearTurnTimers(room.roomId);
+
+    if (payload.actionType === "FOLD" || payload.actionType === "TIMEOUT_FOLD") {
+      room.activeHand.foldedParticipantIds.add(participantId);
+    }
+
+    room.activeHand.actedParticipantIds.add(participantId);
+    room.activeHand.handSeq += 1;
+
+    const handSeq = room.activeHand.handSeq;
+    const roomEventNo = nextRoomEventNo(room);
+    const result: CachedActionIntent["result"] = {
+      outcome: "accepted",
+      roomEventNo,
+      handId: room.activeHand.handId,
+      handSeq,
+      participantId,
+      seatIndex: seat.seatIndex,
+      idempotencyKey: payload.idempotencyKey ?? `timeout-${room.activeHand.handId}-${handSeq}`,
+      actionType: payload.actionType,
+      normalizedAmount: payload.amount
+    };
+
+    storeActionIntent(room, participantId, payload.idempotencyKey, fingerprint, result);
+
+    if (options.emitAcceptedEvent ?? true) {
+      emitRoomEvent(room.roomId, {
+        type: "ACTION_ACCEPTED",
+        roomId: room.roomId,
+        roomEventNo,
+        handId: room.activeHand.handId,
+        handSeq,
+        participantId,
+        seatIndex: seat.seatIndex,
+        idempotencyKey: result.idempotencyKey,
+        actionType: payload.actionType,
+        normalizedAmount: payload.amount
+      });
+    }
+
+    const remainingSeatIndexes = room.activeHand.seatOrder.filter((seatIndex) => {
+      const currentParticipantId = room.seats.at(seatIndex)?.participantId;
+
+      return currentParticipantId
+        ? !room.activeHand?.foldedParticipantIds.has(currentParticipantId)
+        : false;
+    });
+
+    if (remainingSeatIndexes.length <= 1) {
+      finishPlaceholderHand(room, roomEventNo);
+      return result;
+    }
+
+    const nextPointer = resolveNextActingPointer(room);
+
+    if (nextPointer === null) {
+      finishPlaceholderHand(room, roomEventNo);
+      return result;
+    }
+
+    room.activeHand.actingSeatPointer = nextPointer;
+    emitRoomRefresh(room, ["activeHand"], {
+      roomEventNo,
+      handId: room.activeHand.handId,
+      handSeq
+    });
+    startTurn(room, roomEventNo);
+
+    return result;
+  }
+
   return {
     accessMaxAgeSeconds: Math.floor(ACCESS_TTL_MS / 1000),
     refreshMaxAgeSeconds: Math.floor(REFRESH_TTL_MS / 1000),
@@ -1012,11 +1992,14 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         waitingList: [],
         seats: createSeatMap(config.maxSeats),
         ledgerEntries: [],
-        processedLedgerOperations: new Map()
+        processedLedgerOperations: new Map(),
+        processedActionIntents: new Map(),
+        roomEventNo: 0
       };
 
       roomsByCode.set(room.code, room);
       roomsById.set(room.roomId, room);
+      getOrCreateRoomRuntime(room.roomId);
 
       addAuditEvent({
         type: "ROOM_CREATED",
@@ -1059,6 +2042,174 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       }
 
       return toLobbySnapshot(room, actor.guestId);
+    },
+    getRoomRealtimeSnapshot(roomId: string, actor: AuthActor) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.role === "ADMIN") {
+        if (room.adminId !== actor.adminId) {
+          throw appError({
+            code: "ERR_FORBIDDEN",
+            message: "This admin cannot subscribe to that room.",
+            statusCode: 403,
+            retryable: false
+          });
+        }
+
+        return toRoomRealtimeSnapshot(room, actor);
+      }
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      return toRoomRealtimeSnapshot(room, actor);
+    },
+    getRoomPrivateState(roomId: string, actor: AuthActor) {
+      if (actor.role !== "GUEST") {
+        return null;
+      }
+
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      return toRoomPrivateState(room, actor);
+    },
+    buildRoomRealtimeDiff(roomId: string, actor: AuthActor, changed: RoomPatchField[]) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.role === "ADMIN" && room.adminId !== actor.adminId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This admin cannot subscribe to that room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (actor.role === "GUEST" && actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      return buildRoomDiff(room, actor, changed);
+    },
+    subscribeToRoomEvents(roomId: string, listener: RoomEventListener) {
+      getRoomRecordById(roomId);
+      const runtime = getOrCreateRoomRuntime(roomId);
+      runtime.subscribers.add(listener);
+
+      return () => {
+        const currentRuntime = roomRuntimes.get(roomId);
+
+        if (!currentRuntime) {
+          return;
+        }
+
+        currentRuntime.subscribers.delete(listener);
+      };
+    },
+    markParticipantRealtimeConnected(roomId: string, actor: Extract<AuthActor, { role: "GUEST" }>) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      const participant = room.participants.get(actor.guestId);
+
+      if (!participant) {
+        throw appError({
+          code: "ERR_AUTH_REQUIRED",
+          message: "An active room session is required.",
+          statusCode: 401,
+          retryable: true
+        });
+      }
+
+      if (
+        participant.isConnected &&
+        !participant.lastDisconnectedAt &&
+        !participant.reconnectGraceEndsAt
+      ) {
+        return;
+      }
+
+      participant.isConnected = true;
+      participant.lastDisconnectedAt = undefined;
+      participant.reconnectGraceEndsAt = undefined;
+      const seatIndex = getParticipantSeat(room, actor.guestId)?.seatIndex;
+      const roomEventNo = emitRoomRefresh(room, ["participants"]);
+
+      emitRoomEvent(room.roomId, {
+        type: "PLAYER_RECONNECTED",
+        roomId: room.roomId,
+        roomEventNo,
+        participantId: actor.guestId,
+        seatIndex,
+        reconnectedAt: toIso(clock())
+      });
+    },
+    markParticipantRealtimeDisconnected(
+      roomId: string,
+      actor: Extract<AuthActor, { role: "GUEST" }>
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      const participant = room.participants.get(actor.guestId);
+
+      if (!participant) {
+        return;
+      }
+
+      participant.isConnected = false;
+      participant.lastDisconnectedAt = clock();
+      participant.reconnectGraceEndsAt = new Date(
+        participant.lastDisconnectedAt.getTime() + RECONNECT_GRACE_MS
+      );
+      const seatIndex = getParticipantSeat(room, actor.guestId)?.seatIndex;
+      const roomEventNo = emitRoomRefresh(room, ["participants"]);
+
+      emitRoomEvent(room.roomId, {
+        type: "PLAYER_DISCONNECTED",
+        roomId: room.roomId,
+        roomEventNo,
+        participantId: actor.guestId,
+        seatIndex,
+        disconnectedAt: toIso(participant.lastDisconnectedAt),
+        reconnectGraceEndsAt: toIso(participant.reconnectGraceEndsAt)
+      });
     },
     joinRoom(code: string, nickname: string, mode: RoomJoinMode, env: TokenEnv): GuestSessionResult {
       const normalizedNickname = normalizeNickname(nickname);
@@ -1122,7 +2273,9 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         nickname: normalizedNickname,
         mode,
         joinedAt: clock(),
-        isConnected: true
+        isConnected: true,
+        isReady: false,
+        isSittingOut: mode === "SPECTATOR"
       });
 
       addAuditEvent({
@@ -1131,6 +2284,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         actorId: actor.guestId,
         detail: `${normalizedNickname} joined as ${mode}`
       });
+
+      emitRoomRefresh(room, ["room", "participants"]);
 
       return {
         session: issuedSession.session,
@@ -1162,6 +2317,105 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       }
 
       return toBuyInQuote(room);
+    },
+    playerReady(
+      roomId: string,
+      actor: Extract<AuthActor, { role: "GUEST" }>,
+      seatIndex?: number
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      if (actor.mode === "SPECTATOR") {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "Spectators cannot mark themselves ready.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      const participant = room.participants.get(actor.guestId);
+      const seat = getParticipantSeat(room, actor.guestId);
+
+      if (!participant || !seat || seat.status !== "OCCUPIED") {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "A seated player is required before readying up.",
+          statusCode: 422,
+          retryable: true
+        });
+      }
+
+      if (seatIndex !== undefined && seat.seatIndex !== seatIndex) {
+        throw appError({
+          code: "ERR_ACTION_INVALID",
+          message: "The ready request does not match the authoritative seat assignment.",
+          statusCode: 422,
+          retryable: false
+        });
+      }
+
+      participant.isReady = true;
+      participant.isSittingOut = false;
+      emitRoomRefresh(room, ["participants"]);
+      startPlaceholderHandIfReady(room);
+
+      return toRoomRealtimeSnapshot(room, actor);
+    },
+    playerSitOut(
+      roomId: string,
+      actor: Extract<AuthActor, { role: "GUEST" }>,
+      effectiveTiming: "NOW" | "NEXT_HAND"
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      const participant = room.participants.get(actor.guestId);
+
+      if (!participant) {
+        throw appError({
+          code: "ERR_AUTH_REQUIRED",
+          message: "An active room session is required.",
+          statusCode: 401,
+          retryable: true
+        });
+      }
+
+      participant.isReady = false;
+      participant.isSittingOut = true;
+      emitRoomRefresh(room, ["participants"]);
+
+      if (effectiveTiming === "NOW" && room.activeHand) {
+        const seat = getParticipantSeat(room, actor.guestId);
+
+        if (seat && getCurrentActingSeatIndex(room) === seat.seatIndex) {
+          void applyPlayerAction(room, actor.guestId, {
+            handId: room.activeHand.handId,
+            seqExpectation: room.activeHand.handSeq,
+            idempotencyKey: `sitout-${room.activeHand.handId}-${room.activeHand.handSeq}`,
+            actionType: "FOLD"
+          });
+        }
+      }
+
+      return toRoomRealtimeSnapshot(room, actor);
     },
     reserveSeat(roomId: string, seatIndex: number, actor: Extract<AuthActor, { role: "GUEST" }>) {
       const room = getRoomRecordById(roomId);
@@ -1228,7 +2482,11 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       seat.reservedUntil = new Date(
         clock().getTime() + room.config.seatReservationTimeoutSeconds * 1000
       );
+      seat.reservationToken = randomUUID();
       room.waitingList = room.waitingList.filter((entry) => entry.participantId !== actor.guestId);
+      participant.isReady = false;
+      participant.isSittingOut = false;
+      scheduleReservationExpiry(room, seat);
 
       addAuditEvent({
         type: "ROOM_SEAT_RESERVED",
@@ -1236,6 +2494,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         actorId: actor.guestId,
         detail: `${participant.nickname} reserved seat ${seatIndex}`
       });
+
+      emitRoomRefresh(room, ["room", "seats", "participants", "waitingList"]);
 
       return seatReservationResponseSchema.parse({
         reservedSeatIndex: seatIndex,
@@ -1329,6 +2589,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         detail: `${participant.nickname} joined the waiting list`
       });
 
+      emitRoomRefresh(room, ["room", "waitingList", "participants"]);
+
       return {
         queueEntry: queueEntrySchema.parse({
           entryId: queueEntry.entryId,
@@ -1420,9 +2682,13 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         idempotencyKey
       });
 
+      clearReservationTimer(room.roomId, seatIndex);
       seat.status = "OCCUPIED";
       seat.reservedUntil = undefined;
+      seat.reservationToken = undefined;
       seat.stack = amount;
+      participant.isReady = false;
+      participant.isSittingOut = false;
 
       addAuditEvent({
         type: "BUYIN_COMMITTED",
@@ -1451,6 +2717,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         fingerprint,
         response
       );
+
+      emitRoomRefresh(room, ["room", "seats", "participants", "buyInQuote"]);
 
       return response;
     },
@@ -1543,6 +2811,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       });
 
       seat.stack = amount;
+      participant.isReady = false;
 
       addAuditEvent({
         type: "BUYIN_COMMITTED",
@@ -1571,6 +2840,8 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         fingerprint,
         response
       );
+
+      emitRoomRefresh(room, ["seats", "participants"]);
 
       return response;
     },
@@ -1675,6 +2946,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       });
 
       seat.stack = nextStack;
+      participant.isReady = false;
 
       addAuditEvent({
         type: "BUYIN_COMMITTED",
@@ -1704,7 +2976,65 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         response
       );
 
+      emitRoomRefresh(room, ["seats", "participants"]);
+
       return response;
+    },
+    submitAction(
+      roomId: string,
+      actor: Extract<AuthActor, { role: "GUEST" }>,
+      payload: {
+        handId: string;
+        seqExpectation: number;
+        idempotencyKey: string;
+        actionType: "CHECK" | "FOLD" | "CALL" | "RAISE" | "ALL_IN";
+        amount?: number;
+      }
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      if (actor.roomId !== room.roomId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This guest session is scoped to a different room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      return applyPlayerAction(room, actor.guestId, payload, {
+        emitAcceptedEvent: false
+      });
+    },
+    pauseRoom(roomId: string, actor: Extract<AuthActor, { role: "ADMIN" }>, reason?: string) {
+      const room = getRoomRecordById(roomId);
+
+      if (room.adminId !== actor.adminId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This admin cannot pause that room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      pauseRoomInternal(room, reason ?? "Room manually paused by the admin.");
+      return toRoomRealtimeSnapshot(room, actor);
+    },
+    resumeRoom(roomId: string, actor: Extract<AuthActor, { role: "ADMIN" }>) {
+      const room = getRoomRecordById(roomId);
+
+      if (room.adminId !== actor.adminId) {
+        throw appError({
+          code: "ERR_FORBIDDEN",
+          message: "This admin cannot resume that room.",
+          statusCode: 403,
+          retryable: false
+        });
+      }
+
+      resumeRoomInternal(room);
+      return toRoomRealtimeSnapshot(room, actor);
     },
     getAuthContext(accessToken: string | undefined, env: TokenEnv): AuthContext | null {
       const session = getSessionRecordFromToken(accessToken, env, "access");
@@ -1763,6 +3093,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         if (room) {
           cleanupRoom(room);
           removeParticipantFromRoom(room, session.actor.guestId);
+          emitRoomRefresh(room, ["room", "seats", "participants", "waitingList"]);
         }
       }
 

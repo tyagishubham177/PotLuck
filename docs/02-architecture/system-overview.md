@@ -10,7 +10,7 @@
 ```mermaid
 flowchart LR
   Browser["Web Client\nNext.js + React"] --> Edge["HTTPS + WebSocket Gateway"]
-  Edge --> Server["Authoritative Room Service\nFastify + Socket.IO"]
+  Edge --> Server["Authoritative Room Service\nFastify + native WebSocket (ws)"]
   Server --> Postgres["Postgres\nRooms, hands, ledger, audit, exports"]
   Server --> Mail["Resend\nAdmin OTP"]
   Server --> Obs["Sentry + OTel + Grafana"]

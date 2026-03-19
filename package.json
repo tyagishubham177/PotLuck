@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "node ./node_modules/turbo/bin/turbo run dev",
+    "dev:resilient": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-resilient.ps1",
+    "dev:stop": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-dev.ps1",
     "lint": "node ./node_modules/turbo/bin/turbo run lint",
     "typecheck": "node ./node_modules/turbo/bin/turbo run typecheck",
     "test": "node ./node_modules/turbo/bin/turbo run test",

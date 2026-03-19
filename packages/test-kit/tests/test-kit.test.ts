@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createClientSnapshotFixture,
   createLedgerEntryFixture,
-  createRoomBalanceSummaryFixture
+  createRoomBalanceSummaryFixture,
+  createRoomRealtimeSnapshotFixture
 } from "../src/index.js";
 
 describe("test kit fixture", () => {
@@ -19,5 +20,12 @@ describe("test kit fixture", () => {
 
     expect(ledgerEntry.type).toBe("BUY_IN");
     expect(balance.netBalance).toBe(5000);
+  });
+
+  it("creates a realtime room snapshot fixture", () => {
+    const snapshot = createRoomRealtimeSnapshotFixture();
+
+    expect(snapshot.roomEventNo).toBe(4);
+    expect(snapshot.participants[0]?.isReady).toBe(true);
   });
 });
