@@ -28,6 +28,25 @@ describe("config schemas", () => {
     expect(env.PORT).toBe(3001);
   });
 
+  it("allows missing optional server observability env", () => {
+    const env = getServerEnv({
+      NODE_ENV: "development",
+      PORT: "3001",
+      APP_ORIGIN: "http://localhost:3000",
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/potluck?sslmode=require",
+      DIRECT_DATABASE_URL: "postgresql://user:pass@localhost:5432/potluck?sslmode=require",
+      SESSION_SIGNING_SECRET: "session-session-session-session-session",
+      GUEST_SESSION_SIGNING_SECRET: "guest-guest-guest-guest-guest-guest",
+      ADMIN_OTP_SIGNING_SECRET: "otp-otp-otp-otp-otp-otp-otp-otp-otp",
+      COOKIE_SECRET: "cookie-cookie-cookie-cookie-cookie-cookie",
+      RESEND_API_KEY: "re_dummy_resend_api_key",
+      RESEND_FROM_EMAIL: "PotLuck Sandbox <onboarding@resend.dev>"
+    });
+
+    expect(env.OTEL_EXPORTER_OTLP_PROTOCOL).toBeUndefined();
+    expect(env.SENTRY_DSN).toBeUndefined();
+  });
+
   it("parses web env", () => {
     const env = getWebEnv({
       NEXT_PUBLIC_APP_NAME: "PotLuck",

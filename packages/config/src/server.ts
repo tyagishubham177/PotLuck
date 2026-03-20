@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+const optionalString = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : undefined;
+}, z.string().min(1).optional());
+
 export const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3001),
@@ -12,12 +21,12 @@ export const serverEnvSchema = z.object({
   COOKIE_SECRET: z.string().min(32),
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM_EMAIL: z.string().min(1),
-  REDIS_URL: z.string().min(1),
-  SENTRY_DSN: z.string().min(1),
-  SENTRY_AUTH_TOKEN: z.string().min(1),
-  OTEL_EXPORTER_OTLP_PROTOCOL: z.string().min(1),
-  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().min(1),
-  OTEL_EXPORTER_OTLP_HEADERS: z.string().min(1)
+  REDIS_URL: optionalString,
+  SENTRY_DSN: optionalString,
+  SENTRY_AUTH_TOKEN: optionalString,
+  OTEL_EXPORTER_OTLP_PROTOCOL: optionalString,
+  OTEL_EXPORTER_OTLP_ENDPOINT: optionalString,
+  OTEL_EXPORTER_OTLP_HEADERS: optionalString
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
