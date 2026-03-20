@@ -22,6 +22,10 @@ function Write-Step([string]$Message) {
   Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
+function Write-Note([string]$Message) {
+  Write-Host $Message -ForegroundColor DarkCyan
+}
+
 function Ensure-Command([string]$CommandName, [string]$InstallHint) {
   if (-not (Get-Command $CommandName -ErrorAction SilentlyContinue)) {
     throw "Missing required command '$CommandName'. $InstallHint"
@@ -47,6 +51,21 @@ function Test-HttpOk([string]$Url) {
     return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
   } catch {
     return $false
+  }
+}
+
+function Test-NodeVersion {
+  $rawVersion = [string](node --version)
+  $majorVersion = 0
+
+  if ($rawVersion -match "^v(\d+)") {
+    $majorVersion = [int]$matches[1]
+  }
+
+  if ($majorVersion -ne 22) {
+    Write-Warning "PotLuck targets Node.js 22.x. Current version is $rawVersion. Local dev may still run, but switch to Node 22 if you hit odd behavior."
+  } else {
+    Write-Note "Using supported Node.js version $rawVersion"
   }
 }
 
@@ -77,6 +96,15 @@ function Stop-PortProcesses([int]$Port) {
     Write-Host "Stopping PID $($process.Id) ($($process.ProcessName)) on port $Port" -ForegroundColor Yellow
     Stop-Process -Id $process.Id -Force
   }
+}
+
+function Ensure-EnvFile([string]$TargetPath, [string]$ExamplePath) {
+  if (Test-Path $TargetPath) {
+    return
+  }
+
+  Copy-Item -Path $ExamplePath -Destination $TargetPath
+  Write-Host "Created $(Split-Path -Leaf $TargetPath) from example template." -ForegroundColor Yellow
 }
 
 function Wait-ForUrl([string]$Url, [int]$TimeoutSeconds, [string]$Name) {
@@ -116,17 +144,19 @@ function Start-WorkspaceProcess(
 
 Write-Step "Checking required commands"
 Ensure-Command -CommandName "corepack" -InstallHint "Install Node.js 22.x so Corepack is available."
+Ensure-Command -CommandName "node" -InstallHint "Install Node.js 22.x."
+Test-NodeVersion
 
 Write-Step "Preparing local state"
 New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
 
-if (-not (Test-Path (Join-Path $repoRoot "apps\server\.env"))) {
-  throw "Missing apps/server/.env. Create it from apps/server/.env.example first."
-}
+$serverEnvPath = Join-Path $repoRoot "apps\server\.env"
+$serverEnvExamplePath = Join-Path $repoRoot "apps\server\.env.example"
+$webEnvPath = Join-Path $repoRoot "apps\web\.env.local"
+$webEnvExamplePath = Join-Path $repoRoot "apps\web\.env.example"
 
-if (-not (Test-Path (Join-Path $repoRoot "apps\web\.env.local"))) {
-  throw "Missing apps/web/.env.local. Create it from apps/web/.env.example first."
-}
+Ensure-EnvFile -TargetPath $serverEnvPath -ExamplePath $serverEnvExamplePath
+Ensure-EnvFile -TargetPath $webEnvPath -ExamplePath $webEnvExamplePath
 
 Write-Step "Checking ports"
 $webInUse = @(Get-PortProcesses -Port $WebPort)
@@ -141,11 +171,13 @@ if ($ForceKillPorts) {
   }
 } else {
   if ($webInUse.Count -gt 0 -and -not (Test-HttpOk -Url $webHealthUrl)) {
-    throw "Port $WebPort is busy. Re-run with -ForceKillPorts to clear it."
+    Write-Host "Port $WebPort is occupied by a non-healthy process. Clearing it for local dev." -ForegroundColor Yellow
+    Stop-PortProcesses -Port $WebPort
   }
 
   if ($serverInUse.Count -gt 0 -and -not (Test-HttpOk -Url $serverHealthUrl)) {
-    throw "Port $ServerPort is busy. Re-run with -ForceKillPorts to clear it."
+    Write-Host "Port $ServerPort is occupied by a non-healthy process. Clearing it for local dev." -ForegroundColor Yellow
+    Stop-PortProcesses -Port $ServerPort
   }
 }
 

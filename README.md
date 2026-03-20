@@ -27,11 +27,31 @@ PotLuck is a docs-first monorepo for a realtime multiplayer poker app with an au
 ## Local Setup
 1. Install Node.js `22.x`.
 2. Enable Corepack with `corepack enable`.
-3. Install dependencies with `pnpm install`.
+3. Install dependencies with `corepack pnpm install`.
 4. Copy `apps/server/.env.example` to `apps/server/.env`.
 5. Copy `apps/web/.env.example` to `apps/web/.env.local`.
-6. Fill in the real Sentry and Grafana values only in those local env files.
-7. Start both apps with `pnpm dev`.
+6. Replace the placeholder database, session-secret, and email values in `apps/server/.env` before using auth or room flows.
+7. Leave the observability placeholders in place, or add real Sentry and Grafana values later when you want local monitoring.
+8. Start both apps with `corepack pnpm dev:resilient`.
+
+## Recommended Local Run
+Use the resilient runner from the repo root:
+
+```powershell
+corepack pnpm dev:resilient
+```
+
+It will:
+- create missing local env files from the checked-in examples
+- install dependencies unless you pass `-SkipInstall`
+- reuse healthy PotLuck dev servers already running on ports `3000` and `3001`
+- automatically clear conflicting processes on those ports when they are not serving the expected health endpoints
+
+Stop both local dev processes later with:
+
+```powershell
+corepack pnpm dev:stop
+```
 
 ## Environment Files
 - Server secrets live in `apps/server/.env`.
@@ -39,7 +59,8 @@ PotLuck is a docs-first monorepo for a realtime multiplayer poker app with an au
 - Example templates live beside them as `.env.example`.
 
 ## Workspace Commands
-- Start everything: `pnpm dev`
+- Start everything with the resilient local runner: `corepack pnpm dev:resilient`
+- Start everything with Turborepo only: `corepack pnpm dev`
 - Lint: `pnpm lint`
 - Typecheck: `pnpm typecheck`
 - Test: `pnpm test`
