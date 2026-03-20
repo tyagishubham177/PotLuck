@@ -568,6 +568,76 @@ describe("phase 02 and phase 03 room flow", () => {
     expect(kickedLobbyResponse.statusCode).toBe(401);
   });
 
+  it("lists active admin rooms and lets the admin close one cleanly", async () => {
+    const adminCookieHeader = await createAdminCookieHeader();
+    const room = await createRoom(adminCookieHeader, {
+      tableName: "Close Me"
+    });
+
+    const activeRoomsResponse = await app.inject({
+      method: "GET",
+      url: "/api/admin/rooms",
+      headers: { cookie: adminCookieHeader }
+    });
+
+    expect(activeRoomsResponse.statusCode).toBe(200);
+    expect(activeRoomsResponse.json()).toMatchObject({
+      items: [
+        {
+          room: {
+            roomId: room.room.roomId,
+            code: room.room.code,
+            tableName: "Close Me",
+            status: "OPEN"
+          }
+        }
+      ]
+    });
+
+    const closeResponse = await app.inject({
+      method: "POST",
+      url: `/api/rooms/${room.room.roomId}/close`,
+      headers: { cookie: adminCookieHeader },
+      payload: {
+        reason: "Session complete"
+      }
+    });
+
+    expect(closeResponse.statusCode).toBe(200);
+    expect(closeResponse.json()).toMatchObject({
+      moderation: {
+        action: "ROOM_CLOSED",
+        reason: "Session complete"
+      },
+      snapshot: {
+        room: {
+          roomId: room.room.roomId,
+          status: "CLOSED",
+          joinLocked: true
+        },
+        participants: [],
+        waitingList: [],
+        activeHand: null,
+        tablePhase: "BETWEEN_HANDS"
+      }
+    });
+
+    const emptyRoomsResponse = await app.inject({
+      method: "GET",
+      url: "/api/admin/rooms",
+      headers: { cookie: adminCookieHeader }
+    });
+
+    expect(emptyRoomsResponse.statusCode).toBe(200);
+    expect(emptyRoomsResponse.json()).toEqual({ items: [] });
+
+    const recreatedRoom = await createRoom(adminCookieHeader, {
+      tableName: "Fresh Table"
+    });
+
+    expect(recreatedRoom.room.tableName).toBe("Fresh Table");
+  });
+
   it("rejects config edits and seated kicks during an active hand", async () => {
     const adminCookieHeader = await createAdminCookieHeader();
     const room = await createRoom(adminCookieHeader, {});
@@ -617,6 +687,98 @@ describe("phase 02 and phase 03 room flow", () => {
         code: "ERR_MODERATION_DURING_HAND"
       }
     });
+  });
+
+  it("waits for the reconnect timer before allowing an admin kick", async () => {
+    let now = new Date("2026-03-20T12:00:00.000Z");
+    const timedState = createAppState({
+      clock: () => new Date(now)
+    });
+    const timedApp = buildServer({
+      env: {
+        NODE_ENV: "test",
+        PORT: "3001",
+        APP_ORIGIN: "http://localhost:3000",
+        DATABASE_URL: "postgresql://user:pass@localhost:5432/potluck?sslmode=require",
+        DIRECT_DATABASE_URL: "postgresql://user:pass@localhost:5432/potluck?sslmode=require",
+        SESSION_SIGNING_SECRET: "session-session-session-session-session",
+        GUEST_SESSION_SIGNING_SECRET: "guest-guest-guest-guest-guest-guest",
+        ADMIN_OTP_SIGNING_SECRET: "otp-otp-otp-otp-otp-otp-otp-otp-otp",
+        COOKIE_SECRET: "cookie-cookie-cookie-cookie-cookie-cookie",
+        RESEND_API_KEY: "re_dummy_resend_api_key",
+        RESEND_FROM_EMAIL: "PotLuck Sandbox <onboarding@resend.dev>",
+        REDIS_URL: "redis://default:dummy-password@localhost:6379",
+        SENTRY_DSN: "https://examplePublicKey@o0.ingest.sentry.io/0",
+        SENTRY_AUTH_TOKEN: "sntrys_dummy_auth_token",
+        OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
+        OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp",
+        OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic ZHVtbXktaW5zdGFuY2U6ZHVtbXktdG9rZW4="
+      },
+      emailAdapter,
+      state: timedState
+    });
+
+    await timedApp.ready();
+
+    try {
+      const adminCookieHeader = await createAdminCookieHeader(
+        `host-${Date.now()}-timer@example.com`,
+        timedApp
+      );
+      const room = await createRoom(adminCookieHeader, {}, timedApp);
+      const guest = await joinRoom(room.room.code, "TimerGuest", "PLAYER", timedApp);
+
+      await reserveSeat(room.room.roomId, 0, guest.cookieHeader, timedApp);
+      await commitBuyIn(
+        room.room.roomId,
+        0,
+        5000,
+        guest.cookieHeader,
+        "timerguest-buyin-1",
+        timedApp
+      );
+
+      const guestActor = guest.response.json().actor;
+      timedState.markParticipantRealtimeDisconnected(room.room.roomId, guestActor);
+
+      const blockedKick = await timedApp.inject({
+        method: "POST",
+        url: `/api/rooms/${room.room.roomId}/kick`,
+        headers: { cookie: adminCookieHeader },
+        payload: {
+          participantId: guestActor.guestId,
+          reason: "AFK"
+        }
+      });
+
+      expect(blockedKick.statusCode).toBe(422);
+      expect(blockedKick.json()).toMatchObject({
+        error: {
+          code: "ERR_ACTION_INVALID"
+        }
+      });
+
+      now = new Date(now.getTime() + 21_000);
+
+      const allowedKick = await timedApp.inject({
+        method: "POST",
+        url: `/api/rooms/${room.room.roomId}/kick`,
+        headers: { cookie: adminCookieHeader },
+        payload: {
+          participantId: guestActor.guestId,
+          reason: "AFK"
+        }
+      });
+
+      expect(allowedKick.statusCode).toBe(200);
+      expect(allowedKick.json()).toMatchObject({
+        moderation: {
+          action: "PLAYER_KICKED"
+        }
+      });
+    } finally {
+      await timedApp.close();
+    }
   });
 
   it("stores settled hand history and serves JSON and text transcript exports", async () => {

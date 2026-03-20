@@ -664,6 +664,19 @@
     align-items: center;
   }
 
+  .admin-room-list {
+    display: grid;
+    gap: var(--space-4);
+    margin-top: var(--space-5);
+  }
+
+  .admin-room-card {
+    padding: var(--space-5);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    background: var(--surface-glass-1);
+  }
+
   .compact-button {
     padding: 0.65rem 0.9rem;
     font-size: 0.88rem;

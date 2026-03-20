@@ -1,4 +1,4 @@
-import { formatCountdown } from "../../table-state";
+import { formatChips, formatCountdown } from "../../table-state";
 
 import { EmptyState } from "../common/EmptyState";
 import { InfoRow } from "../common/InfoRow";
@@ -17,10 +17,13 @@ type LobbyPanelProps = {
   nowMs: number;
   queueFeedback: ProcessFeedback | null;
   reserveFeedback: ProcessFeedback | null;
+  stackAmount: string;
+  stackControlQuote: LobbySnapshot["buyInQuote"] | null;
   onCopyRoomCode: () => void;
   onJoinQueue: () => void;
   onRefreshLobby: () => void;
   onReserveSeat: (seatIndex: number) => void;
+  onStackAmountChange: (value: string) => void;
 };
 
 export function LobbyPanel({
@@ -32,10 +35,13 @@ export function LobbyPanel({
   nowMs,
   queueFeedback,
   reserveFeedback,
+  stackAmount,
+  stackControlQuote,
   onCopyRoomCode,
   onJoinQueue,
   onRefreshLobby,
-  onReserveSeat
+  onReserveSeat,
+  onStackAmountChange
 }: LobbyPanelProps) {
   return (
     <article className="panel">
@@ -77,6 +83,53 @@ export function LobbyPanel({
             <InfoRow label="Hero state" value={heroParticipantState} />
           </div>
 
+          {authState?.actor.role === "GUEST" && authState.actor.mode === "PLAYER" && stackControlQuote ? (
+            <div className="info-block">
+              <div className="panel-head compact">
+                <p className="eyebrow">Sit-in</p>
+                <h3>Choose chips before you tap a seat</h3>
+                <p className="panel-copy">
+                  We reserve the chair and post the buy-in in one step, then you can hit Play.
+                </p>
+              </div>
+              <label className="field">
+                <span>Sit-in amount</span>
+                <input
+                  inputMode="numeric"
+                  onChange={(event) => onStackAmountChange(event.target.value)}
+                  value={stackAmount}
+                />
+              </label>
+              <div className="preset-row">
+                <button
+                  className="mode-chip"
+                  onClick={() => onStackAmountChange(String(stackControlQuote.minChips))}
+                  type="button"
+                >
+                  Min {formatChips(stackControlQuote.minChips, { compact: true })}
+                </button>
+                <button
+                  className="mode-chip"
+                  onClick={() =>
+                    onStackAmountChange(
+                      String(Math.round((stackControlQuote.minChips + stackControlQuote.maxChips) / 2))
+                    )
+                  }
+                  type="button"
+                >
+                  Mid stack
+                </button>
+                <button
+                  className="mode-chip"
+                  onClick={() => onStackAmountChange(String(stackControlQuote.maxChips))}
+                  type="button"
+                >
+                  Max {formatChips(stackControlQuote.maxChips, { compact: true })}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="seat-grid">
             {lobbySnapshot.seats.map((seat) => {
               const canReserve =
@@ -99,7 +152,7 @@ export function LobbyPanel({
                   {seat.reservedUntil ? (
                     <small>Countdown {formatCountdown(seat.reservedUntil, nowMs)}</small>
                   ) : (
-                    <small>{seat.status === "EMPTY" ? "Tap to reserve" : "Unavailable"}</small>
+                    <small>{seat.status === "EMPTY" ? "Tap to sit with your selected amount" : "Unavailable"}</small>
                   )}
                 </button>
               );

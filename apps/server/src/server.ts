@@ -2,6 +2,7 @@ import Fastify, { type FastifyRequest } from "fastify";
 
 import { getServerEnv, type ServerEnv } from "@potluck/config/server";
 import {
+  adminActiveRoomsResponseSchema,
   adminOtpRequestSchema,
   adminOtpVerifyRequestSchema,
   authSessionResponseSchema,
@@ -16,6 +17,7 @@ import {
   joinRoomResponseSchema,
   logoutResponseSchema,
   roomConfigPatchRequestSchema,
+  roomCloseRequestSchema,
   roomConfigUpdateResponseSchema,
   queueJoinResponseSchema,
   rebuyRequestSchema,
@@ -276,6 +278,23 @@ export function buildServer(options: BuildServerOptions = {}) {
     return roomCreateResponseSchema.parse(state.createRoom(authContext.actor, body));
   });
 
+  app.get("/api/admin/rooms", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "ADMIN") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only admins can list active rooms.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    return adminActiveRoomsResponseSchema.parse({
+      items: state.listAdminActiveRooms(authContext.actor)
+    });
+  });
+
   app.get("/api/rooms/:code", async (request) => {
     const code = (request.params as { code: string }).code;
     return roomPublicSummarySchema.parse(state.getRoomSummary(code));
@@ -514,6 +533,26 @@ export function buildServer(options: BuildServerOptions = {}) {
 
     return roomModerationResponseSchema.parse(
       state.kickParticipant(roomId, authContext.actor, body.participantId, body.reason)
+    );
+  });
+
+  app.post("/api/rooms/:roomId/close", async (request) => {
+    const authContext = requireAuth(request);
+
+    if (authContext.actor.role !== "ADMIN") {
+      throw appError({
+        code: "ERR_FORBIDDEN",
+        message: "Only admins can close rooms.",
+        statusCode: 403,
+        retryable: false
+      });
+    }
+
+    const roomId = (request.params as { roomId: string }).roomId;
+    const body = roomCloseRequestSchema.parse(request.body ?? {});
+
+    return roomModerationResponseSchema.parse(
+      state.closeRoom(roomId, authContext.actor, body.reason)
     );
   });
 

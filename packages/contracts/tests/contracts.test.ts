@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  adminActiveRoomsResponseSchema,
   actionSubmitIntentSchema,
   buyInResponseSchema,
   authSessionResponseSchema,
@@ -132,6 +133,39 @@ describe("shared contracts", () => {
     });
 
     expect(payload.room.code).toBe("DEMO42");
+  });
+
+  it("accepts active admin room list payloads", () => {
+    const payload = adminActiveRoomsResponseSchema.parse({
+      items: [
+        {
+          room: {
+            roomId: "room_123",
+            code: "DEMO42",
+            tableName: "Practice Table",
+            status: "OPEN",
+            joinLocked: false,
+            maxSeats: 6,
+            openSeatCount: 4,
+            reservedSeatCount: 1,
+            occupiedSeatCount: 1,
+            participantCount: 2,
+            queuedCount: 0,
+            spectatorsAllowed: true,
+            waitingListEnabled: true,
+            joinCodeExpiresAt: "2026-03-19T14:00:00.000Z",
+            createdAt: "2026-03-19T12:00:00.000Z",
+            closesAt: "2026-03-20T00:00:00.000Z"
+          },
+          tablePhase: "BETWEEN_HANDS",
+          pausedReason: null,
+          readyParticipantCount: 1,
+          connectedParticipantCount: 2
+        }
+      ]
+    });
+
+    expect(payload.items[0]?.room.code).toBe("DEMO42");
   });
 
   it("accepts a guest join and seat reservation payload", () => {

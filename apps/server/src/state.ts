@@ -1,6 +1,7 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
 
 import {
+  adminActiveRoomSummarySchema,
   adminOtpRequestResponseSchema,
   buyInResponseSchema,
   buyInQuoteResponseSchema,
@@ -1125,6 +1126,21 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     });
   }
 
+  function toAdminActiveRoomSummary(room: RoomRecord) {
+    cleanupRoom(room);
+
+    return adminActiveRoomSummarySchema.parse({
+      room: toRoomSummary(room),
+      tablePhase: room.tablePhase,
+      pausedReason: room.pausedReason ?? null,
+      readyParticipantCount: [...room.participants.values()].filter((participant) => participant.isReady)
+        .length,
+      connectedParticipantCount: [...room.participants.values()].filter(
+        (participant) => participant.isConnected
+      ).length
+    });
+  }
+
   function toBuyInQuote(room: RoomRecord) {
     const usesBigBlindMultiple = room.config.buyInMode === "BB_MULTIPLE";
     const minChips = usesBigBlindMultiple
@@ -1419,6 +1435,24 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       code: "ERR_MODERATION_DURING_HAND",
       message: "Seated players can only be removed between hands.",
       statusCode: 409,
+      retryable: true
+    });
+  }
+
+  function assertReconnectGraceElapsedForKick(room: RoomRecord, participantId: string) {
+    const participant = room.participants.get(participantId);
+
+    if (
+      !participant?.reconnectGraceEndsAt ||
+      participant.reconnectGraceEndsAt.getTime() <= clock().getTime()
+    ) {
+      return;
+    }
+
+    throw appError({
+      code: "ERR_ACTION_INVALID",
+      message: "Wait for the reconnect timer to expire before removing this player.",
+      statusCode: 422,
       retryable: true
     });
   }
@@ -2422,6 +2456,36 @@ export function createAppState(options: CreateAppStateOptions = {}) {
     startHoldemHandIfReady(room);
   }
 
+  function closeRoomInternal(room: RoomRecord) {
+    if (room.status === "CLOSED") {
+      return;
+    }
+
+    room.status = "CLOSED";
+    room.joinLocked = true;
+    room.tablePhase = "BETWEEN_HANDS";
+    room.pausedReason = undefined;
+    room.pausedTurnRemainingMs = undefined;
+    room.activeHand = undefined;
+    clearTurnTimers(room.roomId);
+
+    for (const seat of room.seats) {
+      clearReservationTimer(room.roomId, seat.seatIndex);
+      seat.status = "EMPTY";
+      seat.participantId = undefined;
+      seat.reservedUntil = undefined;
+      seat.reservationToken = undefined;
+      seat.stack = undefined;
+    }
+
+    for (const participantId of [...room.participants.keys()]) {
+      revokeParticipantSession(room, participantId);
+    }
+
+    room.participants.clear();
+    room.waitingList = [];
+  }
+
   async function applyPlayerAction(
     room: RoomRecord,
     participantId: string,
@@ -2833,6 +2897,15 @@ export function createAppState(options: CreateAppStateOptions = {}) {
         room: toRoomSummary(room),
         lobbySnapshot: toLobbySnapshot(room)
       });
+    },
+    listAdminActiveRooms(actor: Extract<AuthActor, { role: "ADMIN" }>) {
+      return [...roomsById.values()]
+        .filter((room) => {
+          cleanupRoom(room);
+          return room.adminId === actor.adminId && room.status !== "CLOSED";
+        })
+        .map((room) => toAdminActiveRoomSummary(room))
+        .sort((left, right) => right.room.createdAt.localeCompare(left.room.createdAt));
     },
     getRoomSummary(code: string) {
       return toRoomSummary(getRoomRecordByCode(code));
@@ -3851,6 +3924,7 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       }
 
       assertSeatedKickAllowed(room, participantId);
+      assertReconnectGraceElapsedForKick(room, participantId);
 
       const participant = room.participants.get(participantId);
       revokeParticipantSession(room, participantId);
@@ -3864,6 +3938,37 @@ export function createAppState(options: CreateAppStateOptions = {}) {
       });
 
       emitModerationApplied(room, moderation, ["room", "seats", "participants", "waitingList"]);
+
+      return {
+        moderation,
+        snapshot: toRoomRealtimeSnapshot(room, actor)
+      };
+    },
+    closeRoom(
+      roomId: string,
+      actor: Extract<AuthActor, { role: "ADMIN" }>,
+      reason?: string
+    ) {
+      const room = getRoomRecordById(roomId);
+
+      assertAdminOwnsRoom(room, actor, "This admin cannot close that room.");
+      closeRoomInternal(room);
+
+      const moderation = createModerationRecord(room, actor, {
+        action: "ROOM_CLOSED",
+        reason,
+        message: reason ? `Room closed by admin: ${reason}` : "Room closed by admin."
+      });
+
+      emitModerationApplied(room, moderation, [
+        "room",
+        "participants",
+        "seats",
+        "waitingList",
+        "activeHand",
+        "pausedReason",
+        "tablePhase"
+      ]);
 
       return {
         moderation,

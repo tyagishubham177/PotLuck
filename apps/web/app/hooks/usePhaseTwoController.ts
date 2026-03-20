@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  adminActiveRoomsResponseSchema,
   actionRejectedEventSchema,
   adminOtpRequestResponseSchema,
   authSessionResponseSchema,
@@ -25,6 +26,7 @@ import {
   topUpResponseSchema,
   type HandHistorySummary,
   type HandTranscript,
+  type AdminActiveRoomSummary,
   type LobbySnapshot,
   type ModerationRecord,
   type RoomConfig,
@@ -77,6 +79,7 @@ export type PhaseTwoController = {
   session: {
     activeRoomId: string | null;
     authState: AuthState;
+    adminRooms: AdminActiveRoomSummary[];
     handHistory: HandTranscript | null;
     historyItems: HandHistorySummary[];
     historyNextCursor: string | null;
@@ -143,6 +146,7 @@ export type PhaseTwoController = {
     handleActionPreset: (amount: number) => void;
     handleCheckRoom: () => void;
     handleChipOperation: (operation: ChipOperation) => void;
+    handleCloseRoom: (roomId: string, roomLabel: string) => void;
     handleCreateRoom: () => void;
     handleExportHand: (handId: string, format: "json" | "txt") => void;
     handleJoinQueue: () => void;
@@ -151,6 +155,8 @@ export type PhaseTwoController = {
     handleLoadHandTranscript: (handId: string) => void;
     handleLoadHistoryList: (options?: { append?: boolean; cursor?: string }) => void;
     handleLogout: () => void;
+    handleLoadAdminRooms: () => void;
+    handleOpenAdminRoom: (roomId: string) => void;
     handlePauseResumeRoom: (nextAction: "pause" | "resume") => void;
     handleReadyForHand: () => void;
     handleRefreshLobby: () => void;
@@ -170,6 +176,7 @@ export function usePhaseTwoController({
   serverOrigin
 }: PhaseTwoControllerOptions): PhaseTwoController {
   const [authState, setAuthState] = useState<AuthState>(null);
+  const [adminRooms, setAdminRooms] = useState<AdminActiveRoomSummary[]>([]);
   const [otpRequestState, setOtpRequestState] = useState<OtpRequestState>(null);
   const [roomPreview, setRoomPreview] = useState<RoomPublicSummary | null>(null);
   const [lobbySnapshot, setLobbySnapshot] = useState<LobbySnapshot | null>(null);
@@ -289,6 +296,10 @@ export function usePhaseTwoController({
         clearRoomSessionState();
       }
 
+      if (nextState?.actor.role !== "ADMIN") {
+        setAdminRooms([]);
+      }
+
       authStateRef.current = nextState;
       setAuthState(nextState);
     },
@@ -316,6 +327,12 @@ export function usePhaseTwoController({
     [serverOrigin]
   );
 
+  const loadAdminRooms = useCallback(async () => {
+    const response = await apiRequest(serverOrigin, "/api/admin/rooms", adminActiveRoomsResponseSchema);
+    setAdminRooms(response.items);
+    return response.items;
+  }, [serverOrigin]);
+
   const synchronizeAuthState = useCallback(async () => {
     if (authSyncInFlightRef.current) {
       return authSyncInFlightRef.current;
@@ -332,6 +349,14 @@ export function usePhaseTwoController({
 
         const nextState = { session: response.session, actor: response.actor };
         applyAuthState(nextState);
+
+        if (nextState.actor.role === "ADMIN") {
+          try {
+            await loadAdminRooms();
+          } catch {
+            setAdminRooms([]);
+          }
+        }
 
         if (nextState.actor.role === "GUEST") {
           updateFormValue("roomCode", nextState.actor.roomCode);
@@ -359,7 +384,7 @@ export function usePhaseTwoController({
         authSyncInFlightRef.current = null;
       }
     }
-  }, [applyAuthState, clearRoomSessionState, loadLobby, serverOrigin, updateFormValue]);
+  }, [applyAuthState, clearRoomSessionState, loadAdminRooms, loadLobby, serverOrigin, updateFormValue]);
 
   useEffect(() => {
     void (async () => {
@@ -1011,11 +1036,11 @@ export function usePhaseTwoController({
     }
 
     if (authState.actor.role === "ADMIN") {
-      return `Admin session active for ${authState.actor.email}.`;
+      return `Admin session active for ${authState.actor.email}${adminRooms.length ? ` with ${adminRooms.length} open room${adminRooms.length === 1 ? "" : "s"}` : ""}.`;
     }
 
     return `Guest session active for ${authState.actor.nickname} in room ${authState.actor.roomCode}.`;
-  }, [authState, isBooting]);
+  }, [adminRooms.length, authState, isBooting]);
 
   const derivedBuyInExample =
     forms.roomForm.buyInMode === "BB_MULTIPLE"
@@ -1119,6 +1144,65 @@ export function usePhaseTwoController({
       stackControlQuote,
       updateFormValue
     ]
+  );
+
+  const handleLoadAdminRooms = useCallback(() => {
+    if (authState?.actor.role !== "ADMIN") {
+      return;
+    }
+
+    setFeedback("admin", {
+      tone: "pending",
+      message: "Refreshing active admin rooms."
+    });
+
+    void (async () => {
+      try {
+        const rooms = await loadAdminRooms();
+        setFeedback("admin", {
+          tone: "success",
+          message: rooms.length
+            ? `Loaded ${rooms.length} active room${rooms.length === 1 ? "" : "s"}.`
+            : "No active rooms are open for this admin."
+        });
+      } catch (error) {
+        setFeedback("admin", {
+          tone: "error",
+          message: createErrorMessage(error)
+        });
+      }
+    })();
+  }, [authState, loadAdminRooms, setFeedback]);
+
+  const handleOpenAdminRoom = useCallback(
+    (roomId: string) => {
+      if (authState?.actor.role !== "ADMIN") {
+        return;
+      }
+
+      setFeedback("admin", {
+        tone: "pending",
+        message: "Opening the selected room."
+      });
+
+      void (async () => {
+        try {
+          const snapshot = await loadLobby(roomId);
+          setRoomPreview(snapshot.room);
+          updateFormValue("roomCode", snapshot.room.code);
+          setFeedback("admin", {
+            tone: "success",
+            message: `Opened room ${snapshot.room.code}.`
+          });
+        } catch (error) {
+          setFeedback("admin", {
+            tone: "error",
+            message: createErrorMessage(error)
+          });
+        }
+      })();
+    },
+    [authState, loadLobby, setFeedback, updateFormValue]
   );
 
   const handleRequestLatestHistory = useCallback(() => {
@@ -1355,6 +1439,61 @@ export function usePhaseTwoController({
     [activeRoomId, applyAuthoritativeSnapshot, forms.adminActionReason, isAdmin, serverOrigin, setFeedback]
   );
 
+  const handleCloseRoom = useCallback(
+    (roomId: string, roomLabel: string) => {
+      if (authState?.actor.role !== "ADMIN") {
+        return;
+      }
+
+      setFeedback("admin", {
+        tone: "pending",
+        message: `Closing ${roomLabel}.`
+      });
+
+      void (async () => {
+        try {
+          const response = await apiRequest(
+            serverOrigin,
+            `/api/rooms/${roomId}/close`,
+            roomModerationResponseSchema,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                reason: forms.adminActionReason.trim() || undefined
+              })
+            }
+          );
+
+          if (activeRoomId === roomId) {
+            clearRoomSessionState({ keepRoomCode: response.snapshot.room.code });
+            setRoomPreview(null);
+          }
+
+          setLatestModeration(response.moderation);
+          await loadAdminRooms();
+          setFeedback("admin", {
+            tone: "success",
+            message: response.moderation.message
+          });
+        } catch (error) {
+          setFeedback("admin", {
+            tone: "error",
+            message: createErrorMessage(error)
+          });
+        }
+      })();
+    },
+    [
+      activeRoomId,
+      authState,
+      clearRoomSessionState,
+      forms.adminActionReason,
+      loadAdminRooms,
+      serverOrigin,
+      setFeedback
+    ]
+  );
+
   const handleRequestOtp = useCallback(() => {
     setFeedback("requestOtp", {
       tone: "pending",
@@ -1425,6 +1564,7 @@ export function usePhaseTwoController({
         const nextState = { session: response.session, actor: response.actor };
         applyAuthState(nextState);
         broadcastAuthStateChange(nextState);
+        await loadAdminRooms();
         updateFormValue("adminCode", "");
         setFeedback("verifyOtp", {
           tone: "success",
@@ -1437,7 +1577,7 @@ export function usePhaseTwoController({
         });
       }
     })();
-  }, [applyAuthState, broadcastAuthStateChange, forms.adminCode, otpRequestState, serverOrigin, setFeedback, updateFormValue]);
+  }, [applyAuthState, broadcastAuthStateChange, forms.adminCode, loadAdminRooms, otpRequestState, serverOrigin, setFeedback, updateFormValue]);
 
   const resetTransientFeedback = useCallback(() => {
     clearFeedbacks(["lookup", "joinRoom", "lobby", "reserve", "queue", "copyRoomCode"]);
@@ -1465,6 +1605,7 @@ export function usePhaseTwoController({
         setRoomPreview(response.room);
         updateFormValue("roomCode", response.room.code);
         setLobbySnapshot(response.lobbySnapshot);
+        await loadAdminRooms();
         setFeedback("createRoom", {
           tone: "success",
           message: `Room ${response.room.code} is live and ready for joins.`
@@ -1476,7 +1617,7 @@ export function usePhaseTwoController({
         });
       }
     })();
-  }, [forms.roomForm, resetTransientFeedback, serverOrigin, setFeedback, updateFormValue]);
+  }, [forms.roomForm, loadAdminRooms, resetTransientFeedback, serverOrigin, setFeedback, updateFormValue]);
 
   const handleCheckRoom = useCallback(() => {
     setFeedback("lookup", {
@@ -1596,18 +1737,28 @@ export function usePhaseTwoController({
       const roomId =
         authState?.actor.role === "GUEST" ? authState.actor.roomId : lobbySnapshot?.room.roomId;
 
-      if (!roomId) {
+      if (
+        !roomId ||
+        authState?.actor.role !== "GUEST" ||
+        authState.actor.mode !== "PLAYER" ||
+        !stackControlQuote
+      ) {
         return;
       }
 
+      const sitInAmount = Math.min(
+        Math.max(Number(forms.stackAmount) || stackControlQuote.minChips, stackControlQuote.minChips),
+        stackControlQuote.maxChips
+      );
+
       setFeedback("reserve", {
         tone: "pending",
-        message: `Reserving seat ${seatIndex + 1} and starting the countdown.`
+        message: `Reserving seat ${seatIndex + 1} and posting ${sitInAmount.toLocaleString()} chips.`
       });
 
       void (async () => {
         try {
-          const response = await apiRequest(
+          const reserveResponse = await apiRequest(
             serverOrigin,
             `/api/rooms/${roomId}/seats/${seatIndex}`,
             seatReservationResponseSchema,
@@ -1617,11 +1768,30 @@ export function usePhaseTwoController({
             }
           );
 
-          setLobbySnapshot(response.lobbySnapshot);
-          setRoomPreview(response.lobbySnapshot.room);
+          setLobbySnapshot(reserveResponse.lobbySnapshot);
+          setRoomPreview(reserveResponse.lobbySnapshot.room);
+
+          const buyInResponse = await apiRequest(
+            serverOrigin,
+            `/api/rooms/${roomId}/buyin`,
+            buyInResponseSchema,
+            {
+              method: "POST",
+              headers: {
+                "Idempotency-Key": `buy-in-${roomId}-${seatIndex}-${sitInAmount}`
+              },
+              body: JSON.stringify({
+                seatIndex,
+                amount: sitInAmount
+              })
+            }
+          );
+
+          setLobbySnapshot(buyInResponse.lobbySnapshot);
+          setRoomPreview(buyInResponse.lobbySnapshot.room);
           setFeedback("reserve", {
             tone: "success",
-            message: `Seat ${response.reservedSeatIndex + 1} is reserved until ${new Date(response.reservedUntil).toLocaleTimeString()}.`
+            message: `Seat ${seatIndex + 1} is live with ${sitInAmount.toLocaleString()} chips. Tap Play when you're ready.`
           });
         } catch (error) {
           setFeedback("reserve", {
@@ -1631,7 +1801,7 @@ export function usePhaseTwoController({
         }
       })();
     },
-    [authState, lobbySnapshot?.room.roomId, serverOrigin, setFeedback]
+    [authState, forms.stackAmount, lobbySnapshot?.room.roomId, serverOrigin, setFeedback, stackControlQuote]
   );
 
   const handleJoinQueue = useCallback(() => {
@@ -1688,6 +1858,11 @@ export function usePhaseTwoController({
         const nextState = { session: response.session, actor: response.actor };
         applyAuthState(nextState);
         broadcastAuthStateChange(nextState);
+
+        if (nextState.actor.role === "ADMIN") {
+          await loadAdminRooms();
+        }
+
         setFeedback("refresh", {
           tone: "success",
           message: "Session refreshed successfully."
@@ -1699,7 +1874,7 @@ export function usePhaseTwoController({
         });
       }
     })();
-  }, [applyAuthState, broadcastAuthStateChange, serverOrigin, setFeedback]);
+  }, [applyAuthState, broadcastAuthStateChange, loadAdminRooms, serverOrigin, setFeedback]);
 
   const handleLogout = useCallback(() => {
     setFeedback("logout", {
@@ -1780,6 +1955,7 @@ export function usePhaseTwoController({
     session: {
       activeRoomId,
       authState,
+      adminRooms,
       handHistory,
       historyItems,
       historyNextCursor,
@@ -1846,6 +2022,7 @@ export function usePhaseTwoController({
       handleActionPreset,
       handleCheckRoom,
       handleChipOperation,
+      handleCloseRoom,
       handleCreateRoom,
       handleExportHand,
       handleJoinQueue,
@@ -1854,6 +2031,8 @@ export function usePhaseTwoController({
       handleLoadHandTranscript,
       handleLoadHistoryList,
       handleLogout,
+      handleLoadAdminRooms,
+      handleOpenAdminRoom,
       handlePauseResumeRoom,
       handleReadyForHand,
       handleRefreshLobby,

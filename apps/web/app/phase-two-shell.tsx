@@ -2,6 +2,7 @@
 
 import { AdminLoginPanel } from "./components/auth/AdminLoginPanel";
 import { AdminConsole } from "./components/admin/AdminConsole";
+import { AdminRoomListPanel } from "./components/admin/AdminRoomListPanel";
 import { PlayerListPanel } from "./components/admin/PlayerListPanel";
 import { HandHistoryPanel } from "./components/history/HandHistoryPanel";
 import { HandTranscriptPanel } from "./components/history/HandTranscriptPanel";
@@ -83,6 +84,18 @@ export function PhaseTwoShell({
         </section>
       ) : null}
 
+      {derived.isAdmin ? (
+        <AdminRoomListPanel
+          adminFeedback={feedbacks.admin}
+          adminRooms={session.adminRooms}
+          currentRoomId={session.activeRoomId}
+          nowMs={session.nowMs}
+          onCloseRoom={actions.handleCloseRoom}
+          onLoadAdminRooms={actions.handleLoadAdminRooms}
+          onOpenRoom={actions.handleOpenAdminRoom}
+        />
+      ) : null}
+
       {showGuestEntry ? (
         <section className="panel-grid">
           <GuestJoinPanel
@@ -105,12 +118,15 @@ export function PhaseTwoShell({
             lobbyFeedback={feedbacks.lobby}
             lobbySnapshot={session.lobbySnapshot}
             nowMs={session.nowMs}
+            onStackAmountChange={forms.setStackAmount}
             onCopyRoomCode={actions.copyRoomCode}
             onJoinQueue={actions.handleJoinQueue}
             onRefreshLobby={actions.handleRefreshLobby}
             onReserveSeat={actions.handleReserveSeat}
             queueFeedback={feedbacks.queue}
             reserveFeedback={feedbacks.reserve}
+            stackAmount={forms.stackAmount}
+            stackControlQuote={derived.stackControlQuote}
           />
         </section>
       ) : null}
@@ -216,6 +232,7 @@ export function PhaseTwoShell({
             <PlayerListPanel
               canKick={derived.isAdmin}
               liveSnapshot={session.liveSnapshot}
+              nowMs={session.nowMs}
               onKickParticipant={actions.handleKickParticipant}
             />
 

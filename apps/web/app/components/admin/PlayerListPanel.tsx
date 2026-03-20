@@ -1,14 +1,18 @@
+import { formatCountdown } from "../../table-state";
+
 import type { RoomRealtimeSnapshot } from "@potluck/contracts";
 
 type PlayerListPanelProps = {
   canKick: boolean;
   liveSnapshot: RoomRealtimeSnapshot | null;
+  nowMs: number;
   onKickParticipant: (participantId: string, nicknameLabel: string) => void;
 };
 
 export function PlayerListPanel({
   canKick,
   liveSnapshot,
+  nowMs,
   onKickParticipant
 }: PlayerListPanelProps) {
   return (
@@ -29,22 +33,35 @@ export function PlayerListPanel({
                   {participant.isSittingOut ? " | Sitting out" : ""}
                   {!participant.isConnected ? " | Disconnected" : ""}
                   {participant.seatIndex !== undefined ? ` | Seat ${participant.seatIndex + 1}` : ""}
+                  {!participant.isConnected && participant.reconnectGraceEndsAt
+                    ? ` | Kick unlocks in ${formatCountdown(participant.reconnectGraceEndsAt, nowMs)}`
+                    : ""}
                 </small>
               </div>
               {canKick ? (
-                <button
-                  className="ghost-button compact-button"
-                  onClick={() => {
-                    if (!window.confirm(`Remove ${participant.nickname} from the room?`)) {
-                      return;
-                    }
+                (() => {
+                  const kickLockedUntil = participant.reconnectGraceEndsAt
+                    ? new Date(participant.reconnectGraceEndsAt).getTime()
+                    : null;
+                  const kickLocked = kickLockedUntil !== null && kickLockedUntil > nowMs;
 
-                    onKickParticipant(participant.participantId, participant.nickname);
-                  }}
-                  type="button"
-                >
-                  Kick
-                </button>
+                  return (
+                    <button
+                      className="ghost-button compact-button"
+                      disabled={kickLocked}
+                      onClick={() => {
+                        if (!window.confirm(`Remove ${participant.nickname} from the room?`)) {
+                          return;
+                        }
+
+                        onKickParticipant(participant.participantId, participant.nickname);
+                      }}
+                      type="button"
+                    >
+                      {kickLocked ? "Timer running" : "Kick"}
+                    </button>
+                  );
+                })()
               ) : null}
             </li>
           ))}

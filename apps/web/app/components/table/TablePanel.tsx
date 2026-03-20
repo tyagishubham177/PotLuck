@@ -359,32 +359,38 @@ export function TablePanel({
                 ) : null}
               </>
             ) : (
-              <div className="tray-button-row">
-                <button
-                  className="secondary-button tray-action-button"
-                  disabled={!canControlSeat || liveSnapshot.tablePhase === "HAND_ACTIVE"}
-                  onClick={onReadyForHand}
-                  type="button"
-                >
-                  Ready for hand
-                </button>
-                <button
-                  className="ghost-button tray-action-button"
-                  disabled={!canControlSeat}
-                  onClick={onSitOutNextHand}
-                  type="button"
-                >
-                  Sit out next hand
-                </button>
-                <button
-                  className="ghost-button tray-action-button"
-                  disabled={!canControlSeat}
-                  onClick={onSitOutNow}
-                  type="button"
-                >
-                  Sit out now
-                </button>
-              </div>
+              <>
+                <div className="tray-button-row">
+                  <button
+                    className="secondary-button tray-action-button"
+                    disabled={!canControlSeat || liveSnapshot.tablePhase === "HAND_ACTIVE"}
+                    onClick={onReadyForHand}
+                    type="button"
+                  >
+                    Play
+                  </button>
+                  <button
+                    className="ghost-button tray-action-button"
+                    disabled={!canControlSeat}
+                    onClick={onSitOutNextHand}
+                    type="button"
+                  >
+                    Sit out next hand
+                  </button>
+                  <button
+                    className="ghost-button tray-action-button"
+                    disabled={!canControlSeat}
+                    onClick={onSitOutNow}
+                    type="button"
+                  >
+                    Sit out now
+                  </button>
+                </div>
+                <p className="panel-copy">
+                  Play marks your seat ready. The table starts automatically once two seated
+                  players are ready between hands.
+                </p>
+              </>
             )}
           </div>
         </>

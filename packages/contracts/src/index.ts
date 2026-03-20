@@ -320,6 +320,18 @@ export const roomCreateResponseSchema = z.object({
   lobbySnapshot: lobbySnapshotSchema
 });
 
+export const adminActiveRoomSummarySchema = z.object({
+  room: roomPublicSummarySchema,
+  tablePhase: roomTablePhaseSchema,
+  pausedReason: z.string().min(1).nullable().optional(),
+  readyParticipantCount: z.number().int().nonnegative(),
+  connectedParticipantCount: z.number().int().nonnegative()
+});
+
+export const adminActiveRoomsResponseSchema = z.object({
+  items: z.array(adminActiveRoomSummarySchema)
+});
+
 export const seatReservationRequestSchema = z.object({});
 
 export const seatReservationResponseSchema = z.object({
@@ -695,11 +707,16 @@ export const roomKickRequestSchema = z.object({
   reason: z.string().trim().min(3).max(160)
 });
 
+export const roomCloseRequestSchema = z.object({
+  reason: z.string().trim().min(3).max(160).optional()
+});
+
 export const moderationActionSchema = z.enum([
   "ROOM_LOCKED",
   "ROOM_UNLOCKED",
   "PLAYER_KICKED",
-  "ROOM_CONFIG_UPDATED"
+  "ROOM_CONFIG_UPDATED",
+  "ROOM_CLOSED"
 ]);
 
 export const moderationRecordSchema = z.object({
@@ -956,6 +973,8 @@ export type SeatSnapshot = z.infer<typeof seatSnapshotSchema>;
 export type QueueEntry = z.infer<typeof queueEntrySchema>;
 export type BuyInQuote = z.infer<typeof buyInQuoteResponseSchema>;
 export type LobbySnapshot = z.infer<typeof lobbySnapshotSchema>;
+export type AdminActiveRoomSummary = z.infer<typeof adminActiveRoomSummarySchema>;
+export type AdminActiveRoomsResponse = z.infer<typeof adminActiveRoomsResponseSchema>;
 export type SessionEnvelope = z.infer<typeof sessionEnvelopeSchema>;
 export type AuthActor = z.infer<typeof authActorSchema>;
 export type RoomJoinMode = z.infer<typeof roomJoinModeSchema>;
@@ -979,6 +998,7 @@ export type HandHistoryListResponse = z.infer<typeof handHistoryListResponseSche
 export type RoomConfigPatchRequest = z.infer<typeof roomConfigPatchRequestSchema>;
 export type RoomLockRequest = z.infer<typeof roomLockRequestSchema>;
 export type RoomKickRequest = z.infer<typeof roomKickRequestSchema>;
+export type RoomCloseRequest = z.infer<typeof roomCloseRequestSchema>;
 export type ModerationAction = z.infer<typeof moderationActionSchema>;
 export type ModerationRecord = z.infer<typeof moderationRecordSchema>;
 export type RoomModerationResponse = z.infer<typeof roomModerationResponseSchema>;
