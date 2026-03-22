@@ -13,6 +13,7 @@ Operations and trust require admin control and visible audit outputs once live p
 ## Prerequisites
 - Phase 07 complete.
 - Read `docs/04-game/audit-history.md` and `docs/06-ops/runbook.md`.
+- Review `docs/phases/08-admin-spectator-history/ui.md` for admin, spectator, and history references.
 
 ## Touched Packages
 - apps/web

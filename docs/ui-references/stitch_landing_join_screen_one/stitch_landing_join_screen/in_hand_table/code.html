@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space_Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary": "#f0bd8b",
+              "on-background": "#e0e3e8",
+              "secondary-fixed": "#ffdcbd",
+              "primary-fixed": "#b1f0ce",
+              "on-error": "#690005",
+              "on-primary-container": "#76b394",
+              "inverse-surface": "#e0e3e8",
+              "on-tertiary-fixed-variant": "#454748",
+              "surface-variant": "#313539",
+              "on-error-container": "#ffdad6",
+              "on-tertiary": "#2e3132",
+              "on-surface": "#e0e3e8",
+              "error-container": "#93000a",
+              "surface-container-lowest": "#0b0f12",
+              "on-tertiary-container": "#a5a6a7",
+              "inverse-on-surface": "#2d3135",
+              "surface-tint": "#95d4b3",
+              "on-surface-variant": "#c1c8c2",
+              "surface-dim": "#101418",
+              "primary-container": "#00452e",
+              "surface-bright": "#363a3e",
+              "surface": "#101418",
+              "on-secondary-fixed": "#2c1600",
+              "on-secondary-container": "#e1af7e",
+              "on-primary": "#003824",
+              "surface-container-low": "#181c20",
+              "surface-container": "#1c2024",
+              "secondary-fixed-dim": "#f0bd8b",
+              "on-secondary-fixed-variant": "#623f18",
+              "tertiary-container": "#393c3d",
+              "on-primary-fixed-variant": "#0e5138",
+              "background": "#101418",
+              "tertiary-fixed-dim": "#c5c7c8",
+              "primary-fixed-dim": "#95d4b3",
+              "outline": "#8b938d",
+              "on-primary-fixed": "#002114",
+              "inverse-primary": "#2c694e",
+              "on-tertiary-fixed": "#191c1d",
+              "surface-container-highest": "#313539",
+              "secondary-container": "#65411a",
+              "tertiary": "#c5c7c8",
+              "primary": "#95d4b3",
+              "surface-container-high": "#262a2e",
+              "outline-variant": "#414844",
+              "on-secondary": "#482904",
+              "error": "#ffb4ab",
+              "tertiary-fixed": "#e1e3e4"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .poker-table-shape {
+            clip-path: ellipse(50% 45% at 50% 50%);
+        }
+        .felt-gradient {
+            background: radial-gradient(circle at center, #00452e 0%, #002114 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-fixed selection:text-on-primary-fixed overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="bg-[#101418] flex justify-between items-center w-full px-6 h-16 fixed top-0 z-50">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black text-[#95d4b3] tracking-tighter font-headline">PotLuck</span>
+<nav class="hidden md:flex gap-6">
+<a class="font-headline font-bold text-sm tracking-tight text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Lobby</a>
+<a class="font-headline font-bold text-sm tracking-tight text-[#95d4b3] border-b-2 border-[#95d4b3] pb-1" href="#">Tables</a>
+<a class="font-headline font-bold text-sm tracking-tight text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Tournaments</a>
+<a class="font-headline font-bold text-sm tracking-tight text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Cashier</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-[#181c20] rounded-md transition-all active:scale-95">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-[#181c20] rounded-md transition-all active:scale-95">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-[#181c20] rounded-md transition-all active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant/20">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="Stylized portrait of a poker player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjBYMrAwxE_tWJRsn7V9nW6pF_Z-5og_HxPf43XNi9PdF7S35ndetkzX7eUfQBo_1O2UPNd7oqWBSnatTju8vYg9AqmuY0bWcWJbs_HDLf7RigzWuwA6NeRp8ZFnOGWt5EiV93jFlWjCPuGASgMRXNpT5mUHaZD5ASmHY7-phkLIN-QJOZ75nOCH-94EQ2_kVFiWK8vnNHi_5kKpKVnnDUzX4V0rY_QXXU8tRiyLvfE7-cyAJsBczZXP-0zEWsbQAkxpbBTQ-GudM"/>
+</div>
+</div>
+</header>
+<!-- Side Navigation Bar (Table Info & Actions) -->
+<aside class="fixed right-0 top-16 h-[calc(100vh-64px)] w-72 flex flex-col border-l border-[#313539]/10 bg-[#181c20]/80 backdrop-blur-xl z-40">
+<div class="p-6 border-b border-outline-variant/10">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">table_restaurant</span>
+</div>
+<div>
+<h2 class="text-[#f0bd8b] font-['Space_Grotesk'] font-bold text-sm">Table #402</h2>
+<p class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">High Stakes NLH</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 py-4">
+<div class="flex flex-col gap-1 px-2">
+<button class="flex items-center gap-3 px-4 py-3 text-[#313539] hover:bg-[#262a2e]/50 hover:text-[#f0bd8b] transition-all duration-300 group">
+<span class="material-symbols-outlined text-xl" data-icon="add_card">add_card</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Buy-in</span>
+</button>
+<button class="flex items-center gap-3 px-4 py-3 text-[#313539] hover:bg-[#262a2e]/50 hover:text-[#f0bd8b] transition-all duration-300">
+<span class="material-symbols-outlined text-xl" data-icon="history">history</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Hand History</span>
+</button>
+<button class="flex items-center gap-3 px-4 py-3 text-[#313539] hover:bg-[#262a2e]/50 hover:text-[#f0bd8b] transition-all duration-300">
+<span class="material-symbols-outlined text-xl" data-icon="query_stats">query_stats</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Statistics</span>
+</button>
+<button class="flex items-center gap-3 px-4 py-3 text-[#f0bd8b] bg-[#262a2e] rounded-l-lg border-r-2 border-[#f0bd8b]">
+<span class="material-symbols-outlined text-xl" data-icon="chat" style="font-variation-settings: 'FILL' 1;">chat</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Table Chat</span>
+</button>
+<button class="flex items-center gap-3 px-4 py-3 text-[#313539] hover:bg-[#262a2e]/50 hover:text-[#f0bd8b] transition-all duration-300">
+<span class="material-symbols-outlined text-xl" data-icon="edit_note">edit_note</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Notes</span>
+</button>
+</div>
+</nav>
+<div class="p-4 mt-auto border-t border-outline-variant/10">
+<button class="w-full py-3 bg-secondary-container text-on-secondary-container font-['Inter'] text-xs font-bold uppercase tracking-widest rounded transition-transform active:scale-95 mb-4">
+                RELOAD CHIPS
+            </button>
+<div class="flex justify-between items-center px-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="signal_cellular_alt">signal_cellular_alt</span>
+<span class="text-[10px] text-on-surface-variant font-label">Connection</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="fingerprint">fingerprint</span>
+<span class="text-[10px] text-on-surface-variant font-label">Hand #8821</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Game Canvas -->
+<main class="fixed inset-0 pt-16 pr-72 bg-surface overflow-hidden flex flex-col items-center justify-center">
+<!-- Table Environment -->
+<div class="relative w-[90%] max-w-5xl aspect-[2/1] flex items-center justify-center">
+<!-- Shadow Layer -->
+<div class="absolute inset-0 poker-table-shape bg-black/40 blur-2xl translate-y-8"></div>
+<!-- The Table (Felt) -->
+<div class="absolute inset-0 poker-table-shape felt-gradient border-[12px] border-[#181c20] shadow-[inset_0_0_100px_rgba(0,0,0,0.6)]">
+<!-- Inner Tonal Ring (Ghost Border Fallback) -->
+<div class="absolute inset-4 poker-table-shape border border-primary/10"></div>
+</div>
+<!-- Central Area (Board & Pot) -->
+<div class="relative z-10 flex flex-col items-center gap-8">
+<!-- Pot Status -->
+<div class="flex flex-col items-center">
+<div class="px-6 py-2 bg-black/30 backdrop-blur-md rounded-full border border-outline-variant/10">
+<span class="font-label text-secondary text-lg font-bold tracking-widest">POT: 14,500</span>
+</div>
+</div>
+<!-- Board Cards -->
+<div class="flex gap-3">
+<!-- Card 1 -->
+<div class="w-20 h-28 bg-white rounded-lg shadow-xl flex flex-col items-center justify-center text-surface p-2 relative overflow-hidden">
+<span class="absolute top-1 left-2 font-label font-bold text-xl text-error">A</span>
+<span class="material-symbols-outlined text-error text-3xl" style="font-variation-settings: 'FILL' 1;">diamond</span>
+</div>
+<!-- Card 2 -->
+<div class="w-20 h-28 bg-white rounded-lg shadow-xl flex flex-col items-center justify-center text-surface p-2 relative overflow-hidden">
+<span class="absolute top-1 left-2 font-label font-bold text-xl">K</span>
+<span class="material-symbols-outlined text-surface text-3xl" style="font-variation-settings: 'FILL' 1;">playing_cards</span>
+</div>
+<!-- Card 3 -->
+<div class="w-20 h-28 bg-white rounded-lg shadow-xl flex flex-col items-center justify-center text-surface p-2 relative overflow-hidden">
+<span class="absolute top-1 left-2 font-label font-bold text-xl text-error">10</span>
+<span class="material-symbols-outlined text-error text-3xl" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<!-- Empty/Hidden Slots -->
+<div class="w-20 h-28 bg-black/20 border-2 border-dashed border-outline-variant/20 rounded-lg"></div>
+<div class="w-20 h-28 bg-black/20 border-2 border-dashed border-outline-variant/20 rounded-lg"></div>
+</div>
+</div>
+<!-- Player Seats (The Layering Principle) -->
+<!-- Top Row -->
+<div class="absolute top-[-40px] left-[20%] flex flex-col items-center">
+<div class="w-24 h-24 rounded-full bg-surface-container-high p-1 shadow-lg border border-outline-variant/20 overflow-hidden">
+<img alt="Player" class="w-full h-full object-cover" data-alt="Cartoon avatar of a professional poker player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAB95cnrz4t8fK2Tn-dDvDdZMUEnlYBpGq-EuccRoNhu1NgBVYA7SsWEZ0rRKLphrGyUmF8fiIyueOY_ZaTOsc9eF49WC3ixTV6EpGZdG5btF7NjjKEaOPmI_qQFpJaSEwH_1ILaxYvECUt_w4ckAOuka4jZnvaAvXKLhMvdxkPlOpvdy2OmWSQy4lH68gEvOaDHqZsIMof42kBjf4B5aDJvi22rgryKOb1yOp3RhBU-cB9lc6re-2U30DQPnrPDTQw2q_lnT5prdg"/>
+</div>
+<div class="mt-2 px-3 py-1 bg-surface-container-highest rounded text-[10px] font-label font-bold">VIP_Lounge</div>
+<div class="text-secondary font-label text-xs mt-1">42,800</div>
+</div>
+<div class="absolute top-[-60px] left-1/2 -translate-x-1/2 flex flex-col items-center">
+<div class="w-24 h-24 rounded-full bg-surface-container-high p-1 shadow-lg border border-outline-variant/20 overflow-hidden">
+<img alt="Player" class="w-full h-full object-cover" data-alt="Minimalist headshot of a female poker player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJkZ7ETb8IoSwrFlRkjPeHXjuf4NCWx5cn8ygJtr9hJsAm60MyHuXab4droNnOv_S5s8XFfmNishv3Ohd05uZrcGufZolEVKARofs72yB0i84KUgdMYidGIxAs2dTq4UwGbuh6geMtjYdtlyZove1XgA7jOVp7cE0UZg81EkB9j4EWlQ-YdE1aqDIbfB5GSr-uChnJK4dzR1w_--GbaPVlNmsaqP69slVv6iox9eYWHh0qZiUq8_Nee7aGyJbk7rMNsR_UKGrxiu0"/>
+</div>
+<div class="mt-2 px-3 py-1 bg-surface-container-highest rounded text-[10px] font-label font-bold">AceMagnet</div>
+<div class="text-secondary font-label text-xs mt-1">115,000</div>
+</div>
+<div class="absolute top-[-40px] right-[20%] flex flex-col items-center">
+<div class="w-24 h-24 rounded-full bg-surface-container-high p-1 shadow-lg border border-outline-variant/20 overflow-hidden">
+<img alt="Player" class="w-full h-full object-cover" data-alt="Poker player avatar wearing a hoodie" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKtWpU0zOcOZJKFCzaZUI6EHzyMNEXUB7NGOARJ-vpno3b2GJGNxLiMD5xYtIdpHCYv7CzUQGW7qCjfp3QzpfwvIyZQzma1CWhCBSGcn-_neQndhgGN88EUC5NUEXnKL9_ypygLdw9Y2W6dW1gCkf0KkzWQ5MKgnsSxk8DGTk7Qm8a3-Klfa5Yc3rugr9RnWrDn95F-4U40DNBhEKrr96VTNzG9pG-Ri3kGMT7SyzMRsUr3vNTwzzqG9Oon2D_XkscIza2-eLMAg4"/>
+</div>
+<div class="mt-2 px-3 py-1 bg-surface-container-highest rounded text-[10px] font-label font-bold">TiltMaster</div>
+<div class="text-secondary font-label text-xs mt-1">29,450</div>
+</div>
+<!-- Side Players (Active Player Highlighted) -->
+<div class="absolute left-[-60px] top-1/2 -translate-y-1/2 flex items-center gap-4">
+<div class="relative group">
+<!-- Glow Effect for Active Player -->
+<div class="absolute -inset-2 bg-primary/20 rounded-full blur-xl"></div>
+<div class="w-24 h-24 rounded-full bg-surface-container-high p-1 shadow-lg border-2 border-primary overflow-hidden relative z-10">
+<img alt="Active Player" class="w-full h-full object-cover" data-alt="Close up of a thinking poker player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXbVatootBZi-SBW-cj8nUq-kgCYFfT_BgCQRE0mUn0_26VSI7U97FEo6XHBQ2LLxF2HbI1wuKshmlkc1k-eJwn8wuOT3YbukHL-1CmcpLFcqV2SE1zvq6nPMGcfTt3sc_pKSjYXApML1MDrxPGuN3G5rzNewf_MTd30_caYv7r7tl4qFy1pCgJ2OrzcdUK8jnTeWtRSQ2-wMkEtXHDhDWRelMmUtChkGV5IISlXT1HM7c9_g_BsCy9l9NrEXOCKzXg06N8mMUMAU"/>
+<!-- Turn Timer Arc -->
+<div class="absolute bottom-0 left-0 w-full h-2 bg-primary-container">
+<div class="h-full bg-primary w-2/3"></div>
+</div>
+</div>
+<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center">
+<div class="px-3 py-1 bg-primary text-on-primary rounded text-[10px] font-label font-bold shadow-md">Thinking...</div>
+<div class="text-secondary font-label text-xs mt-1">8,100</div>
+</div>
+</div>
+</div>
+<div class="absolute right-[-60px] top-1/2 -translate-y-1/2 flex items-center gap-4">
+<div class="flex flex-col items-center">
+<div class="w-24 h-24 rounded-full bg-surface-container-high p-1 shadow-lg border border-outline-variant/20 overflow-hidden">
+<img alt="Player" class="w-full h-full object-cover" data-alt="Shadowy profile of a high stakes player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLDNPbLgskE7nRT1dSq5XLlorbfeSbeoVH7vndF1DMJyHQEbhasgap9oPQNh9rnoYu95wpXvlQB4nrWzXlBPk2jqRBzIr0YzegV2de_l4Id2JKri4mqgsQmZKSmY_5MUJj9Da9UIevUoChc7M8uBJMPU6YUrP8eneu9UKT8_GrXjpKhdJmNNG1VGcQ44YzBSkO9zG3u9SfRY5ma0GP0RBbyfJCE-LwdA5JBALQsVdqz2dyNpiRrUVhThpPqCC35VBgwmCoRm0eVUw"/>
+</div>
+<div class="mt-2 px-3 py-1 bg-surface-container-highest rounded text-[10px] font-label font-bold">SharkByte</div>
+<div class="text-secondary font-label text-xs mt-1">245,000</div>
+</div>
+</div>
+<!-- Dealer Button (Asymmetry Rule) -->
+<div class="absolute top-[30%] left-[25%] z-20">
+<div class="w-8 h-8 rounded-full bg-white shadow-xl flex items-center justify-center border border-outline-variant/50">
+<span class="text-[10px] font-bold text-black font-label">D</span>
+</div>
+</div>
+</div>
+<!-- User Zone (Bottom Center) -->
+<div class="fixed bottom-0 left-0 right-72 h-48 flex items-end justify-between px-12 pb-8 pointer-events-none">
+<!-- Player Status & Cards -->
+<div class="flex-1 flex flex-col items-center pointer-events-auto">
+<div class="relative flex gap-1 mb-[-40px] z-20 perspective-1000">
+<!-- Hole Card 1 -->
+<div class="w-28 h-40 bg-white rounded-xl shadow-2xl flex flex-col p-3 text-surface rotate-[-4deg] translate-y-4">
+<div class="flex justify-between items-start">
+<span class="font-headline font-extrabold text-2xl">A</span>
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">playing_cards</span>
+</div>
+<div class="flex-1 flex items-center justify-center">
+<span class="material-symbols-outlined text-6xl" style="font-variation-settings: 'FILL' 1;">playing_cards</span>
+</div>
+</div>
+<!-- Hole Card 2 -->
+<div class="w-28 h-40 bg-white rounded-xl shadow-2xl flex flex-col p-3 text-surface rotate-[4deg]">
+<div class="flex justify-between items-start text-error">
+<span class="font-headline font-extrabold text-2xl">A</span>
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<div class="flex-1 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-6xl" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+</div>
+</div>
+<!-- Player Info Pod (Surface Container High) -->
+<div class="bg-surface-container-high px-12 py-6 rounded-t-3xl border-x border-t border-outline-variant/10 min-w-[320px] text-center shadow-2xl">
+<p class="font-headline font-extrabold text-on-surface uppercase tracking-widest text-lg">YOU</p>
+<p class="font-label text-secondary text-2xl font-bold">54,200</p>
+</div>
+</div>
+<!-- Action Tray (Bottom Right) -->
+<div class="pointer-events-auto flex gap-4 items-end mb-4">
+<!-- Fold Action -->
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center border border-outline-variant/20 group-hover:bg-surface-bright transition-all active:scale-90">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-on-surface">close</span>
+</div>
+<span class="font-label text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Fold</span>
+</button>
+<!-- Check/Call Action -->
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-20 h-20 rounded-full bg-secondary-container flex items-center justify-center border border-secondary/20 group-hover:bg-secondary group-hover:text-on-secondary transition-all active:scale-90 shadow-lg shadow-secondary/10">
+<span class="font-label font-bold text-sm">CALL</span>
+</div>
+<span class="font-label text-[10px] font-bold text-secondary uppercase tracking-widest">2,500</span>
+</button>
+<!-- Bet/Raise Action -->
+<div class="flex flex-col items-center gap-2 group">
+<!-- Slider Placeholder/Icon Area -->
+<div class="flex flex-col items-center gap-2">
+<div class="px-4 py-2 bg-surface-container-highest rounded text-on-surface font-label text-xs font-bold mb-1">
+                            8,500
+                        </div>
+<button class="w-24 h-24 rounded-full bg-primary-container flex items-center justify-center border border-primary/20 group-hover:bg-primary group-hover:text-on-primary transition-all active:scale-90 shadow-lg shadow-primary/10">
+<span class="font-label font-bold text-lg tracking-tighter">RAISE</span>
+</button>
+</div>
+<span class="font-label text-[10px] font-bold text-primary uppercase tracking-widest">Slider Control</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Background Decoration -->
+<div class="fixed inset-0 pointer-events-none z-[-1] opacity-30">
+<div class="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2"></div>
+<div class="absolute bottom-0 left-0 w-[800px] h-[800px] bg-secondary/5 blur-[120px] rounded-full -translate-x-1/2 translate-y-1/2"></div>
+</div>
+</body></html>

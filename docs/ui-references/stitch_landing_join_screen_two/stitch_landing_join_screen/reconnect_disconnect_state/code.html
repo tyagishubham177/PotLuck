@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-container": "#e1af7e",
+              "inverse-primary": "#2c694e",
+              "secondary-fixed-dim": "#f0bd8b",
+              "on-tertiary-fixed-variant": "#454748",
+              "on-primary": "#003824",
+              "tertiary-container": "#393c3d",
+              "surface": "#101418",
+              "error": "#ffb4ab",
+              "tertiary-fixed-dim": "#c5c7c8",
+              "tertiary-fixed": "#e1e3e4",
+              "outline-variant": "#414844",
+              "primary-fixed": "#b1f0ce",
+              "surface-tint": "#95d4b3",
+              "surface-container-high": "#262a2e",
+              "on-background": "#e0e3e8",
+              "surface-dim": "#101418",
+              "surface-bright": "#363a3e",
+              "surface-container-highest": "#313539",
+              "on-error-container": "#ffdad6",
+              "outline": "#8b938d",
+              "inverse-surface": "#e0e3e8",
+              "surface-container-lowest": "#0b0f12",
+              "on-secondary-fixed-variant": "#623f18",
+              "on-primary-fixed-variant": "#0e5138",
+              "on-tertiary": "#2e3132",
+              "surface-container": "#1c2024",
+              "secondary-container": "#65411a",
+              "on-primary-container": "#76b394",
+              "primary-fixed-dim": "#95d4b3",
+              "on-primary-fixed": "#002114",
+              "primary-container": "#00452e",
+              "surface-container-low": "#181c20",
+              "tertiary": "#c5c7c8",
+              "on-error": "#690005",
+              "error-container": "#93000a",
+              "on-surface-variant": "#c1c8c2",
+              "inverse-on-surface": "#2d3135",
+              "secondary-fixed": "#ffdcbd",
+              "on-surface": "#e0e3e8",
+              "on-tertiary-fixed": "#191c1d",
+              "on-tertiary-container": "#a5a6a7",
+              "on-secondary": "#482904",
+              "surface-variant": "#313539",
+              "on-secondary-fixed": "#2c1600",
+              "background": "#101418",
+              "secondary": "#f0bd8b",
+              "primary": "#95d4b3"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .blur-overlay {
+        backdrop-filter: blur(8px) brightness(0.3);
+      }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-primary">
+<!-- TopAppBar -->
+<header class="bg-[#101418] flex justify-between items-center w-full px-6 h-16 fixed top-0 z-40">
+<div class="flex items-center gap-8">
+<span class="text-xl font-black text-[#95d4b3] tracking-wider font-headline">PotLuck</span>
+<nav class="hidden md:flex items-center gap-6 font-headline font-bold tracking-tight">
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200" href="#">Lobby</a>
+<a class="text-[#f0bd8b] border-b-2 border-[#f0bd8b] pb-1" href="#">Tables</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200" href="#">History</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200" href="#">Admin</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#95d4b3] hover:bg-[#181c20] transition-colors duration-200 p-2 rounded">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="text-[#95d4b3] hover:bg-[#181c20] transition-colors duration-200 p-2 rounded">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden">
+<img alt="Host Avatar" class="w-full h-full object-cover" data-alt="Host user profile headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxhlyOAlDmJ54U4f1m6-ogw7JKpO__fV7t_ghabvxti7vaZwSSZg0st1jXPNbYWcVZjYEJ3wfkxTmPCUjX83Bz-cXDIqLiQEqgFTGRXxL5y1UlP_0skIig6-PwJ_P9bgfYuYR8lwh6RsTyGKrNI2HzoQKs2NlAM4f90jly7IfbpvrseV-44nQ4Cf0UoHKz8r2XZ-R1Koy7F5RoJc2uDzR_3vxXzIdN743lIDAHbMUNzrcIyEOrQ7jUvc-5J7nW034tLnYykxNEMeQ"/>
+</div>
+</div>
+</header>
+<!-- Main Content: Live Table Canvas (The Dimmed Background) -->
+<main class="pt-16 min-h-screen relative overflow-hidden bg-surface-dim">
+<!-- Table Visual Representation (Static Background) -->
+<div class="absolute inset-0 flex items-center justify-center p-8 opacity-40 grayscale-[0.2]">
+<div class="relative w-full max-w-5xl aspect-[21/9] bg-[#00452e] rounded-[100px] flex items-center justify-center border-8 border-surface-container-high">
+<!-- Center Pot -->
+<div class="flex flex-col items-center">
+<span class="font-label text-on-surface-variant text-xs uppercase tracking-widest">Total Pot</span>
+<span class="font-headline text-4xl font-extrabold text-secondary">$12,450.00</span>
+</div>
+<!-- Player Seats (Asymmetric Placement) -->
+<div class="absolute -top-12 left-1/4 bg-surface-container-high px-4 py-3 rounded-xl flex items-center gap-3 w-40">
+<div class="w-10 h-10 rounded-full bg-surface-variant"></div>
+<div class="flex flex-col">
+<span class="text-xs font-bold font-headline">Alex_V</span>
+<span class="font-label text-xs text-secondary">$4,200</span>
+</div>
+</div>
+<div class="absolute -top-12 right-1/4 bg-surface-container-high px-4 py-3 rounded-xl flex items-center gap-3 w-40 border-2 border-primary-container">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="person">person</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold font-headline text-primary">You</span>
+<span class="font-label text-xs text-secondary">$2,850</span>
+</div>
+</div>
+<div class="absolute top-1/2 -right-12 -translate-y-1/2 bg-surface-container-high px-4 py-3 rounded-xl flex items-center gap-3 w-40">
+<div class="w-10 h-10 rounded-full bg-surface-variant"></div>
+<div class="flex flex-col">
+<span class="text-xs font-bold font-headline">Player_9</span>
+<span class="font-label text-xs text-secondary">$8,100</span>
+</div>
+</div>
+<div class="absolute -bottom-12 left-1/2 -translate-x-1/2 bg-surface-container-high px-4 py-3 rounded-xl flex items-center gap-3 w-40">
+<div class="w-10 h-10 rounded-full bg-surface-variant"></div>
+<div class="flex flex-col">
+<span class="text-xs font-bold font-headline">MarcoP</span>
+<span class="font-label text-xs text-secondary">$1,150</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Connection State Overlay (SYSTEM LEVEL MESSAGING) -->
+<div class="absolute inset-0 z-50 blur-overlay flex items-center justify-center px-6">
+<div class="max-w-md w-full flex flex-col items-center">
+<!-- Status Icon with Pulse-like presence (Non-animated) -->
+<div class="w-20 h-20 rounded-full bg-surface-container-highest flex items-center justify-center mb-8 shadow-2xl">
+<span class="material-symbols-outlined text-secondary text-4xl" data-icon="cloud_off">cloud_off</span>
+</div>
+<div class="text-center space-y-2 mb-10">
+<h1 class="font-headline text-3xl font-extrabold text-on-surface tracking-tight">Connection Lost. Reconnecting...</h1>
+<p class="font-body text-on-surface-variant max-w-sm mx-auto">We are attempting to re-establish your presence at Table #402. Please stay on this screen.</p>
+</div>
+<!-- Bento-style Impact Guidance Cards -->
+<div class="grid grid-cols-1 gap-4 w-full mb-10">
+<!-- Impact Card 1 -->
+<div class="bg-surface-container-high p-5 rounded-xl border-l-4 border-secondary shadow-lg">
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-secondary" data-icon="warning">warning</span>
+<div>
+<h3 class="font-headline font-bold text-on-surface leading-tight">Action timed out: Your hand was folded.</h3>
+<p class="text-sm text-on-surface-variant mt-1">To ensure fair play for all participants, active hands are folded when a player disconnects.</p>
+</div>
+</div>
+</div>
+<!-- Impact Card 2 -->
+<div class="bg-surface-container-low p-5 rounded-xl border-l-4 border-outline-variant shadow-lg">
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="event_seat">event_seat</span>
+<div>
+<h3 class="font-headline font-bold text-on-surface leading-tight">You are currently sitting out.</h3>
+<p class="text-sm text-on-surface-variant mt-1">Auto-check/fold enabled. Your seat is reserved and your blinds will not be posted.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer / Resume Status -->
+<div class="flex flex-col items-center gap-6 w-full">
+<div class="flex items-center gap-3 py-3 px-6 bg-surface-container rounded-full border border-outline-variant/20">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Awaiting stable connection...</span>
+</div>
+<div class="flex flex-col sm:flex-row gap-4 w-full">
+<button class="flex-1 bg-secondary-container text-on-secondary-container py-4 rounded-xl font-headline font-bold text-center hover:opacity-90 active:scale-[0.98] transition-all">
+                            Force Refresh
+                        </button>
+<button class="flex-1 border border-outline-variant text-on-surface-variant py-4 rounded-xl font-headline font-bold text-center hover:bg-surface-container-highest active:scale-[0.98] transition-all">
+                            Check System Status
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Visible on mobile, hidden on desktop via TopAppBar logic) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 h-20 bg-[#101418] border-t border-[#414844]/15 flex justify-around items-center pb-safe">
+<div class="flex flex-col items-center justify-center text-[#f0bd8b] font-bold">
+<span class="material-symbols-outlined" data-icon="playing_cards">playing_cards</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Live Table</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#313539]">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#313539]">
+<span class="material-symbols-outlined" data-icon="chat_bubble">chat_bubble</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Messages</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#313539]">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Profile</span>
+</div>
+</nav>
+</body></html>

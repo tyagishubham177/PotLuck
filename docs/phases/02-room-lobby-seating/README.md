@@ -13,6 +13,7 @@ Players need a stable pre-hand environment before any chip or game actions exist
 ## Prerequisites
 - Phases 00 and 01 complete.
 - Read `docs/01-product/room-rules.md` and `docs/05-experience/screen-specs.md`.
+- Review `docs/phases/02-room-lobby-seating/ui.md` for the room creation and seating references.
 
 ## Touched Packages
 - apps/web

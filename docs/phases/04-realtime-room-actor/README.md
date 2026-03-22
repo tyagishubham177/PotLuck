@@ -13,6 +13,7 @@ The authoritative room loop must be in place before the game engine can safely d
 ## Prerequisites
 - Phase 03 complete.
 - Read `docs/02-architecture/room-actor-model.md` and `docs/03-contracts/realtime-events.md`.
+- Review `docs/phases/04-realtime-room-actor/ui.md` for reconnect and disconnect state references.
 
 ## Touched Packages
 - apps/server

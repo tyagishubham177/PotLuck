@@ -13,6 +13,8 @@ Once the backend rules are trustworthy, the product needs a clear and fast inter
 ## Prerequisites
 - Phase 06 complete.
 - Read `docs/05-experience/design-system.md` and `screen-specs.md`.
+- Read `docs/05-experience/design.md` for the full visual direction.
+- Review `docs/phases/07-player-table-ui/ui.md` for the imported in-hand, reconnect, and showdown references.
 
 ## Touched Packages
 - apps/web

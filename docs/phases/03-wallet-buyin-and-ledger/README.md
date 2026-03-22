@@ -13,6 +13,7 @@ Correct chip accounting must exist before game actions can move chips into pots.
 ## Prerequisites
 - Phase 02 complete.
 - Read `docs/02-architecture/data-model.md` and `docs/04-game/audit-history.md`.
+- Review `docs/phases/03-wallet-buyin-and-ledger/ui.md` for buy-in and rebuy reference screens.
 
 ## Touched Packages
 - apps/server

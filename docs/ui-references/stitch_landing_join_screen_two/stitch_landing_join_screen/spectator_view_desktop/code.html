@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Space_Grotesk:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface-variant": "#c1c8c2",
+              "error": "#ffb4ab",
+              "surface-bright": "#393939",
+              "primary-fixed": "#b1f0ce",
+              "outline-variant": "#414844",
+              "on-error-container": "#ffdad6",
+              "error-container": "#93000a",
+              "on-tertiary": "#4c2700",
+              "primary": "#95d4b3",
+              "tertiary-fixed": "#ffdcc1",
+              "surface-container-high": "#2a2a2a",
+              "primary-fixed-dim": "#95d4b3",
+              "secondary-container": "#29513f",
+              "secondary-fixed": "#c1ecd4",
+              "tertiary": "#ffb878",
+              "outline": "#8b938d",
+              "on-primary-fixed-variant": "#0e5138",
+              "on-primary-fixed": "#002114",
+              "on-background": "#e5e2e1",
+              "inverse-primary": "#2c694e",
+              "on-error": "#690005",
+              "on-primary-container": "#76b394",
+              "background": "#131313",
+              "secondary-fixed-dim": "#a5d0b9",
+              "on-secondary-fixed": "#002114",
+              "on-secondary-container": "#97c2ab",
+              "surface-container-highest": "#353534",
+              "inverse-on-surface": "#313030",
+              "surface-container": "#201f1f",
+              "on-tertiary-fixed-variant": "#6c3a00",
+              "on-secondary": "#0e3727",
+              "surface-dim": "#131313",
+              "surface-tint": "#95d4b3",
+              "on-secondary-fixed-variant": "#274e3d",
+              "secondary": "#a5d0b9",
+              "inverse-surface": "#e5e2e1",
+              "tertiary-fixed-dim": "#ffb878",
+              "on-tertiary-fixed": "#2e1500",
+              "primary-container": "#00452e",
+              "on-tertiary-container": "#e1954d",
+              "surface-variant": "#353534",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-container-low": "#1c1b1b",
+              "surface": "#131313",
+              "on-surface": "#e5e2e1",
+              "on-primary": "#003824",
+              "tertiary-container": "#5c3100"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .perspective-table {
+        perspective: 1200px;
+      }
+      .poker-table-inner {
+        transform: rotateX(25deg);
+        box-shadow: 0 40px 100px -20px rgba(0,0,0,0.8);
+      }
+      .glass-card {
+        background: rgba(53, 53, 52, 0.4);
+        backdrop-filter: blur(20px);
+      }
+      .clay-gradient {
+        background: linear-gradient(135deg, #FFB878 0%, #5C3100 100%);
+      }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body select-none overflow-hidden">
+<!-- TopAppBar -->
+<header class="bg-[#131313] dark:bg-[#131313] font-['Manrope'] font-bold tracking-tight text-[#E5E2E1] w-full top-0 z-50 bg-[#1C1B1B] shadow-none flex justify-between items-center w-full px-10 h-20 fixed">
+<div class="text-2xl font-black text-[#95D4B3] tracking-tighter">PotLuck Atelier</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors duration-200" href="#">Lobby</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors duration-200" href="#">High Stakes</a>
+<a class="text-[#95D4B3] border-b-2 border-[#95D4B3] pb-1 transition-colors duration-200" href="#">Tournaments</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors duration-200" href="#">Vault</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[#E5E2E1]/60">settings</span>
+</button>
+<button class="active:scale-95 transition-transform relative">
+<span class="material-symbols-outlined text-[#E5E2E1]/60">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-tertiary rounded-full"></span>
+</button>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="Minimalist user portrait avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzEukBEkRHtE19NrtGo0i02rW3TCm7IQBRww5AW-zha0cfxDnvkqx9cZ8DcOmiBWoohZ2sVEqgoq7f0dd12146779vyQDSYFcRSPSgynduxMpFzU9ybqxUudPqP0ir4_Fl9mtA9lUhUQgWUbMiJmHMFbg8twROe2DyGV_qypa7nAgeWaFPcsq-3S6nH1BZ9JwFkr9mdUot2pM6L0DLJecnx4-L3ukcuwUYS2AqgerA6PBz8zQSO0f62WIK5MFJ3O_aMfb7sme2CG0"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Spectator Perspective) -->
+<aside class="bg-[#1C1B1B] dark:bg-[#1C1B1B] font-['Manrope'] font-medium text-sm h-screen w-64 left-0 border-r-0 bg-[#2A2A2A] shadow-[24px_0_24px_-4px_rgba(0,0,0,0.06)] flex flex-col fixed left-0 top-0 h-full pt-20">
+<div class="px-6 py-8 flex flex-col gap-1">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center">
+<img alt="Table owner avatar" class="w-8 h-8 opacity-80" data-alt="Stylized gold crown icon or avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMY7lonGuwdqfMcXWAOFJtU-f-H_gyxpltJxt4Lu2rH7DoggSrG7f7sIVu-WSa0G3JoODVhvIJKYlpnXAAB-ZL6VmGlatl2VoGnnsCvO9_FhlkOVqhMFzYoSr3SYuXPr_5MlhZDPaSpjRVyK6k7PEb8tiA_QlzAkBbr_dj8W71jMvCTlyF3N-T-rNc-l7bOU15eK7Jtetn_hcNLyFfJ8xXbiwAWpFsLtBus1-3BCZ1g3ndFB4C7K-bmfCHJrb6irc5RNTYCZ4k7kc"/>
+</div>
+<div>
+<h3 class="text-[#95D4B3] font-bold">The Grand Parlor</h3>
+<p class="text-[#E5E2E1]/40 text-xs">Blinds: 500/1000</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="text-[#E5E2E1]/40 py-4 px-6 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 ease-in-out flex items-center gap-3" href="#">
+<span class="material-symbols-outlined">grid_view</span>Table View
+                </a>
+<a class="text-[#E5E2E1]/40 py-4 px-6 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 ease-in-out flex items-center gap-3" href="#">
+<span class="material-symbols-outlined">history</span>Hand History
+                </a>
+<a class="text-[#E5E2E1]/40 py-4 px-6 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 ease-in-out flex items-center gap-3" href="#">
+<span class="material-symbols-outlined">analytics</span>Player Stats
+                </a>
+<a class="bg-[#95D4B3]/10 text-[#95D4B3] border-r-4 border-[#95D4B3] py-4 px-6 flex items-center gap-3 transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">visibility</span>Spectators
+                </a>
+<a class="text-[#E5E2E1]/40 py-4 px-6 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 ease-in-out flex items-center gap-3" href="#">
+<span class="material-symbols-outlined">add_circle</span>Top-Up
+                </a>
+</nav>
+</div>
+<div class="mt-auto p-6">
+<button class="w-full bg-primary text-on-primary font-bold py-3 rounded-xl active:scale-95 transition-transform flex items-center justify-center gap-2">
+                Invite Player
+            </button>
+</div>
+</aside>
+<!-- Main Content: The Atelier Table -->
+<main class="ml-64 pt-20 h-screen bg-[#131313] relative overflow-hidden flex items-center justify-center">
+<!-- Table Canvas -->
+<div class="relative w-full max-w-5xl h-[600px] perspective-table flex items-center justify-center">
+<!-- The Physical Table -->
+<div class="poker-table-inner w-[850px] h-[450px] bg-gradient-to-b from-[#00452E] to-[#002114] rounded-[220px] border-[16px] border-[#1C1B1B] relative flex items-center justify-center">
+<!-- Table Felt Texture Overlay -->
+<div class="absolute inset-0 rounded-[200px] opacity-10 pointer-events-none" style="background-image: radial-gradient(circle, #95D4B3 1px, transparent 1px); background-size: 20px 20px;"></div>
+<!-- Inner Table Accent -->
+<div class="absolute inset-4 border border-primary/10 rounded-[180px]"></div>
+<!-- Center Area: Pot & Community Cards -->
+<div class="flex flex-col items-center gap-8 z-10">
+<!-- Pot Component -->
+<div class="glass-card px-8 py-3 rounded-2xl flex flex-col items-center border border-white/5">
+<span class="font-label text-primary/60 text-[10px] tracking-[0.2em] uppercase font-bold mb-1">Total Pot</span>
+<div class="flex items-baseline gap-2">
+<span class="font-headline text-3xl font-extrabold tracking-tighter text-[#E5E2E1]">842,500</span>
+<span class="font-label text-primary font-bold text-xs">CREDITS</span>
+</div>
+</div>
+<!-- Community Cards -->
+<div class="flex gap-3">
+<!-- Flop -->
+<div class="w-16 h-24 bg-on-surface rounded-lg flex flex-col p-2 shadow-lg items-start relative group">
+<span class="text-error font-bold text-lg leading-tight">A</span>
+<span class="material-symbols-outlined text-error text-xl" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<div class="w-16 h-24 bg-on-surface rounded-lg flex flex-col p-2 shadow-lg items-start relative">
+<span class="text-surface font-bold text-lg leading-tight">10</span>
+<span class="material-symbols-outlined text-surface text-xl" style="font-variation-settings: 'FILL' 1;">playing_cards</span>
+</div>
+<div class="w-16 h-24 bg-on-surface rounded-lg flex flex-col p-2 shadow-lg items-start relative">
+<span class="text-error font-bold text-lg leading-tight">4</span>
+<span class="material-symbols-outlined text-error text-xl" style="font-variation-settings: 'FILL' 1;">diamond</span>
+</div>
+<!-- Turn -->
+<div class="w-16 h-24 bg-on-surface rounded-lg flex flex-col p-2 shadow-lg items-start relative">
+<span class="text-surface font-bold text-lg leading-tight">J</span>
+<span class="material-symbols-outlined text-surface text-xl" style="font-variation-settings: 'FILL' 1;">playing_cards</span>
+</div>
+<!-- River (Hidden) -->
+<div class="w-16 h-24 bg-surface-container-highest border-2 border-dashed border-outline-variant/30 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-outline-variant/40">question_mark</span>
+</div>
+</div>
+</div>
+<!-- Seat Rings (Player Positions) -->
+<!-- Position 1 (Bottom) -->
+<div class="absolute -bottom-12 left-1/2 -translate-x-1/2 w-48 h-20 glass-card border border-primary/20 rounded-2xl flex items-center p-3 gap-3">
+<div class="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/30">
+<img alt="Player avatar" class="w-full h-full object-cover grayscale opacity-50" data-alt="Digital representation of a poker player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2McOhP2tNE0jnx7X7qbuLqur30UStWHihhGUtDDRWHFpkGtZO5zDUItYG3tLz-rlJvocJcFQ11waDoHAxA3MMawx71X7GEZabWZhl046Hla2DQZ81HzL_rSI8wr_-ac9rDtH1WLh3GQkFc7Bo9QGj8guaYZ34CSVz2bAomPysbf78ksg1uYFjPbw6XmpVeDieh0YFQZ5xS_M67kJCEagg_xrxqd8Lu2u2XqPAG5DVF-Pynjwhr6dNRlzjhbRAuIgt4saGz0r86PI"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="text-xs font-bold text-[#E5E2E1]/40 uppercase tracking-widest font-label">Empty Seat</p>
+</div>
+<button class="mt-1 text-primary text-[10px] font-bold uppercase tracking-widest hover:underline">Request Seat</button>
+</div>
+</div>
+<!-- Position 2 (Left) -->
+<div class="absolute top-1/2 -left-20 -translate-y-1/2 w-40 h-24 glass-card border border-white/5 rounded-2xl flex flex-col items-center justify-center p-3">
+<div class="w-10 h-10 rounded-full border-2 border-primary p-0.5 mb-2">
+<img alt="Active player" class="w-full h-full rounded-full object-cover" data-alt="Portrait of an active player avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCB5_F4XVOqiWrb-w5aJ8OPirR9a2Gp3zC_Ln7rL4OmYyHqnOa1UEs1NpllP1veXzzL8xy8PMasCR-a0oo-MLcaYWzhzS1txIQFsvgwhu-YEDtnsOZEl0qZdtNLaZzGPfpz2CODr8WWX_Z3DTfrSuKVdQ-DF_sfbFH5mtA7r35W-L7o80JCUP24YRXw9LpaP6vC82cpoMo0yeD_pzgM11Twy6a7Mesw2gUvxu3BH1SAHdYIkCLWG2pLTh_pPv6cEXbYbExygJPpkgA"/>
+</div>
+<p class="text-[10px] font-bold text-on-surface truncate">Vesper_Lynd</p>
+<p class="text-xs font-label font-bold text-primary">125,000</p>
+</div>
+<!-- Position 3 (Top Left) -->
+<div class="absolute -top-10 left-32 w-40 h-20 glass-card border border-white/5 rounded-2xl flex items-center p-3 gap-2">
+<img alt="Player avatar" class="w-8 h-8 rounded-lg bg-surface-container" data-alt="User avatar icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAe1_34AJsaqdaCCSp9S6cCEKFXgjFwmDglxjJf-YP4FLU_WMw5UIzqwewCY6qmyne6DkdTg-hPvJTZmdmJqzkDfbXlYHIgUk3QPHfAe_7eewuGq5NcJTOwvvF1PM8ON-YAorI2ZI6eSK_5MFyMA5wiUz1-gTpCejf3szIrzNeXYI6Sg1jLPzYXvJXTmVvvzqRyE_edrEBCsE_Rj333Se2uVhgGrBAe6ceB03N9-P37EjW1LsYHDbMfifprtpKsJsuJ4RuzjYefyAg"/>
+<div>
+<p class="text-[10px] font-bold text-on-surface">AceHigh</p>
+<p class="text-xs font-label text-on-surface/60">42,000</p>
+</div>
+</div>
+<!-- Position 4 (Top Right) -->
+<div class="absolute -top-10 right-32 w-40 h-20 glass-card border border-white/5 rounded-2xl flex items-center p-3 gap-2">
+<img alt="Player avatar" class="w-8 h-8 rounded-lg bg-surface-container" data-alt="User avatar icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAT29w2d443Tz5mgVVjpyTw03-vrPbEsUU2gAsIzBNDN1tWA9ApDwtv0_oK_Mjd45LjsoAQYma1Qd38ss5rx3N1crXMTE04e_vSdT9fQHUqzuiV4eTD28wnpocwp_x7bzD3Gijef6Jqh4pE-NbwMWF-C-b1u6sPIApwgKN3CiEddSXgAC5Fml6bThRyQ9OHrhk_rbxrAkcQ3uGvtCkQPAhuWv_HS4FX2_5nwnGnp7chW_WA16YynGZUYQbYKjl4sW0j8YWpr4zWPIM"/>
+<div>
+<p class="text-[10px] font-bold text-on-surface">Sharkie</p>
+<p class="text-xs font-label text-on-surface/60">289,100</p>
+</div>
+</div>
+<!-- Position 5 (Right) -->
+<div class="absolute top-1/2 -right-20 -translate-y-1/2 w-40 h-24 glass-card border border-tertiary/20 rounded-2xl flex flex-col items-center justify-center p-3 bg-tertiary-container/10">
+<div class="w-10 h-10 rounded-full border-2 border-tertiary p-0.5 mb-2">
+<img alt="Player on turn" class="w-full h-full rounded-full object-cover" data-alt="Avatar of the player currently betting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKXP31ELnQc8jz82doLre8zdcfdLOZtUAiQSKVABaZQ379G5hu4-il-tDKLLVl44lT3pL-GmviL5P1whVy2ktKFBU66UMjkr8ARWGBpzYSioDlYT-t9TnIkdzJdus9YyGh9-ovGN54UOeuPkAqLoYDn3wiDLvlyKXyiT1HYuNVEPBMWyIyfggZmbepen35lIBeE3moEIa8fXwilyLblHxNMVpS7n83lxzdmqu-CHtDoZ3I7bCW5vef8dkMjBcG2g8R4DwpuRVj1FE"/>
+</div>
+<div class="absolute -top-2 bg-tertiary text-on-tertiary text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter">Thinking...</div>
+<p class="text-[10px] font-bold text-on-surface truncate">TheBroker</p>
+<p class="text-xs font-label font-bold text-tertiary">14,200</p>
+</div>
+</div>
+<!-- Table Props: Chips Stacks -->
+<div class="absolute left-1/4 bottom-1/4 pointer-events-none">
+<div class="flex -space-x-3 opacity-80">
+<div class="w-8 h-8 rounded-full border-4 border-dashed border-primary bg-primary-container"></div>
+<div class="w-8 h-8 rounded-full border-4 border-dashed border-primary bg-primary-container -mt-1"></div>
+<div class="w-8 h-8 rounded-full border-4 border-dashed border-primary bg-primary-container -mt-2"></div>
+</div>
+</div>
+</div>
+<!-- Spectator View Status Overlay -->
+<div class="absolute top-8 right-10 flex flex-col items-end gap-3">
+<div class="flex items-center gap-4 bg-surface-container-low p-2 pr-6 rounded-full border border-white/5">
+<div class="flex -space-x-2">
+<img alt="Spec 1" class="w-6 h-6 rounded-full border border-surface" data-alt="Small avatar icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYHb9awq_UHsmrdI55I0GUWNSMDgcDUmVTzdrGElHFMdZbiUEWP_pWLNfT_b_QcpAGQaN7lhAN9Vfj3Lrrios-0wNHwjye1KaMP-CSHPBLV3lzCtVEBdZrFHSj9f2g7_u0pNYb5QEPvWN_aSBywUbRNJrquiOj8qgKqnDthxIgGktMVtA2eCLngxoLv0N8g7dzMD5J5g3kqwctr_faAsHy_EnPE8mvGNGLeROqJAhXlQzg5LoKLfzH3EGIkTYn7fJw_6SafMAfctA"/>
+<img alt="Spec 2" class="w-6 h-6 rounded-full border border-surface" data-alt="Small avatar icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-GrUMa_aU3NYVfa-PuCemLeHWT56KIoDPzcI2cnCDxrOksjnv-i7HYgBLVs8pRBOfleh-L7gykOdcK0afpo2jgIoeD8HbtJ_Ppd7bbC3dKvcjfJC0ZkgdE5mcc6ZbRL2vstQOYneqKUEzgdHZcItaOMGFil5pCrCW-gqlVnHu2Eh5md2SIAx0thkhkVVgpYv0xxUumXLrAbdPQfuJwm5w5dwWsqUWrLl8p_tUZozqgy2OEawVlbZIPqvoZ-8iKZVrYPrls0P0Yeg"/>
+<img alt="Spec 3" class="w-6 h-6 rounded-full border border-surface" data-alt="Small avatar icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhHUq1ICNg5zIIhZHbBfIEQL2gsZexsqesFkGzz6rsDHCtN0C3XbSBqrjnQjKnaVDVsesuHWX1nh6R51lXNFt80879Cayp3xMloAqkS_itTDyCDV9zHP9cKItaRG3jvpLBjGoW_Q9y-DJBfhHLYLkyU1Xg_PymqDTMzB691UtFxjIHrNhzkGrLMwlun4jMzz_eYJ5xuCb13xKNMUvW5FgJpXeecZQy_WbjG9ROeWK8TknaciXKQvoLpyFzRKQeRTj_IdBebUKs1ms"/>
+<div class="w-6 h-6 rounded-full bg-surface-container-highest border border-surface flex items-center justify-center text-[8px] font-bold">+12</div>
+</div>
+<span class="text-[10px] font-bold text-[#95D4B3] uppercase tracking-widest flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> 15 Spectating
+                </span>
+</div>
+<div class="glass-card p-4 rounded-2xl w-64 border border-white/5">
+<h4 class="text-xs font-bold text-on-surface mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">groups</span> Waiting List (3)
+                </h4>
+<div class="space-y-2">
+<div class="flex justify-between items-center text-[10px]">
+<span class="text-on-surface/60">1. CasinoRoyale</span>
+<span class="text-tertiary">02:14</span>
+</div>
+<div class="flex justify-between items-center text-[10px]">
+<span class="text-on-surface/60">2. NightOwl</span>
+<span class="text-on-surface/30">04:45</span>
+</div>
+<div class="flex justify-between items-center text-[10px]">
+<span class="text-on-surface/60">3. BluffMaster</span>
+<span class="text-on-surface/30">05:20</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Spectator Restricted HUD -->
+<div class="absolute bottom-10 right-10 flex flex-col items-center gap-4">
+<div class="glass-card p-4 rounded-xl border border-primary/20 flex flex-col items-center gap-2">
+<p class="text-[10px] font-bold text-on-surface/60 uppercase tracking-tighter">Spectator Mode</p>
+<p class="text-[9px] text-on-surface/40 leading-tight text-center max-w-[140px]">Hole cards are hidden to maintain game integrity.</p>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Spectator Controls / Call to Action) -->
+<footer class="fixed bottom-0 left-64 right-0 z-40 flex justify-center items-center gap-6 p-6 bg-[#131313]/90 backdrop-blur-xl rounded-t-[1.5rem] h-24 shadow-2xl">
+<div class="text-[#E5E2E1]/80 bg-[#2A2A2A] rounded-xl px-8 py-3 flex items-center gap-2 font-['Space_Grotesk'] font-bold uppercase tracking-widest text-xs hover:brightness-125 transition-all active:scale-[0.98] active:bg-[#393939] cursor-pointer">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">favorite</span>
+            Tip Dealer
+        </div>
+<div class="bg-gradient-to-r from-[#95D4B3] to-[#00452E] text-[#131313] rounded-xl px-12 py-3 flex items-center gap-2 font-['Space_Grotesk'] font-bold uppercase tracking-widest text-xs hover:brightness-125 transition-all active:scale-[0.98] cursor-pointer shadow-lg shadow-primary/10">
+<span class="material-symbols-outlined">add_task</span>
+            Join Waiting List
+        </div>
+<div class="text-[#E5E2E1]/80 bg-[#2A2A2A] rounded-xl px-8 py-3 flex items-center gap-2 font-['Space_Grotesk'] font-bold uppercase tracking-widest text-xs hover:brightness-125 transition-all active:scale-[0.98] active:bg-[#393939] cursor-pointer">
+<span class="material-symbols-outlined">share</span>
+            Share Table
+        </div>
+</footer>
+</body></html>

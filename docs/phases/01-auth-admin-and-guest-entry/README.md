@@ -13,6 +13,7 @@ Room creation and room-code entry are the front door for every other interaction
 ## Prerequisites
 - Phase 00 complete.
 - Read `docs/03-contracts/rest-api.md` and `docs/01-product/user-flows.md`.
+- Review `docs/phases/01-auth-admin-and-guest-entry/ui.md` for the imported join and admin verification references.
 
 ## Touched Packages
 - apps/web

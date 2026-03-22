@@ -13,6 +13,7 @@ Fairness and correctness live or die here; this phase completes the money math.
 ## Prerequisites
 - Phase 05 complete.
 - Read `docs/04-game/settlement-spec.md` end to end.
+- Review `docs/phases/06-settlement-side-pots-and-audit/ui.md` for the settlement reference screen.
 
 ## Touched Packages
 - packages/game-engine

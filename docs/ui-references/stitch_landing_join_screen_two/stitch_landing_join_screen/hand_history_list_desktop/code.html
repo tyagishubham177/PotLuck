@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotLuck Atelier - Hand History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Space_Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface-variant": "#c1c8c2",
+              "error": "#ffb4ab",
+              "surface-bright": "#393939",
+              "primary-fixed": "#b1f0ce",
+              "outline-variant": "#414844",
+              "on-error-container": "#ffdad6",
+              "error-container": "#93000a",
+              "on-tertiary": "#4c2700",
+              "primary": "#95d4b3",
+              "tertiary-fixed": "#ffdcc1",
+              "surface-container-high": "#2a2a2a",
+              "primary-fixed-dim": "#95d4b3",
+              "secondary-container": "#29513f",
+              "secondary-fixed": "#c1ecd4",
+              "tertiary": "#ffb878",
+              "outline": "#8b938d",
+              "on-primary-fixed-variant": "#0e5138",
+              "on-primary-fixed": "#002114",
+              "on-background": "#e5e2e1",
+              "inverse-primary": "#2c694e",
+              "on-error": "#690005",
+              "on-primary-container": "#76b394",
+              "background": "#131313",
+              "secondary-fixed-dim": "#a5d0b9",
+              "on-secondary-fixed": "#002114",
+              "on-secondary-container": "#97c2ab",
+              "surface-container-highest": "#353534",
+              "inverse-on-surface": "#313030",
+              "surface-container": "#201f1f",
+              "on-tertiary-fixed-variant": "#6c3a00",
+              "on-secondary": "#0e3727",
+              "surface-dim": "#131313",
+              "surface-tint": "#95d4b3",
+              "on-secondary-fixed-variant": "#274e3d",
+              "secondary": "#a5d0b9",
+              "inverse-surface": "#e5e2e1",
+              "tertiary-fixed-dim": "#ffb878",
+              "on-tertiary-fixed": "#2e1500",
+              "primary-container": "#00452e",
+              "on-tertiary-container": "#e1954d",
+              "surface-variant": "#353534",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-container-low": "#1c1b1b",
+              "surface": "#131313",
+              "on-surface": "#e5e2e1",
+              "on-primary": "#003824",
+              "tertiary-container": "#5c3100"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #131313; }
+        ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 10px; }
+    </style>
+</head>
+<body class="font-body selection:bg-primary-container selection:text-primary">
+<!-- TopNavBar -->
+<nav class="w-full sticky top-0 z-50 bg-[#131313] dark:bg-[#131313] flex items-center justify-between px-10 py-4 max-w-full">
+<div class="text-xl font-black tracking-tighter text-[#95D4B3]">PotLuck Atelier</div>
+<div class="hidden md:flex items-center space-x-8 font-['Manrope'] tracking-tight font-bold text-[#E5E2E1]">
+<a class="text-[#95D4B3] border-b-2 border-[#95D4B3] pb-1 active:scale-95 transition-transform" href="#">Hand History</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#E5E2E1] active:scale-95 transition-transform" href="#">Live Tables</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#E5E2E1] active:scale-95 transition-transform" href="#">Analytics</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#E5E2E1] active:scale-95 transition-transform" href="#">Bankroll</a>
+</div>
+<div class="flex items-center space-x-6">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-container-highest rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary w-64 border-none" placeholder="Search hands..." type="text"/>
+</div>
+<div class="flex items-center space-x-4">
+<button class="material-symbols-outlined text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors">notifications</button>
+<button class="material-symbols-outlined text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors">settings</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="Close up of a professional poker player profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFtxSvDeCMaohzUrSsOhmwPNdaUrGhgYsIuAVOZzxNomJ-eWLvcvRi3JmW7Ryxsj-to62ru-wP8ZHTZXYFdxPh4sgrfZcvvFlPCKQOQDWqxGwupfN67KOu8KUgltBGGQ24Nlse7A51Hpk6opYgiw6_IGXlMc0IYXLuGc1Dm1-C0lFMDYWscSyCaxtrwjgQT_goOEdcJzQTNis03hLIX5IsKIHjlGyA_LVVOX9-ZiCg69GOGxglFol1jF4pj39qCGnIGrsmsAaaIJk"/>
+</div>
+</div>
+</div>
+</nav>
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 pt-20 bg-[#1C1B1B] dark:bg-[#1C1B1B] border-r-0 z-40 hidden md:block">
+<div class="px-6 mb-10">
+<div class="flex items-center space-x-3 mb-1">
+<div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">token</span>
+</div>
+<div>
+<h2 class="text-xs font-['Space_Grotesk'] uppercase tracking-widest text-[#E5E2E1]">Archives</h2>
+<p class="text-[10px] text-on-surface-variant/50">Hand Registry</p>
+</div>
+</div>
+</div>
+<nav class="flex flex-col h-full space-y-2 px-3">
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg bg-[#95D4B3]/10 text-[#95D4B3] border-r-4 border-[#95D4B3] transition-all duration-300 ease-in-out font-['Space_Grotesk'] uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined text-lg">history</span>
+<span>All Hands</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-[#E5E2E1]/40 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 ease-in-out font-['Space_Grotesk'] uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined text-lg">diamond</span>
+<span>High Stakes</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-[#E5E2E1]/40 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 ease-in-out font-['Space_Grotesk'] uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined text-lg">emoji_events</span>
+<span>Tournaments</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-[#E5E2E1]/40 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 ease-in-out font-['Space_Grotesk'] uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined text-lg">flag</span>
+<span>Flagged</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-[#E5E2E1]/40 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 ease-in-out font-['Space_Grotesk'] uppercase tracking-widest text-xs" href="#">
+<span class="material-symbols-outlined text-lg">ios_share</span>
+<span>Export Logs</span>
+</a>
+<div class="mt-auto pb-24 px-4">
+<button class="w-full py-3 bg-surface-container-high rounded-xl text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-surface-container-highest transition-colors flex items-center justify-center space-x-2">
+<span class="material-symbols-outlined text-sm">download</span>
+<span>Download CSV</span>
+</button>
+</div>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 md:ml-64 p-10 bg-surface">
+<!-- Header Section -->
+<header class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h1 class="text-4xl font-headline font-extrabold tracking-tight text-on-surface mb-2 uppercase italic">Registry Logbook</h1>
+<p class="text-on-surface-variant font-body">Session integrity verified. Reviewing all historical exchanges.</p>
+</div>
+<div class="flex items-center space-x-3">
+<div class="bg-surface-container-low px-4 py-2 rounded-xl border-none">
+<span class="text-[10px] uppercase font-label tracking-widest text-on-surface-variant block mb-1">Total P/L</span>
+<span class="text-xl font-label font-bold text-primary">+$12,482.50</span>
+</div>
+<div class="bg-surface-container-low px-4 py-2 rounded-xl border-none">
+<span class="text-[10px] uppercase font-label tracking-widest text-on-surface-variant block mb-1">Hands Logged</span>
+<span class="text-xl font-label font-bold text-on-surface">14,209</span>
+</div>
+</div>
+</header>
+<!-- Filters & Actions -->
+<div class="flex flex-wrap items-center gap-4 mb-8">
+<button class="bg-surface-container-high px-6 py-2.5 rounded-full text-xs font-label uppercase tracking-widest text-on-surface hover:bg-surface-container-highest transition-colors flex items-center space-x-2">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+<span>Filter Stakes</span>
+</button>
+<button class="bg-surface-container-high px-6 py-2.5 rounded-full text-xs font-label uppercase tracking-widest text-on-surface hover:bg-surface-container-highest transition-colors flex items-center space-x-2">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+<span>Date Range</span>
+</button>
+<button class="bg-surface-container-high px-6 py-2.5 rounded-full text-xs font-label uppercase tracking-widest text-on-surface hover:bg-surface-container-highest transition-colors flex items-center space-x-2">
+<span class="material-symbols-outlined text-sm">group</span>
+<span>Opponent</span>
+</button>
+<div class="ml-auto text-xs font-label text-on-surface-variant/40 flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span>Live Sync Active</span>
+</div>
+</div>
+<!-- Hand Table (Editorial Layout) -->
+<div class="space-y-4">
+<!-- Table Header -->
+<div class="grid grid-cols-12 px-8 py-3 bg-transparent text-[10px] font-label uppercase tracking-widest text-on-surface-variant/60">
+<div class="col-span-1">ID</div>
+<div class="col-span-3">Timestamp</div>
+<div class="col-span-2">Table / Stake</div>
+<div class="col-span-2">Winner</div>
+<div class="col-span-2">Final Pot</div>
+<div class="col-span-2 text-right">Actions</div>
+</div>
+<!-- Hand Row 1 -->
+<div class="group relative bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 rounded-xl p-1">
+<div class="grid grid-cols-12 items-center px-7 py-5">
+<div class="col-span-1 font-label text-xs text-on-surface-variant">#4921</div>
+<div class="col-span-3 flex flex-col">
+<span class="text-sm font-headline font-bold text-on-surface">Oct 24, 2023</span>
+<span class="text-[10px] font-label text-on-surface-variant">22:14:05 UTC</span>
+</div>
+<div class="col-span-2 flex flex-col">
+<span class="text-sm font-headline font-bold text-on-surface">Royal Velvet</span>
+<span class="text-[10px] font-label text-primary">$10 / $20 NLH</span>
+</div>
+<div class="col-span-2 flex items-center space-x-2">
+<div class="w-6 h-6 rounded-full bg-tertiary-container overflow-hidden">
+<img alt="Avatar" class="w-full h-full object-cover" data-alt="Small circular profile avatar of a winning poker player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsbAf3PmXt75NqBUTIB3uqgRHebngpHdLyJ3_LZMadYuCuP8TylPYYiYn1ZKyjjyzB13z9eIn0wDNpaQ5F_rfWmvjwqpRu4u_RnV1A6ebESbwzMaW-5wS-uLyVx2xLeDqzPFq2X4dWHRyDRXYlgxrS26wuhl6nevfEVMWWtGcohQ1HVqZThYKK3fBkUikxzEYpu2i2uohgxnX8KFpKiXxsp5wsn3lTI7crtpa5QP5gEntvut4tPwsGQEItAHditrvgyMZP8RE6Fnw"/>
+</div>
+<span class="text-sm font-bold text-tertiary">TheGildedHand</span>
+</div>
+<div class="col-span-2">
+<span class="text-lg font-label font-bold text-on-surface tracking-tighter">$4,250.00</span>
+</div>
+<div class="col-span-2 text-right space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 rounded-lg bg-surface-container-highest text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-highest text-on-surface hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg">flag</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Hand Row 2 -->
+<div class="group relative bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 rounded-xl p-1">
+<div class="grid grid-cols-12 items-center px-7 py-5">
+<div class="col-span-1 font-label text-xs text-on-surface-variant">#4920</div>
+<div class="col-span-3 flex flex-col">
+<span class="text-sm font-headline font-bold text-on-surface">Oct 24, 2023</span>
+<span class="text-[10px] font-label text-on-surface-variant">22:08:41 UTC</span>
+</div>
+<div class="col-span-2 flex flex-col">
+<span class="text-sm font-headline font-bold text-on-surface">Royal Velvet</span>
+<span class="text-[10px] font-label text-primary">$10 / $20 NLH</span>
+</div>
+<div class="col-span-2 flex items-center space-x-2">
+<div class="w-6 h-6 rounded-full bg-secondary-container overflow-hidden">
+<img alt="Avatar" class="w-full h-full object-cover" data-alt="User personal profile avatar as a winner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVcKgetDf9CWHOfoHrbl9a8ERDRyU-y8iGk4UM9p-5D75hBc4pPUmABqDSh3H4ZdE7FpYcVNSkD8jsYRu3I1Ura0cinsYupjs7wZnVMdDx7pcijfOFAoz8Wfz448kRTDLmiduTLkIzrN6uaAlpqRCFiHfVQ_8MCK8mQkytBayorV2DlWuj7F4Oz8dzPxNWRL2KDn1vz_ptn7Bhd2lrGK8rqy1u461DnwrDaZV0xSEAhZd11QsXUzFjLbFntJ60rlzLy3Dx606KS5U"/>
+</div>
+<span class="text-sm font-bold text-primary">AtelierUser</span>
+</div>
+<div class="col-span-2">
+<span class="text-lg font-label font-bold text-on-surface tracking-tighter">$980.50</span>
+</div>
+<div class="col-span-2 text-right space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 rounded-lg bg-surface-container-highest text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-highest text-on-surface hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg">flag</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Hand Row 3 (High Stakes Context) -->
+<div class="group relative bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 rounded-xl p-1 overflow-hidden">
+<div class="absolute inset-y-0 left-0 w-1 bg-tertiary"></div>
+<div class="grid grid-cols-12 items-center px-7 py-5">
+<div class="col-span-1 font-label text-xs text-on-surface-variant">#4919</div>
+<div class="col-span-3 flex flex-col">
+<span class="text-sm font-headline font-bold text-on-surface">Oct 24, 2023</span>
+<span class="text-[10px] font-label text-on-surface-variant">21:55:12 UTC</span>
+</div>
+<div class="col-span-2 flex flex-col">
+<span class="text-sm font-headline font-bold text-tertiary flex items-center gap-1">
+                                High Roller <span class="material-symbols-outlined text-[10px]" style="font-variation-settings: 'FILL' 1;">diamond</span>
+</span>
+<span class="text-[10px] font-label text-primary">$100 / $200 NLH</span>
+</div>
+<div class="col-span-2 flex items-center space-x-2">
+<div class="w-6 h-6 rounded-full bg-error-container overflow-hidden">
+<img alt="Avatar" class="w-full h-full object-cover" data-alt="Avatar of an opponent in high stakes game" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1XHPVhpBSVk9r139wVbZYf6A4EPnonBlQU-tjXPd7XOIlvr3llh0N4KMXtf9y5A9BXxThdo3beucGImMg79SJS9qxRIvUK-ZCc1wAerC6UhFro-Z_KUM__W9vJJGsidc8QqlhjzWZLgpZ9FQ2Z5ZpHSkimCQXVqeBRGWDDwhvT3FniUynPkZc_y_DCq55ivtzNijv0tL1zVSbpKtaDJcypvg273zNCUJZ0FLL1x1uOaObFj3hKA0amRryFsvk0yZ6wx5kbLUwrAM"/>
+</div>
+<span class="text-sm font-bold text-on-surface">BlindAggro</span>
+</div>
+<div class="col-span-2">
+<span class="text-lg font-label font-bold text-tertiary tracking-tighter">$14,500.00</span>
+</div>
+<div class="col-span-2 text-right space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 rounded-lg bg-surface-container-highest text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-highest text-on-surface hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg">flag</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Hand Row 4 -->
+<div class="group relative bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 rounded-xl p-1">
+<div class="grid grid-cols-12 items-center px-7 py-5">
+<div class="col-span-1 font-label text-xs text-on-surface-variant">#4918</div>
+<div class="col-span-3 flex flex-col">
+<span class="text-sm font-headline font-bold text-on-surface">Oct 24, 2023</span>
+<span class="text-[10px] font-label text-on-surface-variant">21:40:02 UTC</span>
+</div>
+<div class="col-span-2 flex flex-col">
+<span class="text-sm font-headline font-bold text-on-surface">Royal Velvet</span>
+<span class="text-[10px] font-label text-primary">$10 / $20 NLH</span>
+</div>
+<div class="col-span-2 flex items-center space-x-2">
+<div class="w-6 h-6 rounded-full bg-secondary-container overflow-hidden">
+<img alt="Avatar" class="w-full h-full object-cover" data-alt="Winner profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDI1nlyl0cIO1ZS1wUMCOfHy-V6ea4_fIzVNNlaWj8jomyLgFWeXicCt4IPybR5fYmU5ElUhOZB9UkI2Z4Xurbhgfdo5_WYIkw_yd97DNTYRCMjFWTXF103LEueQ4widSlLh6nU2jQC9ltL0Gt8wanH0psl3kPGmBMAj52mj670IZqkM8xPo0zK6c5UUSjXwzdssygORZz4xx0FJ5qw5LGCQpqgdZggVVH9b2IUZdk2lv3-fmNLYU07nbRkE3OrCW3UJHoxphqFUlg"/>
+</div>
+<span class="text-sm font-bold text-primary">AtelierUser</span>
+</div>
+<div class="col-span-2">
+<span class="text-lg font-label font-bold text-on-surface tracking-tighter">$1,120.00</span>
+</div>
+<div class="col-span-2 text-right space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 rounded-lg bg-surface-container-highest text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-highest text-on-surface hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg">flag</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination (Minimalist) -->
+<div class="mt-12 flex items-center justify-between">
+<div class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    Showing 1-25 of 14,209 hands
+                </div>
+<div class="flex items-center space-x-2">
+<button class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-lg">chevron_left</span>
+</button>
+<div class="px-4 py-2 bg-primary/10 rounded-lg">
+<span class="text-xs font-label font-bold text-primary">01</span>
+</div>
+<button class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+<!-- Right Side Detail Preview (Bento-style Overlay) -->
+<div class="fixed top-24 right-10 w-96 hidden lg:block">
+<div class="bg-surface-container-low rounded-3xl p-6 border-none shadow-2xl backdrop-blur-xl border border-outline-variant/10">
+<div class="flex items-center justify-between mb-8">
+<h3 class="text-xs font-label uppercase tracking-widest text-on-surface-variant">Quick Insight</h3>
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">insights</span>
+</div>
+<div class="space-y-6">
+<div class="bg-surface-container-high p-5 rounded-2xl">
+<p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Largest Pot Today</p>
+<div class="flex items-baseline space-x-2">
+<span class="text-3xl font-headline font-black text-on-surface">$24,902</span>
+<span class="text-xs font-label text-primary font-bold">+12% vs Avg</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-high p-4 rounded-2xl">
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant block mb-1">VPIP</span>
+<span class="text-xl font-label font-bold text-on-surface">24.5%</span>
+</div>
+<div class="bg-surface-container-high p-4 rounded-2xl">
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant block mb-1">PFR</span>
+<span class="text-xl font-label font-bold text-on-surface">18.2%</span>
+</div>
+</div>
+<div class="pt-4">
+<p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-4">Win Distribution</p>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="h-full bg-primary w-[65%]"></div>
+<div class="h-full bg-tertiary w-[25%]"></div>
+<div class="h-full bg-error w-[10%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-[8px] font-label uppercase tracking-widest text-on-surface-variant/40">
+<span>Showdown</span>
+<span>Folds</span>
+<span>Lost</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

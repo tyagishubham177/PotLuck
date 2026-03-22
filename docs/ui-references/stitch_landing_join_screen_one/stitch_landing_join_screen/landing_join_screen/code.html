@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotLuck | Join the Private Atelier</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space_Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "inverse-surface": "#e0e3e8",
+              "on-primary-container": "#76b394",
+              "primary-fixed": "#b1f0ce",
+              "secondary-fixed": "#ffdcbd",
+              "on-error": "#690005",
+              "on-background": "#e0e3e8",
+              "secondary": "#f0bd8b",
+              "on-tertiary": "#2e3132",
+              "on-error-container": "#ffdad6",
+              "surface-variant": "#313539",
+              "on-tertiary-fixed-variant": "#454748",
+              "surface-container-lowest": "#0b0f12",
+              "error-container": "#93000a",
+              "on-surface": "#e0e3e8",
+              "surface-dim": "#101418",
+              "primary-container": "#00452e",
+              "on-surface-variant": "#c1c8c2",
+              "surface-tint": "#95d4b3",
+              "on-tertiary-container": "#a5a6a7",
+              "inverse-on-surface": "#2d3135",
+              "surface-container": "#1c2024",
+              "surface-container-low": "#181c20",
+              "on-primary": "#003824",
+              "on-secondary-container": "#e1af7e",
+              "surface": "#101418",
+              "surface-bright": "#363a3e",
+              "on-secondary-fixed": "#2c1600",
+              "outline": "#8b938d",
+              "primary-fixed-dim": "#95d4b3",
+              "on-primary-fixed": "#002114",
+              "tertiary-fixed-dim": "#c5c7c8",
+              "background": "#101418",
+              "tertiary-container": "#393c3d",
+              "on-primary-fixed-variant": "#0e5138",
+              "on-secondary-fixed-variant": "#623f18",
+              "secondary-fixed-dim": "#f0bd8b",
+              "primary": "#95d4b3",
+              "tertiary": "#c5c7c8",
+              "secondary-container": "#65411a",
+              "surface-container-highest": "#313539",
+              "on-tertiary-fixed": "#191c1d",
+              "inverse-primary": "#2c694e",
+              "tertiary-fixed": "#e1e3e4",
+              "on-secondary": "#482904",
+              "outline-variant": "#414844",
+              "error": "#ffb4ab",
+              "surface-container-high": "#262a2e"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #101418;
+            background-image: radial-gradient(circle at 50% -20%, #00452e 0%, #101418 80%);
+        }
+        .glass-panel {
+            background: rgba(28, 32, 36, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="font-body text-on-background min-h-screen flex flex-col items-center justify-center p-6">
+<header class="fixed top-0 left-0 flex justify-between items-center w-full px-8 py-4 max-w-full bg-[#181c20] border-none font-['Manrope'] tracking-tight antialiased">
+<div class="text-2xl font-bold text-[#95d4b3] tracking-tighter">PotLuck</div>
+<div class="hidden md:flex gap-8">
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Lobby</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Tables</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">History</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Club Settings</a>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-[#181c20] p-2 rounded-full transition-all">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-[#181c20] p-2 rounded-full transition-all">settings</span>
+</div>
+</header>
+<main class="w-full max-w-[480px] mt-12 mb-8">
+<div class="text-center mb-10">
+<h1 class="font-headline text-4xl font-extrabold text-on-background tracking-tighter mb-3">PotLuck</h1>
+<p class="font-body text-on-surface-variant text-sm tracking-wide">High-stakes logic in a bespoke digital atelier.</p>
+</div>
+<div class="glass-panel p-10 rounded-xl shadow-2xl border border-[#414844]/15">
+<div class="space-y-8">
+<div class="group">
+<label class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant block mb-3 ml-1">Room Access Code</label>
+<input class="w-full bg-surface-container-highest border-none text-center text-4xl font-label tracking-[0.5em] text-secondary py-6 rounded-lg focus:ring-1 focus:ring-primary-fixed-dim placeholder:opacity-20 transition-all uppercase" maxlength="6" placeholder="000000" type="text"/>
+</div>
+<div class="group">
+<label class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant block mb-3 ml-1">Member Nickname</label>
+<input class="w-full bg-surface-container-highest border-none px-6 py-4 rounded-lg focus:ring-1 focus:ring-primary-fixed-dim text-on-surface placeholder:text-outline/40" placeholder="Enter display name" type="text"/>
+</div>
+<div class="flex items-center justify-between py-2 px-1">
+<div class="flex flex-col">
+<span class="text-sm font-medium text-on-surface">Spectate Only</span>
+<span class="text-[10px] text-on-surface-variant uppercase tracking-wider">Join without a seat</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-outline after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+<div class="pt-4 space-y-4">
+<button class="w-full bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-headline font-bold py-5 rounded-lg text-lg transition-all active:scale-[0.98]">
+                        Join by Code
+                    </button>
+<button class="w-full bg-transparent border border-outline-variant/30 hover:bg-surface-container-high text-on-surface-variant font-headline font-semibold py-4 rounded-lg transition-all active:scale-[0.98]">
+                        Create Room
+                    </button>
+</div>
+</div>
+</div>
+<div class="mt-8 px-2 flex items-center justify-center gap-3">
+<span class="material-symbols-outlined text-secondary-fixed-dim text-sm" style="font-variation-settings: 'FILL' 1;">history</span>
+<p class="font-body text-xs text-on-surface-variant">
+                Returning Admin? <a class="text-primary-fixed-dim hover:underline underline-offset-4 decoration-primary-fixed-dim/30" href="#">Resume "The Private Atelier" (HD-8829)</a>
+</p>
+</div>
+</main>
+<div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+<div class="bg-surface-container p-6 rounded-lg border border-[#414844]/05 flex flex-col gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">lock</span>
+<h3 class="font-headline font-bold text-sm text-on-surface">End-to-End Privacy</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">Encrypted hand history and private club architecture.</p>
+</div>
+<div class="bg-surface-container p-6 rounded-lg border border-[#414844]/05 flex flex-col gap-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">speed</span>
+<h3 class="font-headline font-bold text-sm text-on-surface">Stable Engine</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">24ms average latency globally. Real-time chip reconciliation.</p>
+</div>
+<div class="bg-surface-container p-6 rounded-lg border border-[#414844]/05 flex flex-col gap-3">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-variation-settings: 'FILL' 1;">groups</span>
+<h3 class="font-headline font-bold text-sm text-on-surface">Club Logic</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">Sophisticated hosting tools for private table managers.</p>
+</div>
+</div>
+<footer class="fixed bottom-0 w-full h-8 flex justify-between items-center px-6 bg-[#101418] border-t border-[#414844]/15 font-['Space_Grotesk'] text-[10px] tabular-nums">
+<div class="text-[#313539]">© 2024 PotLuck Private Atelier. Hand ID: 8829-XJ92</div>
+<div class="flex gap-4">
+<span class="text-[#95d4b3]">Network: Stable</span>
+<span class="text-[#313539]">Latency: 24ms</span>
+<a class="text-[#313539] hover:text-white transition-all" href="#">Terms of Service</a>
+</div>
+</footer>
+</body></html>

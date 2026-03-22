@@ -23,6 +23,7 @@
 - `03-contracts/realtime-events.md`
 - `04-game/settlement-spec.md`
 - `05-experience/screen-specs.md`
+- `05-experience/design.md`
 - `phases/00-foundation/implementation.md`
 
 ## Dependency Graph
@@ -59,3 +60,8 @@ flowchart TD
 - Repo status: docs scaffolded, no executable code yet.
 - Current implementation starting point: `phases/00-foundation/`.
 - Branch naming convention: `codex/<task-name>`.
+
+## UI References
+- Imported UI kits live in `ui-references/`.
+- Use `ui-references/README.md` as the index before implementing or reshaping screen-level UI.
+- Phase-specific UI notes can live beside the phase pack as `ui.md` when visual references materially affect execution.

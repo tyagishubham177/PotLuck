@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-low": "#181c20",
+              "surface-dim": "#101418",
+              "background": "#101418",
+              "on-secondary-fixed-variant": "#623f18",
+              "secondary-container": "#65411a",
+              "inverse-primary": "#2c694e",
+              "on-secondary": "#482904",
+              "tertiary-fixed": "#e1e3e4",
+              "on-secondary-container": "#e1af7e",
+              "tertiary-fixed-dim": "#c5c7c8",
+              "primary": "#95d4b3",
+              "on-primary-fixed": "#002114",
+              "on-error": "#690005",
+              "tertiary": "#c5c7c8",
+              "secondary-fixed-dim": "#f0bd8b",
+              "outline": "#8b938d",
+              "on-tertiary-fixed-variant": "#454748",
+              "on-surface": "#e0e3e8",
+              "surface-container-lowest": "#0b0f12",
+              "on-secondary-fixed": "#2c1600",
+              "on-primary-fixed-variant": "#0e5138",
+              "on-background": "#e0e3e8",
+              "surface-bright": "#363a3e",
+              "primary-fixed-dim": "#95d4b3",
+              "on-tertiary": "#2e3132",
+              "surface-container": "#1c2024",
+              "surface-container-highest": "#313539",
+              "outline-variant": "#414844",
+              "inverse-on-surface": "#2d3135",
+              "surface-tint": "#95d4b3",
+              "on-surface-variant": "#c1c8c2",
+              "error-container": "#93000a",
+              "secondary": "#f0bd8b",
+              "secondary-fixed": "#ffdcbd",
+              "on-tertiary-container": "#a5a6a7",
+              "on-primary-container": "#76b394",
+              "tertiary-container": "#393c3d",
+              "surface-variant": "#313539",
+              "on-error-container": "#ffdad6",
+              "primary-container": "#00452e",
+              "error": "#ffb4ab",
+              "primary-fixed": "#b1f0ce",
+              "surface-container-high": "#262a2e",
+              "on-tertiary-fixed": "#191c1d",
+              "on-primary": "#003824",
+              "surface": "#101418",
+              "inverse-surface": "#e0e3e8"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .poker-table-shape {
+            clip-path: ellipse(50% 45% at 50% 50%);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(28, 32, 36, 0.6);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary/30 min-h-screen overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#101418] dark:bg-[#101418]">
+<div class="flex items-center gap-4">
+<span class="font-['Manrope'] font-extrabold text-xl text-[#95d4b3] tracking-tighter">PotLuck</span>
+<div class="h-4 w-px bg-outline-variant/30 mx-2"></div>
+<div class="flex gap-6">
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest text-[#f0bd8b]">Lobby</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest text-[#313539] hover:text-[#95d4b3] transition-colors cursor-pointer">Rooms</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest text-[#313539] hover:text-[#95d4b3] transition-colors cursor-pointer">History</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-[#181c20] transition-colors active:scale-95 duration-100">
+<span class="material-symbols-outlined text-[#95d4b3]" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-label text-sm font-bold tracking-tight">12,450.00</span>
+</button>
+<button class="p-2 rounded-full hover:bg-[#181c20] transition-colors active:scale-95 duration-100">
+<span class="material-symbols-outlined text-[#95d4b3]" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center border border-outline-variant/20 overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="Minimalist avatar of a poker player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9CzFsl-11e26jO9btfkCgtSn_-aYegqZS67h1CRQMybVcB0CCgR4GMBqnEgTTnQniEsulnU2qugSzZ4BHNlc4nWW2anpY6gS8_Yy374AQvraTZtNMJVYTRbhTGdQ_Ga9i_D5U57QGMHrI9-mhhmpIFuBso1zfc_Jv9GenqpWMLfbL7PESa5E80u0e5dqIOEJDzmiQqT3FFw1902gZUJiYEhAZYnTy2Sdm2FDKPR9Urxzu4_qAmlyw1TIrREwCKZ5lAmMpAcsk7GY"/>
+</div>
+</div>
+</header>
+<main class="pt-16 h-screen flex relative">
+<!-- Left Sidebar: Lobby Players -->
+<aside class="w-72 border-r border-outline-variant/10 bg-surface-dim p-6 flex flex-col gap-6">
+<div class="flex flex-col gap-1">
+<h3 class="font-headline font-bold text-on-surface">Waiting Room</h3>
+<p class="font-body text-xs text-on-surface-variant">4 players in lobby</p>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Waiting Player Item -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low/50 hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/20 overflow-hidden">
+<img alt="Player" class="w-full h-full" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsLpH260QjrXXbwN6HVTbPQ-cFlBQ4EUfJxEvYK0AyI5JfboAisbM6Or2qm3SpWVg0cXlccqcu5KtTbKmfbcFvnmR4xH8svfZrPyKWQUyVSsrBbd1Pbl-bQHZtcCL_8R0-tcbUWLBhZ1T26t7UtlcDfJ2FHTna-l5GNWGDb5Y084-snk_MrVWWmM8gA7wjsyBPDT3s0oI37OkFgNfCsx0popn_d52Ny2h_BUI9kamGLXKYs1L58ni40_JN015KAuXnTX9_qzUBpbc"/>
+</div>
+<div>
+<p class="font-body text-sm font-medium">JulianR_</p>
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Ready</span>
+</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-lg" data-icon="chat_bubble">chat_bubble</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/20 overflow-hidden">
+<img alt="Player" class="w-full h-full" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJhdURboWKIH5qb07-9rNefn4qQszMf_QokatUnCD5KgDAojLwPLJcSH8j6XgzhObHOwM8GmqFTe1l-NThF5Bg3z9EdFbe2jqfvqxbXEoxE3rNFfSyfvTuCv1QT4DHNj26r6LqFAYQlE-b7ax2UtGJiHlABRCsZwIul0MGLp25aoziyECMlzHvnNByxsRCJLk9KNJsdrvBALHmbLBU-37FD2dxJHTpU2WROadc6d3ZlQlqXAvqTYJpppBf-IgCi_9AiyEqN1spqRo"/>
+</div>
+<div>
+<p class="font-body text-sm font-medium">Sofi_Ace</p>
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Away</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/20 overflow-hidden">
+<img alt="Player" class="w-full h-full" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBw6kiXoJybAQC4Koixe6-jkyOQzB-AssYuCD6QpzqEAhwTHaHHXYhwCNUDbFoQ7IodcFzHJIOnN_w9aREX-dRgE8zMOaUkZNtieUa6XUykR0c6h2Wz3ed5tRILxCSklkaXRHhTHQDANQxaGJem7Cnv_Uw-lVodOtcww3uE-oRRg6eAJI9QLKGsVzVMlRNf2WvKeEKqeMyBV2t2qCCWgkJ3qoA47q5C09E60uL_mSaAEJIEUXZh56jyKA7RfB-U_eGhtFN6sNL6JG0"/>
+</div>
+<div>
+<p class="font-body text-sm font-medium">DarkHorse</p>
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Ready</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/20 overflow-hidden">
+<img alt="Player" class="w-full h-full" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChjenqJy_ynIKyLEQqGG62T0hU3bOvLKb5YQUd5-bjuaJg8LBInZVPd1O_3WJPQfHphEfmSHJ-omXMa44ZkuWgME0M2QlP1c3YTU2gK4QCyr-M8VXCgZ44uPjWr-y2aDm2ahwm7kRslBwDd2dO0GAf7Nr-6a288V35QESEAgG3cAgJQwK2G1DF_QrjFrmDCua8ZdRm2ouWWiReodOw1u1ZER8eFCvtaXD49gvmzSZqp9nXoNFBvyZTVoFr0mE-t0xf7gQ5B1WKCeU"/>
+</div>
+<div>
+<p class="font-body text-sm font-medium">Vesper_88</p>
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Ready</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Center Stage: Poker Table -->
+<section class="flex-1 flex flex-col items-center justify-center p-12 bg-surface-dim relative">
+<!-- Table Structure -->
+<div class="relative w-full max-w-4xl aspect-[2/1] flex items-center justify-center">
+<!-- Shadow/Glow -->
+<div class="absolute inset-0 bg-primary/5 blur-[120px] rounded-full"></div>
+<!-- Main Table Outer Rail -->
+<div class="absolute inset-0 bg-[#1c2024] rounded-[180px] shadow-2xl border-[12px] border-[#0b0f12]"></div>
+<!-- Inner Felt -->
+<div class="absolute inset-[16px] bg-gradient-to-b from-[#00452e] to-[#002d1e] rounded-[164px] border border-primary/10 flex flex-col items-center justify-center">
+<!-- Table Branding -->
+<div class="opacity-20 flex flex-col items-center">
+<span class="font-headline font-black text-5xl tracking-tighter text-on-primary select-none">PotLuck</span>
+<span class="font-label text-xs uppercase tracking-[0.4em] mt-2 text-on-primary-container">Premium Atelier</span>
+</div>
+<!-- Pot Display (Central) -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-primary/60">Blinds</span>
+<span class="font-label text-2xl font-bold text-secondary">50/100</span>
+</div>
+</div>
+<!-- Seat Grid (9-max) -->
+<!-- Positioned absolute around the table circumference -->
+<!-- Seat 1: Top Right (Reserved) -->
+<div class="absolute -top-10 right-1/4 translate-x-1/2">
+<div class="w-32 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-full bg-surface-container-high border-2 border-dashed border-secondary/40 flex items-center justify-center transition-all">
+<span class="font-label text-xs font-bold text-secondary">0:42</span>
+</div>
+<div class="px-3 py-1 bg-secondary-container/80 backdrop-blur-md rounded-full border border-secondary/20">
+<span class="font-body text-[10px] font-semibold text-secondary uppercase tracking-wider">Reserved</span>
+</div>
+</div>
+</div>
+<!-- Seat 2: Mid Right (Occupied) -->
+<div class="absolute top-1/2 -translate-y-1/2 -right-16 translate-x-1/2">
+<div class="w-32 flex flex-col items-center gap-2">
+<div class="w-16 h-16 rounded-full bg-surface-container-high border-2 border-primary overflow-hidden shadow-lg">
+<img alt="Player" class="w-full h-full" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBddudcexWBY0q6reXqx2VpnqmC5Bz0W33rGbOQuUpaW_np_th7Z0blfi3zkHt4r04azIkkgzAx-x8ol89ASDlShhXePDu4D-_NMC6J3cIWJlIoNnqSy9DIHcOAKVu-M32Sqf-qUrigBh0GhBwj8K3hOPE0GMCLmRfCLunv_fkZyzBhhSyUu6ailbZE8cNVA3It7uFFtXhgl1C9oFlavlIYucRj03cW6euo9c3V23GKWyroPw7gCGG34aPgQTm3DLzrkWI5u5EDgjA"/>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-body text-xs font-bold text-on-surface">Alex_Vegas</span>
+<span class="font-label text-sm font-bold text-primary">14,200</span>
+</div>
+</div>
+</div>
+<!-- Seat 3: Bottom Right (Available) -->
+<div class="absolute -bottom-10 right-1/4 translate-x-1/2">
+<div class="w-32 flex flex-col items-center gap-2 cursor-pointer group">
+<div class="w-14 h-14 rounded-full bg-surface-container-high/40 border border-outline-variant/30 flex items-center justify-center transition-all group-hover:bg-primary/10 group-hover:border-primary/50">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary" data-icon="add">add</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors">Available</span>
+</div>
+</div>
+<!-- Seat 4: Bottom Center (Available) -->
+<div class="absolute -bottom-20 left-1/2 -translate-x-1/2">
+<div class="w-32 flex flex-col items-center gap-2 cursor-pointer group">
+<div class="w-16 h-16 rounded-full bg-surface-container-high/40 border border-outline-variant/30 flex items-center justify-center transition-all group-hover:bg-primary/10 group-hover:border-primary/50">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary" data-icon="add">add</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors">Seat 4</span>
+</div>
+</div>
+<!-- Seat 5: Bottom Left (Available) -->
+<div class="absolute -bottom-10 left-1/4 -translate-x-1/2">
+<div class="w-32 flex flex-col items-center gap-2 cursor-pointer group">
+<div class="w-14 h-14 rounded-full bg-surface-container-high/40 border border-outline-variant/30 flex items-center justify-center transition-all group-hover:bg-primary/10 group-hover:border-primary/50">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary" data-icon="add">add</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors">Available</span>
+</div>
+</div>
+<!-- Seat 6: Mid Left (Available) -->
+<div class="absolute top-1/2 -translate-y-1/2 -left-16 -translate-x-1/2">
+<div class="w-32 flex flex-col items-center gap-2 cursor-pointer group">
+<div class="w-14 h-14 rounded-full bg-surface-container-high/40 border border-outline-variant/30 flex items-center justify-center transition-all group-hover:bg-primary/10 group-hover:border-primary/50">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary" data-icon="add">add</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors">Available</span>
+</div>
+</div>
+<!-- Seat 7: Top Left (Occupied) -->
+<div class="absolute -top-10 left-1/4 -translate-x-1/2">
+<div class="w-32 flex flex-col items-center gap-2">
+<div class="w-14 h-14 rounded-full bg-surface-container-high border-2 border-primary overflow-hidden shadow-lg">
+<img alt="Player" class="w-full h-full" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQ4RF3dzH6TRYRNfhLlzUhNU1Trmnns8R7ukMC--Uff8my5wQqQYkIRMsoY7OIyCDmjmSiTJSUlvgFYtZ6ExQ4KJR42VvQH0vApBxp1s0YBHZ5_r8bi_2_W2bhOCe_tnbZAK3G1FFW0ut2Eua_bhzy-KGHxfuR-UM6k1OwPo4HB_yEtJrqjTseIRjEb6YROibtyE6lW5zalZ4BfU1LLYuLHkBDY-C8rwTKrb1u3vDAhRpsJEuebrsGFB4mqcfmLKhrD3mWBZ8zr_U"/>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-body text-[10px] font-bold text-on-surface">QueenOfBluff</span>
+<span class="font-label text-xs font-bold text-primary">8,500</span>
+</div>
+</div>
+</div>
+<!-- Seat 8: Top Center (Available) -->
+<div class="absolute -top-20 left-1/2 -translate-x-1/2">
+<div class="w-32 flex flex-col items-center gap-2 cursor-pointer group">
+<div class="w-14 h-14 rounded-full bg-surface-container-high/40 border border-outline-variant/30 flex items-center justify-center transition-all group-hover:bg-primary/10 group-hover:border-primary/50">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary" data-icon="add">add</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant group-hover:text-on-surface transition-colors">Available</span>
+</div>
+</div>
+<!-- Seat 9: Extra Top Offset -->
+<div class="absolute top-4 left-1/2 -translate-x-1/2 -translate-y-full">
+<!-- Spacer for the 9th seat logic -->
+</div>
+</div>
+<!-- Interaction Bar -->
+<div class="mt-24 flex flex-col items-center gap-6">
+<p class="font-body text-sm text-on-surface-variant max-w-sm text-center">Wait for more players to join. Minimum of 3 players required to initiate high-stakes protocol.</p>
+<div class="flex gap-4">
+<button class="px-8 py-3 rounded-full bg-surface-container-high text-on-surface font-body font-bold text-sm tracking-wide transition-all border border-outline-variant/20 hover:bg-surface-bright active:scale-95">
+                        Spectate Table
+                    </button>
+<button class="px-10 py-3 rounded-full bg-surface-container-highest text-on-surface-variant/40 font-body font-bold text-sm tracking-wide cursor-not-allowed border border-outline-variant/10" disabled="">
+                        Start Game
+                    </button>
+</div>
+</div>
+</section>
+<!-- Right Sidebar: Table Rules -->
+<aside class="w-80 border-l border-outline-variant/10 bg-surface-dim p-6 flex flex-col gap-8">
+<div class="flex flex-col gap-4">
+<h3 class="font-headline font-bold text-on-surface text-lg">Table Rules</h3>
+<div class="flex flex-col gap-1 p-4 rounded-xl bg-surface-container-low/50 border border-outline-variant/10">
+<span class="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant">Stake Level</span>
+<span class="font-headline font-bold text-primary">No Limit Hold'em</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col gap-1 p-3 rounded-xl bg-surface-container-low/50 border border-outline-variant/10">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Blinds</span>
+<span class="font-label font-bold text-on-surface">50 / 100</span>
+</div>
+<div class="flex flex-col gap-1 p-3 rounded-xl bg-surface-container-low/50 border border-outline-variant/10">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Ante</span>
+<span class="font-label font-bold text-on-surface">10</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 p-4 rounded-xl bg-surface-container-low/50 border border-outline-variant/10">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Min Buy-in</span>
+<div class="flex items-baseline gap-1">
+<span class="font-label font-bold text-secondary text-lg">4,000.00</span>
+<span class="font-label text-[10px] text-on-surface-variant">CREDITS</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 p-4 rounded-xl bg-surface-container-low/50 border border-outline-variant/10">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Game Speed</span>
+<div class="flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="bolt">bolt</span>
+<span class="font-body text-sm font-medium text-on-surface">Turbo (15s Turn)</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant">Recent Activity</h4>
+<div class="space-y-4">
+<div class="flex gap-3">
+<div class="w-1 h-8 bg-primary/20 rounded-full"></div>
+<p class="font-body text-xs leading-relaxed">
+<span class="text-on-surface font-semibold">Alex_Vegas</span> joined the table at Seat 2.
+                        </p>
+</div>
+<div class="flex gap-3">
+<div class="w-1 h-8 bg-secondary/20 rounded-full"></div>
+<p class="font-body text-xs leading-relaxed">
+<span class="text-on-surface font-semibold">QueenOfBluff</span> joined the table at Seat 7.
+                        </p>
+</div>
+<div class="flex gap-3">
+<div class="w-1 h-8 bg-outline-variant/20 rounded-full"></div>
+<p class="font-body text-xs leading-relaxed text-on-surface-variant">
+                            Waiting for dealer to authorize session...
+                        </p>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- BottomNavBar (Mobile Hidden) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-[#101418]/80 backdrop-blur-xl border-t border-[#414844]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.4)] rounded-t-xl">
+<div class="flex flex-col items-center justify-center bg-[#00452e] text-[#95d4b3] rounded-xl px-4 py-1">
+<span class="material-symbols-outlined" data-icon="style">style</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Lobby</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#313539] px-4 py-1 hover:text-[#95d4b3]">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Rooms</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#313539] px-4 py-1 hover:text-[#95d4b3]">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#313539] px-4 py-1 hover:text-[#95d4b3]">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Profile</span>
+</div>
+</nav>
+</body></html>
