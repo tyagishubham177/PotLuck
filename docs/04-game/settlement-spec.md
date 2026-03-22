@@ -6,7 +6,6 @@
 - `playerState[playerId]`: active, folded, or all-in at betting close.
 - `handRank[playerId]`: evaluated showdown rank for eligible non-folded players.
 - `oddChipRule`: room-level odd-chip rule.
-- `rakeConfig`: enabled flag, percent, cap, mode.
 
 ## Deterministic Side-Pot Algorithm
 1. Gather all players with `contributionTotal > 0`.
@@ -23,10 +22,9 @@
    - eligible winners are contributors for that segment who have not folded
    - folded players still count toward contributed amount but cannot win
 6. Evaluate each pot independently using the best showdown rank among eligible players.
-7. Apply rake to each eligible pot before winner splitting, subject to the configured per-hand cap.
-8. Split the remaining pot evenly among winners.
-9. If the split leaves remainder chips, distribute odd chips according to `LEFT_OF_BUTTON`.
-10. Write settlement records and matching ledger entries transactionally.
+7. Split each pot evenly among winners.
+8. If the split leaves remainder chips, distribute odd chips according to `LEFT_OF_BUTTON`.
+9. Write settlement records and matching ledger entries transactionally.
 
 ## Payout Order
 - Build pots from smallest cap to largest cap.
@@ -61,7 +59,7 @@
 | --- | --- | --- |
 | Ava | 0 | -50 |
 | Ben | 205 | +85 |
-| Cy | 265 | +65 |
+| Cy | 365 | +165 |
 | Dia | 0 | -200 |
 
 ## Worked Example 2: Folded Contributor And Odd Chip

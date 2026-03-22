@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  createClientSnapshotFixture,
+  createHandTranscriptFixture,
+  createLedgerEntryFixture,
+  createRoomBalanceSummaryFixture,
+  createRoomRealtimeSnapshotFixture,
+  createSyntheticRoomSoakThresholds
+} from "../src/index.js";
+
+describe("test kit fixture", () => {
+  it("creates a contract-valid client snapshot", () => {
+    const fixture = createClientSnapshotFixture();
+
+    expect(fixture.status).toBe("foundation-ready");
+  });
+
+  it("creates ledger fixtures for chip-accounting tests", () => {
+    const ledgerEntry = createLedgerEntryFixture();
+    const balance = createRoomBalanceSummaryFixture();
+
+    expect(ledgerEntry.type).toBe("BUY_IN");
+    expect(balance.netBalance).toBe(5000);
+  });
+
+  it("creates a realtime room snapshot fixture", () => {
+    const snapshot = createRoomRealtimeSnapshotFixture();
+
+    expect(snapshot.roomEventNo).toBe(4);
+    expect(snapshot.participants[0]?.isReady).toBe(true);
+  });
+
+  it("creates a transcript fixture for settlement and history tests", () => {
+    const transcript = createHandTranscriptFixture();
+
+    expect(transcript.settlement.awardedByFold).toBe(true);
+    expect(transcript.ledgerEntries[0]?.type).toBe("HAND_PAYOUT");
+  });
+
+  it("creates default synthetic soak thresholds with overrides", () => {
+    const thresholds = createSyntheticRoomSoakThresholds({
+      maxActionAckP95Ms: 250
+    });
+
+    expect(thresholds.maxActionAckP95Ms).toBe(250);
+    expect(thresholds.minReconnectSuccessRate).toBe(0.95);
+  });
+});

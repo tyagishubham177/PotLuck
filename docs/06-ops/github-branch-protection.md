@@ -23,11 +23,11 @@
 Apply these rules to `master` in GitHub repository settings.
 
 1. Require a pull request before merging.
-2. Require at least 1 approval before merging.
+2. Do not require approving reviews for merge if you are the only active developer.
 3. Require conversation resolution before merging.
 4. Require status checks to pass before merging.
-5. Mark `PR Safety` as a required status check.
-6. Restrict pushes that bypass pull requests if your plan allows it.
+5. Mark `PR Safety` and `verify` as required status checks.
+6. Leave admin enforcement off so you can bypass protection when a non-critical issue should not block you.
 7. Disable force pushes.
 8. Disable branch deletion.
 9. Prefer linear history if you want a cleaner rollback trail.
@@ -39,6 +39,7 @@ Apply these rules to `master` in GitHub repository settings.
 1. Open GitHub repository settings.
 2. Configure a branch protection rule or ruleset for `master`.
 3. Confirm `PR Safety` appears in the required checks list after the first workflow run.
-4. Attempt a test pull request from a badly named branch and confirm it fails.
-5. Confirm `Rollback Tags` can be run manually from the Actions tab.
+4. Confirm approvals are not required and that admins can still merge when an optional issue should be bypassed.
+5. Attempt a test pull request from a badly named branch and confirm it fails.
+6. Confirm `Rollback Tags` can be run manually from the Actions tab.
 

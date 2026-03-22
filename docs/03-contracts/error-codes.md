@@ -5,22 +5,20 @@
 | --- | --- | --- | --- |
 | `ERR_ROOM_NOT_FOUND` | Room code invalid or expired | `404` | No |
 | `ERR_ROOM_CLOSED` | Room exists but is no longer open for joins or play | `409` | No |
-| `ERR_ROOM_FULL` | No seats and queue disabled/full | `409` | Maybe |
-| `ERR_QUEUE_FULL` | Waiting list has reached its configured limit | `409` | Maybe |
+| `ERR_ROOM_FULL` | No seats are currently available | `409` | Maybe |
 | `ERR_SEAT_TAKEN` | Seat already reserved or occupied | `409` | Maybe |
 | `ERR_SEAT_LOCKED` | Seat change blocked during hand | `409` | No |
 | `ERR_ALREADY_SEATED` | Session already owns a seat in the room | `409` | No |
 | `ERR_JOIN_NAME_CONFLICT` | Nickname already active in room | `409` | Yes |
-| `ERR_SPECTATOR_DISABLED` | Room does not allow spectator entry | `403` | No |
 
 ## Auth And Permissions
 | Code | Meaning | HTTP | Retry |
 | --- | --- | --- | --- |
 | `ERR_AUTH_REQUIRED` | Missing or expired session | `401` | Yes |
-| `ERR_OTP_INVALID` | OTP incorrect | `401` | Yes |
-| `ERR_OTP_EXPIRED` | OTP no longer valid | `401` | Yes |
-| `ERR_RATE_LIMITED` | Too many OTP or auth attempts | `429` | Yes |
+| `ERR_PASSWORD_INVALID` | Admin password or PIN is incorrect | `401` | Yes |
+| `ERR_RATE_LIMITED` | Too many auth attempts | `429` | Yes |
 | `ERR_FORBIDDEN` | Role lacks permission | `403` | No |
+| `ERR_INTERNAL` | Unexpected server fault before a typed domain error was produced | `500` | Maybe |
 
 ## Gameplay
 | Code | Meaning | HTTP | Retry |
@@ -38,6 +36,7 @@
 | `ERR_MIN_BUYIN` | Amount below room minimum | `422` | Yes |
 | `ERR_MAX_BUYIN` | Amount above room maximum | `422` | Yes |
 | `ERR_TOPUP_DURING_HAND` | Top-up attempted while hand active | `409` | Later |
+| `ERR_TOPUP_DISABLED` | Room does not allow top-ups | `409` | No |
 | `ERR_REBUY_DISABLED` | Room does not allow rebuy in current state | `409` | No |
 | `ERR_LEDGER_COMMIT_FAILED` | Durable write failed | `503` | Maybe |
 

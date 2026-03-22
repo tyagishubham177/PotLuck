@@ -13,8 +13,8 @@
 ## Server To Client Events
 | Event | Audience | Payload |
 | --- | --- | --- |
-| `ROOM_SNAPSHOT` | player/spectator | full current view |
-| `ROOM_DIFF` | player/spectator | incremental public state changes |
+| `ROOM_SNAPSHOT` | room member | full current view |
+| `ROOM_DIFF` | room member | incremental public state changes |
 | `PRIVATE_STATE` | owning player only | hole cards, private stack metadata, `actionAffordances`, reconnect metadata |
 | `HAND_STARTED` | room | hand id, hand number, button, blind seats, action order seed data |
 | `TURN_STARTED` | room | acting seat, deadline, legal action set |
@@ -24,9 +24,9 @@
 | `STREET_ADVANCED` | room | new street, board cards |
 | `SHOWDOWN_RESULT` | room | hands shown, rankings, pot winners |
 | `SETTLEMENT_POSTED` | room | ledger deltas, new stacks, odd chip markers |
+| `SESSION_SUMMARY` | room | room-close summary, player net chips, settle-up readiness |
 | `PLAYER_DISCONNECTED` | room | seat index, disconnected at, timer impact summary |
 | `PLAYER_RECONNECTED` | room | seat index, reconnected at |
-| `QUEUE_UPDATE` | lobby viewers | queue entries, open seats, next eligible player |
 | `ROOM_PAUSED` | room | reason, recovery guidance |
 | `MODERATION_APPLIED` | room or target player | kick or lock updates |
 
@@ -37,9 +37,9 @@
 - Duplicate `ACTION_SUBMIT` events with the same idempotency key return the original result when possible.
 
 ## Visibility Rules
-- Spectator payloads omit hole cards, private action affordances, and hidden deck metadata.
 - Player payloads contain only the player's own hole cards plus public state.
 - Admins do not receive hidden cards by role alone.
+- Non-owning room members receive public state only.
 
 ## Private State Affordances
 - `PRIVATE_STATE.actionAffordances` is an object, not a raw string list.

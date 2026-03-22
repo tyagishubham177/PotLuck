@@ -9,9 +9,9 @@
 
 ## Staging
 - Mirrors prod topology.
-- Uses synthetic players for soak tests.
+- Uses synthetic players for core multiplayer smoke tests.
 - Hand history retention can be shorter.
-- Spectator mode and training mode should be enabled for QA.
+- Session summary and settle-up flows should be enabled for QA.
 
 ## Production
 - Single primary region.
@@ -21,4 +21,4 @@
 ## Config Classes
 - Build-time: public web flags and analytics ids.
 - Runtime: blinds defaults, timer defaults, feature flags, observability endpoints.
-- Secret: session signing, admin OTP, database credentials.
+- Secret: session signing, admin credential material, database credentials.

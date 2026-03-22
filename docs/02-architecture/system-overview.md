@@ -10,10 +10,9 @@
 ```mermaid
 flowchart LR
   Browser["Web Client\nNext.js + React"] --> Edge["HTTPS + WebSocket Gateway"]
-  Edge --> Server["Authoritative Room Service\nFastify + Socket.IO"]
+  Edge --> Server["Authoritative Room Service\nFastify + native WebSocket (ws)"]
   Server --> Postgres["Postgres\nRooms, hands, ledger, audit, exports"]
-  Server --> Mail["Resend\nAdmin OTP"]
-  Server --> Obs["Sentry + OTel + Grafana"]
+  Server --> Obs["Sentry + structured logs"]
   Server -. optional later .-> Redis["Redis\nPresence + coordination offload"]
 ```
 
@@ -41,10 +40,12 @@ flowchart LR
 - Join room: guest session validated -> lobby snapshot returned -> optional websocket subscription.
 - Act in hand: intent received -> dedupe/idempotency check -> legality check -> state transition -> persist -> broadcast diff.
 - Settle hand: contributions frozen -> pots built -> winners resolved -> ledger + settlement committed -> room advanced.
+- Close room: room closed -> session summary derived -> settle-up view published from chip-to-dollar ratio.
 
 ## Design Constraints
 - No client authority for actions, timers, shuffle, deal, or settlement.
 - No optimistic chip accounting on the client.
 - Contract payloads validated on ingress and egress.
-- Hidden cards never exist in spectator payloads before showdown.
+- Hidden cards never exist outside the owning player's private payload.
+- Spectator-mode payload rules are a future consideration, not a v1 concern.
 - Room configuration edits apply only between hands.

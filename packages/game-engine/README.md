@@ -1,3 +1,4 @@
-﻿# Game Engine Placeholder
+# Game Engine
 
-Future home for deterministic poker rules, side-pot logic, settlement, and replay-safe hand evaluation.
+Deterministic no-limit Texas Hold'em engine with blind posting, action legality,
+street advancement, all-in auto-deal, and showdown trigger support.

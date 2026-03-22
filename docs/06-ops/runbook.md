@@ -7,7 +7,7 @@
 | Settlement failure | prevent next hand, inspect DB transaction logs, replay hand in support tool |
 | Optional Redis outage | keep current rooms alive and verify no optional presence features are degraded |
 | Postgres latency spike | slow new room creation, monitor failed writes, consider temporary room cap |
-| OTP mail outage | disable new admin room creation, preserve existing sessions |
+| Admin auth lockout | verify configured credential material, pause new room creation if needed, preserve existing sessions |
 
 ## Manual Recovery
 1. Identify room and active hand id.
@@ -15,6 +15,13 @@
 3. Reconstruct state in support replay tooling.
 4. If deterministic replay matches, resume room.
 5. If not, keep room paused and use compensating admin adjustments after review.
+
+## Beta Support Workflow
+1. Capture the room id, hand id, participant nicknames, and approximate incident time from the report.
+2. Export the hand transcript and compare it with the room audit trail before making any adjustment.
+3. Check `/metrics` for action latency, reconnect spikes, room pauses, and ledger mismatch signals around the incident window.
+4. If the server restarted mid-hand, verify the recovered room is paused, inspect stacks, and resume only after the transcript and live state agree.
+5. Record the final decision, any compensating adjustment, and the evidence links used for the review.
 
 ## Alert Thresholds
 - P95 settlement > 1 second.

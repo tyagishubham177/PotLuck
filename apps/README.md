@@ -1,3 +1,4 @@
-﻿# Apps
+# Apps
 
-Reserved for executable applications once Phase 00 scaffolding begins.
+- `web`: Next.js shell for the player-facing client.
+- `server`: Fastify shell for HTTP health and future realtime authority.

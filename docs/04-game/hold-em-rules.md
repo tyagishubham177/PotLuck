@@ -42,7 +42,7 @@
 ## All-In Handling
 - Contributions are tracked both as total hand commitment and by street.
 - Once all remaining eligible players are all-in and no further betting is possible, the server auto-deals the remaining board with appropriate pacing and then proceeds to showdown.
-- No additional chip movement occurs after betting is locked except settlement and rake.
+- No additional chip movement occurs after betting is locked except settlement.
 
 ## Dead Button Handling
 - Heads-up: button posts small blind and acts first preflop, last postflop.

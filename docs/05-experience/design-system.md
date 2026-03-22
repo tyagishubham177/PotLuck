@@ -1,7 +1,7 @@
 # Design System
 
 ## Strategy Link
-- Creative direction and durable style rationale live in [design.md](design.md).
+- Durable style rationale lives in this file.
 - Concrete screen targets live beside the owning phase in `docs/phases/*/ui-targets/`.
 
 ## Visual Direction
@@ -9,6 +9,7 @@
 - Theme anchors: deep felt green, graphite surfaces, warm clay accents, and editorial dark-mode typography.
 - Table views remain always dark so cards, chips, timers, and state badges stay visually stable across long sessions.
 - Intentional asymmetry is encouraged where it improves realism, especially for dealer markers, metadata placement, and stacked overlays.
+- Mobile and desktop are both first-class layouts; the system should not treat desktop as a late enhancement.
 
 ## Design Tokens
 | Token Group | Direction |
@@ -33,7 +34,7 @@
 - Bottom action tray with legal actions and bet sizing controls
 - Buy-in and top-up drawers with inline guardrails
 - Pot badge and side-pot stack component
-- Admin control drawer and spectator side sheet
+- Admin control drawer
 - History transcript list and hand detail view
 
 ## Interaction Principles
@@ -56,4 +57,5 @@
 ## Responsive Rules
 - Mobile: single-column table with bottom action tray and slide-up drawers.
 - Tablet: preserve bottom tray, move history and admin panels to side sheets.
-- Desktop: keep the player table central, with admin, history, and spectator context in side panels.
+- Desktop: use left rail for players 8/9 and right rail for history/admin panels without dropping any core controls.
+- Both `375px` mobile and desktop widths are primary targets and must be designed intentionally.

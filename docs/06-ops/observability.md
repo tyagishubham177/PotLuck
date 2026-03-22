@@ -1,19 +1,9 @@
 # Observability
 
-## Metrics
-| Metric | Why |
-| --- | --- |
-| active rooms | capacity planning |
-| seated players | usage tracking |
-| hands per hour | throughput |
-| action ack latency | realtime health |
-| health endpoint latency | API health and load balancer readiness |
-| settlement duration | correctness and performance |
-| reconnect success rate | reliability |
-| timeout rate | UX quality |
-| paused room count | operational risk |
-| duplicate intent rejection count | client/network stability |
-| ledger balance mismatch count | detect chip conservation or settlement drift failures |
+## Error Tracking
+- Use Sentry for application errors, unhandled exceptions, and high-signal failure breadcrumbs.
+- Tag Sentry events with room id, hand id, and actor id when available.
+- Settlement failures and ledger mismatches should open the clearest possible Sentry issue trail.
 
 ## Logging
 - Structured JSON logs from server only.
@@ -21,13 +11,11 @@
 - Never log hidden cards in general operational logs.
 - Hidden-card audit artifacts live in protected support-access storage only.
 
-## Tracing
-- Trace create-room, join-room, action-submit, settlement, export generation, and reconnect flows.
-- Carry correlation ids from HTTP upgrade through websocket session where possible.
+## Health Signals
+- Keep a lightweight health endpoint for deployment checks and uptime monitoring.
+- Use structured logs to confirm room creation, settlement, reconnect, and room-close summary flows during manual verification.
+- Escalate any repeated settlement or ledger inconsistencies even if the room appears otherwise healthy.
 
 ## Alerts
 - Settlement failure > 0 in any 5-minute window.
-- P95 action acknowledgement latency > 300 ms for 10 minutes.
-- Reconnect success < 95 percent in 15 minutes.
-- Room pauses caused by recovery faults > threshold.
 - Ledger balance mismatch > 0 in any 5-minute window.

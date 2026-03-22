@@ -20,6 +20,7 @@ Fairness and correctness live or die here; this phase completes the money math.
 - apps/server
 - packages/contracts
 - packages/test-kit
+- apps/web for integration fixes required to keep settlement-visible room state coherent during live and post-hand transitions
 
 ## Explicit Non-Goals
 - Do not build replay UI.
@@ -33,3 +34,4 @@ Fairness and correctness live or die here; this phase completes the money math.
 ## Exit Criteria
 - Side pots resolve deterministically across multi-way all-ins.
 - Ledger and audit trails are transactionally committed.
+- Browser clients stay session-consistent while settlement updates stream in; failed joins or cross-tab guest replacement do not leave stale hero or room state on screen.
