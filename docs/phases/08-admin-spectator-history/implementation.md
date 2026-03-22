@@ -1,11 +1,17 @@
 # Phase 08: Admin, Spectator, and History Implementation
 
 ## Sequence
-1. Build admin drawer with pause/resume, lock/unlock, kick, and between-hand config edits.
-2. Add spectator subscription flow and restricted public table rendering.
-3. Build hand history list and hand transcript detail pages.
-4. Expose JSON and text export routes in the admin UI.
-5. Add audit-friendly status copy and room incident banners.
+1. Build the admin surface target from `ui-targets/admin-console/`, including room controls, room context, and timing-sensitive action guidance.
+2. Add spectator subscription flow and the restricted public table target from `ui-targets/spectator-table-view/`.
+3. Build the history index target from `ui-targets/hand-history-list/`.
+4. Build the audit detail target from `ui-targets/hand-history-detail/`.
+5. Expose JSON and text export routes in the admin and history UI.
+6. Add audit-friendly status copy and room incident banners.
+
+## UI Integration Target
+- Spectators should see the same room language as players, minus private information.
+- Admin controls should be organized by purpose and timing, not dumped into one flat menu.
+- History should feel like a logbook and review tool, not just a raw table dump.
 
 ## Keys and Inputs
 ### File Targets

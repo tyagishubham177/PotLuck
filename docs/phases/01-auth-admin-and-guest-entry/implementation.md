@@ -4,8 +4,15 @@
 1. Add admin auth endpoints and email OTP delivery adapter.
 2. Add guest session creation using room code plus nickname uniqueness checks.
 3. Implement signed session tokens for admin and room-scoped guests.
-4. Build create-room auth gate and join-by-code screen states.
-5. Log auth and join audit events.
+4. Build the landing join screen target from `ui-targets/landing-join-screen/`, including room code, nickname, spectate toggle, and returning-admin resume.
+5. Build the admin verification target from `ui-targets/admin-verification/`, including email-first OTP flow, resend path, and verification CTA.
+6. Log auth and join audit events.
+
+## UI Integration Target
+- Keep the join card quiet and tonal, not auth-heavy.
+- `Join by Code` is the strongest action.
+- `Create Room` is present but secondary.
+- Admin verification should feel like a private-club access check, with the OTP timer and resend flow visible.
 
 ## Keys and Inputs
 ### File Targets

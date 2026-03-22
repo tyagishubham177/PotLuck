@@ -32,3 +32,4 @@ Every later phase depends on stable workspace tooling, shared contracts, and rep
 - Root scripts for lint, typecheck, test, and build exist.
 - CI runs the baseline pipeline.
 - Env validation exists for both apps.
+- `packages/ui` can express the Private Atelier token set and dark surface primitives without phase-specific hacks.

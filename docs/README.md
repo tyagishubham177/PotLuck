@@ -23,6 +23,7 @@
 - `03-contracts/realtime-events.md`
 - `04-game/settlement-spec.md`
 - `05-experience/screen-specs.md`
+- `05-experience/design.md`
 - `phases/00-foundation/implementation.md`
 
 ## Dependency Graph
@@ -59,3 +60,8 @@ flowchart TD
 - Repo status: docs scaffolded, no executable code yet.
 - Current implementation starting point: `phases/00-foundation/`.
 - Branch naming convention: `codex/<task-name>`.
+
+## Phase-Owned UI Targets
+- Screen targets now live inside each owning phase pack under `ui-targets/`.
+- Keep durable design rationale in `05-experience/design.md`.
+- Keep concrete screen and HTML artifacts beside the phase that must implement them.

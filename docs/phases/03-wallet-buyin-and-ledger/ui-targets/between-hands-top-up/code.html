@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface-variant": "#c1c8c2",
+              "error": "#ffb4ab",
+              "surface-bright": "#393939",
+              "primary-fixed": "#b1f0ce",
+              "outline-variant": "#414844",
+              "on-error-container": "#ffdad6",
+              "error-container": "#93000a",
+              "on-tertiary": "#4c2700",
+              "primary": "#95d4b3",
+              "tertiary-fixed": "#ffdcc1",
+              "surface-container-high": "#2a2a2a",
+              "primary-fixed-dim": "#95d4b3",
+              "secondary-container": "#29513f",
+              "secondary-fixed": "#c1ecd4",
+              "tertiary": "#ffb878",
+              "outline": "#8b938d",
+              "on-primary-fixed-variant": "#0e5138",
+              "on-primary-fixed": "#002114",
+              "on-background": "#e5e2e1",
+              "inverse-primary": "#2c694e",
+              "on-error": "#690005",
+              "on-primary-container": "#76b394",
+              "background": "#131313",
+              "secondary-fixed-dim": "#a5d0b9",
+              "on-secondary-fixed": "#002114",
+              "on-secondary-container": "#97c2ab",
+              "surface-container-highest": "#353534",
+              "inverse-on-surface": "#313030",
+              "surface-container": "#201f1f",
+              "on-tertiary-fixed-variant": "#6c3a00",
+              "on-secondary": "#0e3727",
+              "surface-dim": "#131313",
+              "surface-tint": "#95d4b3",
+              "on-secondary-fixed-variant": "#274e3d",
+              "secondary": "#a5d0b9",
+              "inverse-surface": "#e5e2e1",
+              "tertiary-fixed-dim": "#ffb878",
+              "on-tertiary-fixed": "#2e1500",
+              "primary-container": "#00452e",
+              "on-tertiary-container": "#e1954d",
+              "surface-variant": "#353534",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-container-low": "#1c1b1b",
+              "surface": "#131313",
+              "on-surface": "#e5e2e1",
+              "on-primary": "#003824",
+              "tertiary-container": "#5c3100"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="bg-[#131313] dark:bg-[#131313] w-full top-0 z-50 flex justify-between items-center px-10 h-20 bg-[#1C1B1B] shadow-none">
+<div class="text-2xl font-black text-[#95D4B3] tracking-tighter">PotLuck Atelier</div>
+<nav class="hidden md:flex items-center gap-8 font-['Manrope'] font-bold tracking-tight text-[#E5E2E1]">
+<a class="text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors duration-200" href="#">Lobby</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors duration-200" href="#">High Stakes</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors duration-200" href="#">Tournaments</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#95D4B3] transition-colors duration-200" href="#">Vault</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#E5E2E1]/60 hover:text-[#95D4B3] active:scale-95 transition-all">settings</button>
+<button class="material-symbols-outlined text-[#E5E2E1]/60 hover:text-[#95D4B3] active:scale-95 transition-all">notifications</button>
+<div class="w-10 h-10 rounded-full bg-surface-container-high border-2 border-primary-container overflow-hidden">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="User profile avatar close up portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6i0DDrULNX49r9-cyMyHls2Vwp9EV1FxpzU7dqnx8ysOW0z9r2CaZzydTriO_a_bYjpUTI3bj8me0jFiVrOSNh0A1EJiMi9Rplxd_QxeLhhI2K2r9uQqN1MiDtUFxX4yFSTvh17DRdnVgjSoIXf3O2dX-_PqUYvp9U_X03Pm-Hi971kt_pElc26EeXFCCWxqT5SU2YvWKzJOB-BDj7otx_gaANB1nXyBXVywLdEyLMH2JVZt94GjCy2ohZ8rzAlkYvzIYbeUOih0"/>
+</div>
+</div>
+</header>
+<div class="flex h-[calc(100vh-5rem)] overflow-hidden">
+<!-- SideNavBar -->
+<aside class="bg-[#1C1B1B] dark:bg-[#1C1B1B] h-screen w-64 left-0 border-r-0 flex flex-col fixed left-0 top-0 pt-20 shadow-[24px_0_24px_-4px_rgba(0,0,0,0.06)] z-40">
+<div class="px-6 py-8 flex flex-col gap-1">
+<div class="flex items-center gap-3 mb-2">
+<img alt="Table owner avatar" class="w-8 h-8 rounded-lg" data-alt="Table owner minimalist avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuByJQoD_DlWl2ms5GkNOvP3EkkF4Wk_qDgIJ2l3gPtPqG0Ubw12HSe6PZyBYx6FCx-zyqYXG-wzUBEc37fhJ2ZL6st0CVPw5mP52WhdaJXCC8KtFfSXaBB_9RxsSKJNvKhTu4FMDZlxwJuUHDaSUwdPzSH3i4fN3NR70LPG75skxTsfYOz6GsVVtHpw7iy-x-Obvy7HOalFrvjrSmX2EWQAePMf-9twqbd5q-ifY20BqT3O8NugWUCwltQbD93cE4XtkLC_ia_bwN4"/>
+<div class="flex flex-col">
+<span class="text-[#95D4B3] font-bold font-['Manrope'] text-sm">The Grand Parlor</span>
+<span class="text-[#E5E2E1]/40 text-xs font-['Manrope']">Blinds: 500/1000</span>
+</div>
+</div>
+</div>
+<nav class="flex flex-col flex-1 font-['Manrope'] font-medium text-sm">
+<a class="text-[#E5E2E1]/40 py-4 px-6 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 flex items-center gap-4" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span> Table View
+                </a>
+<a class="text-[#E5E2E1]/40 py-4 px-6 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 flex items-center gap-4" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span> Hand History
+                </a>
+<a class="text-[#E5E2E1]/40 py-4 px-6 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 flex items-center gap-4" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span> Player Stats
+                </a>
+<a class="text-[#E5E2E1]/40 py-4 px-6 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300 flex items-center gap-4" href="#">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span> Spectators
+                </a>
+<!-- Active Tab: Top-Up -->
+<a class="bg-[#95D4B3]/10 text-[#95D4B3] border-r-4 border-[#95D4B3] py-4 px-6 transition-all duration-300 flex items-center gap-4" href="#">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span> Top-Up
+                </a>
+</nav>
+<div class="p-6 mt-auto">
+<button class="w-full py-3 bg-primary-container text-primary font-bold rounded-xl active:scale-95 transition-all text-sm">
+                    Invite Player
+                </button>
+</div>
+</aside>
+<!-- Main Content (Table Background) -->
+<main class="ml-64 flex-1 relative bg-surface-dim overflow-hidden p-10">
+<!-- Simulated Poker Table Backdrop -->
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="w-full h-full bg-gradient-to-b from-[#1C1B1B] to-background"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] border-[40px] border-surface-container-low rounded-[200px]"></div>
+</div>
+<div class="relative z-10 grid grid-cols-12 gap-10 h-full items-start">
+<!-- Left: Focused Content (Simulated Table Actions) -->
+<div class="col-span-12 lg:col-span-7 flex flex-col gap-8 h-full">
+<div class="flex justify-between items-end">
+<div class="flex flex-col gap-2">
+<h1 class="text-4xl font-extrabold font-headline tracking-tighter text-on-surface">Between Hands</h1>
+<p class="text-on-surface-variant font-body">The next hand begins in <span class="text-primary font-label">00:08</span></p>
+</div>
+<!-- Glass Pot Component -->
+<div class="bg-surface-variant/40 backdrop-blur-xl p-6 rounded-2xl border border-outline-variant/10 shadow-2xl flex flex-col items-end">
+<span class="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">Previous Pot</span>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold font-headline text-on-surface">42,500</span>
+<span class="text-primary font-label">CR</span>
+</div>
+</div>
+</div>
+<!-- Asymmetric Player Stats Grid -->
+<div class="grid grid-cols-2 gap-4 mt-4">
+<div class="bg-surface-container-low p-6 rounded-2xl flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<span class="font-label text-xs text-on-surface-variant">PLAYER POSITIONS</span>
+<span class="material-symbols-outlined text-primary text-sm">info</span>
+</div>
+<div class="flex -space-x-3">
+<img alt="P1" class="w-10 h-10 rounded-full border-4 border-surface-container-low" data-alt="Player 1 avatar circle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsPTOqP_yyRaz8Rwc0y1nqxN_D9dp2WmSDcf6c0_-dsQ3aBBICGvRRM64Lz-7ilSka4B-Bs-two0XpyHPYYyt2xRKnSCgq47Os8y-wpv9EALOh-FDP2cPxZQdEW98QeJBh0jIJHHKk6BYGB6ZcQmPD4V00VaJgM8J-XJfyFzmNMqcEWTkLjjs78I3UG2kFG6m0QNy-OADJNZaFrG57o3ufKlTdKLso7aBNg4FLhg-w1phCxg6ND3wNa5QgkVIDuuP2d2Z9hLItH88"/>
+<img alt="P2" class="w-10 h-10 rounded-full border-4 border-surface-container-low" data-alt="Player 2 avatar circle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3zzolAKyRE8yl3lWPY-AOdp-1UEhU1TZrtFiIWV3uuiwh_v5ju1WNzomIEgB4CosFcD7lDQP7uaeo8sapqkHS3IxVuYy3tx7yRmN3R73YUbzlNndGnf-rmxDcPstim2nKehsX6osQxr6WRRQ-DxyP6B9EhjCqLXvmepL3CrdufbLMvAfgy4pg72gVSOMzYtb8ECsTSYhfiDr6PU5KMCkq2j6x2kIkCOwqqFPjpwTdjk87iWKqIlwbO4nc3j4P60Ov6D5lBVIO7Zo"/>
+<img alt="P3" class="w-10 h-10 rounded-full border-4 border-surface-container-low" data-alt="Player 3 avatar circle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlzQtPxv1aC8gFBFyXrKSLlbg55lDKe-emWveoMY-ho4SUrgqQbH7RYDI2c8cZKfumjrwP5cDRerMvt5I3cCWulFyKnDlAnfgch_5f-6dhokNljb8FYJ8PWtqGNOlsHhqGApkdDG1Usac0MWH3F8Zj9jlFJ28PJTtdwEVrQFckkOB1V8J2I03d2Nact0kykUXyPLsXZ9FmI2PJtAYwusLWE4PRbI38phS3TzxnAq53b-0MbxZ-PqdfskzwBEB32DciXm572l1uJbM"/>
+<div class="w-10 h-10 rounded-full border-4 border-surface-container-low bg-surface-container-high flex items-center justify-center text-xs font-label">+4</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-2xl flex flex-col justify-center">
+<span class="font-label text-xs text-on-surface-variant mb-1">TABLE AVG. STACK</span>
+<span class="text-2xl font-bold font-headline">125,000 <span class="text-sm font-label text-primary">CR</span></span>
+</div>
+</div>
+</div>
+<!-- Right: "The Atelier" Top-Up Side Panel (Fixed Design) -->
+<div class="col-span-12 lg:col-span-5 h-full">
+<div class="bg-surface-container-low h-full rounded-3xl p-8 flex flex-col gap-10 shadow-2xl border border-outline-variant/5">
+<header>
+<h2 class="text-2xl font-extrabold font-headline tracking-tighter text-on-surface mb-2">Restock Chips</h2>
+<p class="text-sm text-on-surface-variant font-body leading-relaxed">Top up your stack before the next hand starts. Maintain your presence at the table.</p>
+</header>
+<!-- Current Stack Visualization -->
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-baseline">
+<span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Current Stack</span>
+<span class="font-label text-sm text-primary">72% of Table Max</span>
+</div>
+<div class="bg-surface-container-high p-6 rounded-2xl flex justify-between items-center relative overflow-hidden group">
+<div class="absolute left-0 top-0 h-full bg-primary/5 w-3/4"></div>
+<div class="relative z-10 flex flex-col">
+<span class="text-3xl font-black font-headline tracking-tighter">84,500</span>
+<span class="text-xs font-label text-on-surface-variant">CHIPS AVAILABLE</span>
+</div>
+<span class="material-symbols-outlined text-4xl text-primary/20 group-hover:text-primary/40 transition-colors" data-icon="payments">payments</span>
+</div>
+</div>
+<!-- Numeric Top-Up Controls -->
+<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-center">
+<label class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Add Amount</label>
+<span class="font-label text-xs text-tertiary">Max: 500,000</span>
+</div>
+<div class="relative">
+<input class="w-full bg-surface-container-highest border-none focus:ring-0 text-3xl font-headline font-bold p-6 rounded-2xl text-on-surface placeholder:text-on-surface-variant/20" type="text" value="25,000"/>
+<div class="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
+<span class="text-primary font-label text-lg">CR</span>
+</div>
+<div class="absolute bottom-0 left-6 right-6 h-[2px] bg-primary"></div>
+</div>
+</div>
+<!-- Presets: The Milled Look -->
+<div class="grid grid-cols-3 gap-3">
+<button class="bg-surface-container-high hover:bg-surface-container-highest py-4 rounded-xl font-label text-sm transition-all active:scale-95 border border-outline-variant/5">+10k</button>
+<button class="bg-surface-container-high hover:bg-surface-container-highest py-4 rounded-xl font-label text-sm transition-all active:scale-95 border border-outline-variant/5">+50k</button>
+<button class="bg-surface-container-high hover:bg-surface-container-highest py-4 rounded-xl font-label text-sm transition-all active:scale-95 border border-outline-variant/5">MAX</button>
+</div>
+</div>
+<!-- CTA & Totals -->
+<div class="mt-auto flex flex-col gap-6">
+<div class="flex justify-between items-center px-2">
+<div class="flex flex-col">
+<span class="text-xs font-label text-on-surface-variant">New Stack Total</span>
+<span class="text-xl font-bold font-headline text-on-surface">109,500</span>
+</div>
+<div class="h-10 w-[1px] bg-outline-variant/20"></div>
+<div class="flex flex-col items-end">
+<span class="text-xs font-label text-on-surface-variant">Transaction Fee</span>
+<span class="text-sm font-label text-tertiary">0.5%</span>
+</div>
+</div>
+<button class="w-full py-5 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary font-headline font-extrabold text-lg flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] transition-all">
+<span>Confirm Top-Up</span>
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</button>
+<button class="w-full py-3 text-tertiary font-label text-xs uppercase tracking-[0.2em] hover:text-on-tertiary-container transition-colors">
+                                Cancel Action
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar -->
+<footer class="fixed bottom-0 left-64 right-0 z-40 flex justify-center items-center gap-6 p-6 bg-[#131313]/90 backdrop-blur-xl rounded-t-[1.5rem] h-24 shadow-2xl">
+<button class="text-[#E5E2E1]/80 bg-[#2A2A2A] rounded-xl px-8 py-3 flex items-center gap-2 hover:brightness-125 transition-all active:scale-[0.98] active:bg-[#393939] font-['Space_Grotesk'] font-bold uppercase tracking-widest text-xs">
+<span class="material-symbols-outlined" data-icon="close">close</span> Fold
+        </button>
+<button class="text-[#E5E2E1]/80 bg-[#2A2A2A] rounded-xl px-8 py-3 flex items-center gap-2 hover:brightness-125 transition-all active:scale-[0.98] active:bg-[#393939] font-['Space_Grotesk'] font-bold uppercase tracking-widest text-xs">
+<span class="material-symbols-outlined" data-icon="done">done</span> Check
+        </button>
+<button class="text-[#E5E2E1]/80 bg-[#2A2A2A] rounded-xl px-8 py-3 flex items-center gap-2 hover:brightness-125 transition-all active:scale-[0.98] active:bg-[#393939] font-['Space_Grotesk'] font-bold uppercase tracking-widest text-xs">
+<span class="material-symbols-outlined" data-icon="payments">payments</span> Call
+        </button>
+<button class="text-[#E5E2E1]/80 bg-[#2A2A2A] rounded-xl px-8 py-3 flex items-center gap-2 hover:brightness-125 transition-all active:scale-[0.98] active:bg-[#393939] font-['Space_Grotesk'] font-bold uppercase tracking-widest text-xs">
+<span class="material-symbols-outlined" data-icon="trending_up">trending_up</span> Raise
+        </button>
+</footer>
+</body></html>

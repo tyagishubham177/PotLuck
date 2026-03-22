@@ -13,6 +13,7 @@ Room creation and room-code entry are the front door for every other interaction
 ## Prerequisites
 - Phase 00 complete.
 - Read `docs/03-contracts/rest-api.md` and `docs/01-product/user-flows.md`.
+- Review the phase-owned target assets under `docs/phases/01-auth-admin-and-guest-entry/ui-targets/`.
 
 ## Touched Packages
 - apps/web
@@ -23,6 +24,12 @@ Room creation and room-code entry are the front door for every other interaction
 ## Explicit Non-Goals
 - Do not implement seating or buy-in commits yet.
 - Do not add spectator UI beyond join-mode plumbing.
+
+## UI Targets
+| Screen | Assets | Target To Reach |
+| --- | --- | --- |
+| Landing join | `ui-targets/landing-join-screen/` | Room code, nickname, spectate toggle, primary `Join by Code`, secondary `Create Room`, and a quiet returning-admin resume affordance. |
+| Admin verification | `ui-targets/admin-verification/` | Email-first admin check, 6-digit OTP rhythm, resend path, and trust cues that feel calm rather than corporate-security heavy. |
 
 ## Exit Criteria
 - Admin can request and verify OTP.

@@ -5,7 +5,13 @@
 2. Evaluate winner sets per pot and split with odd-chip handling.
 3. Apply optional rake once per hand subject to cap.
 4. Commit settlement rows, ledger entries, and audit events transactionally.
-5. Add JSON and text transcript exports and golden scenario tests.
+5. Render the settlement target from `ui-targets/showdown-settlement/` so the money math lands in a readable player and audit presentation.
+6. Add JSON and text transcript exports and golden scenario tests.
+
+## UI Integration Target
+- Settlement should present the total pot before the detailed splits.
+- Main pot and side pot ownership must be visually distinct without relying on thick borders.
+- Net deltas should remain readable under pressure and use `Space Grotesk` for every amount.
 
 ## Keys and Inputs
 ### File Targets

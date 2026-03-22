@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotLuck Admin Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-container": "#e1af7e",
+              "inverse-primary": "#2c694e",
+              "secondary-fixed-dim": "#f0bd8b",
+              "on-tertiary-fixed-variant": "#454748",
+              "on-primary": "#003824",
+              "tertiary-container": "#393c3d",
+              "surface": "#101418",
+              "error": "#ffb4ab",
+              "tertiary-fixed-dim": "#c5c7c8",
+              "tertiary-fixed": "#e1e3e4",
+              "outline-variant": "#414844",
+              "primary-fixed": "#b1f0ce",
+              "surface-tint": "#95d4b3",
+              "surface-container-high": "#262a2e",
+              "on-background": "#e0e3e8",
+              "surface-dim": "#101418",
+              "surface-bright": "#363a3e",
+              "surface-container-highest": "#313539",
+              "on-error-container": "#ffdad6",
+              "outline": "#8b938d",
+              "inverse-surface": "#e0e3e8",
+              "surface-container-lowest": "#0b0f12",
+              "on-secondary-fixed-variant": "#623f18",
+              "on-primary-fixed-variant": "#0e5138",
+              "on-tertiary": "#2e3132",
+              "surface-container": "#1c2024",
+              "secondary-container": "#65411a",
+              "on-primary-container": "#76b394",
+              "primary-fixed-dim": "#95d4b3",
+              "on-primary-fixed": "#002114",
+              "primary-container": "#00452e",
+              "surface-container-low": "#181c20",
+              "tertiary": "#c5c7c8",
+              "on-error": "#690005",
+              "error-container": "#93000a",
+              "on-surface-variant": "#c1c8c2",
+              "inverse-on-surface": "#2d3135",
+              "secondary-fixed": "#ffdcbd",
+              "on-surface": "#e0e3e8",
+              "on-tertiary-fixed": "#191c1d",
+              "on-tertiary-container": "#a5a6a7",
+              "on-secondary": "#482904",
+              "surface-variant": "#313539",
+              "on-secondary-fixed": "#2c1600",
+              "background": "#101418",
+              "secondary": "#f0bd8b",
+              "primary": "#95d4b3"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        background-color: #101418;
+        color: #e0e3e8;
+      }
+    </style>
+</head>
+<body class="font-body selection:bg-primary/30">
+<div class="flex h-screen overflow-hidden">
+<!-- SideNavBar Component -->
+<aside class="hidden md:flex flex-col h-full py-4 bg-[#101418]/80 backdrop-blur-xl w-64 shadow-2xl shadow-black/50">
+<div class="px-6 mb-8">
+<div class="text-lg font-bold text-[#f0bd8b] font-headline">Admin Console</div>
+<div class="text-xs text-on-surface-variant font-label">Table #402 - Active</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center text-[#313539] hover:text-[#95d4b3] mx-2 px-4 py-3 hover:bg-[#181c20] transition-all" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span>Overview</span>
+</a>
+<a class="flex items-center text-[#313539] hover:text-[#95d4b3] mx-2 px-4 py-3 hover:bg-[#181c20] transition-all" href="#">
+<span class="material-symbols-outlined mr-3">group</span>
+<span>Player Management</span>
+</a>
+<a class="flex items-center bg-[#00452e] text-[#95d4b3] rounded-lg mx-2 px-4 py-3 translate-x-1 transition-all" href="#">
+<span class="material-symbols-outlined mr-3">tune</span>
+<span>Table Controls</span>
+</a>
+<a class="flex items-center text-[#313539] hover:text-[#95d4b3] mx-2 px-4 py-3 hover:bg-[#181c20] transition-all" href="#">
+<span class="material-symbols-outlined mr-3">toll</span>
+<span>Limits &amp; Blinds</span>
+</a>
+<a class="flex items-center text-[#313539] hover:text-[#95d4b3] mx-2 px-4 py-3 hover:bg-[#181c20] transition-all" href="#">
+<span class="material-symbols-outlined mr-3">policy</span>
+<span>Security Log</span>
+</a>
+</nav>
+<div class="mt-auto px-4 space-y-4">
+<button class="w-full py-3 px-4 bg-secondary-container text-on-secondary-container rounded font-bold transition-all active:scale-[0.98]">
+                    Pause Session
+                </button>
+<div class="pt-4 border-t border-outline-variant/15">
+<div class="flex items-center px-2 py-2 text-[#313539] hover:text-[#95d4b3] transition-all">
+<span class="material-symbols-outlined mr-3">dns</span>
+<span class="text-xs">System Status</span>
+</div>
+<div class="flex items-center px-2 py-2 text-[#313539] hover:text-[#95d4b3] transition-all">
+<span class="material-symbols-outlined mr-3">contact_support</span>
+<span class="text-xs">Support</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface-dim">
+<!-- TopAppBar Component -->
+<header class="flex justify-between items-center w-full px-6 h-16 bg-[#181c20] flat no shadows">
+<div class="flex items-center gap-8">
+<span class="text-xl font-black text-[#95d4b3] tracking-wider font-headline">PotLuck</span>
+<nav class="hidden lg:flex items-center gap-6 text-sm font-bold tracking-tight font-headline">
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200" href="#">Lobby</a>
+<a class="text-[#f0bd8b] border-b-2 border-[#f0bd8b] pb-1" href="#">Tables</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200" href="#">History</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200" href="#">Admin</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#313539] hover:text-[#95d4b3] cursor-pointer transition-colors">account_balance_wallet</span>
+<span class="material-symbols-outlined text-[#313539] hover:text-[#95d4b3] cursor-pointer transition-colors">settings</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img alt="Host Avatar" class="w-full h-full object-cover" data-alt="User profile avatar icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjBpKICkrWtljpcOc5uOTKCmOCOFzHB7Q9y83ubUxTi--UuloMbjJxOVtMvORQFVnKyaLxIdY7NRDZJYK0DDkWcxqjvaaN4wLQkdrEurdcihTBGa80KPkmh6_R2Na7AuI3mkxh4DJUBxd1uBO1TP8kRHzJPNqXHPiPvmyb_1O49bulEBBwyW-EWe4dtYaIO-gReQbVYHuOUY2VCyDhRo94cxrRXijpUHQBt9NNPMk6Gf8x6ttKnjQITsEsMDkarYexFTjpqCuADrg"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="flex-1 overflow-y-auto p-6 md:p-8 space-y-8">
+<!-- Status Banner & Session Actions -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="lg:col-span-2 p-6 bg-surface-container rounded-xl flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">playing_cards</span>
+</div>
+<div>
+<h2 class="text-lg font-bold font-headline text-on-background">Live Session Status</h2>
+<p class="text-sm text-on-surface-variant font-label">Hand #8822 in progress... • 6 Players Active</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="flex h-3 w-3 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+</span>
+<span class="text-xs font-label text-primary uppercase tracking-widest">Table Active</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<button class="flex flex-col items-center justify-center gap-2 p-4 bg-surface-container-high hover:bg-surface-container-highest transition-colors rounded-xl border border-transparent active:scale-95">
+<span class="material-symbols-outlined text-secondary">lock_open</span>
+<span class="text-xs font-label uppercase tracking-tighter">Unlock Room</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-2 p-4 bg-surface-container-high hover:bg-surface-container-highest transition-colors rounded-xl border border-transparent active:scale-95">
+<span class="material-symbols-outlined text-tertiary">download</span>
+<span class="text-xs font-label uppercase tracking-tighter">Export JSON</span>
+</button>
+</div>
+</div>
+<!-- Main Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+<!-- Player Management (Bento Style) -->
+<div class="xl:col-span-8 space-y-6">
+<div class="bg-surface-container rounded-xl overflow-hidden">
+<div class="px-6 py-4 flex items-center justify-between border-b border-outline-variant/10 bg-surface-container-low">
+<h3 class="font-headline font-bold">Active Player Management</h3>
+<span class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest">Seats 1-9</span>
+</div>
+<div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Player Row Template -->
+<div class="p-4 bg-surface-container-high rounded-lg flex items-center justify-between hover:bg-surface-container-highest transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center font-bold text-primary font-label border border-primary/20">JS</div>
+<div>
+<div class="text-sm font-bold">James_Stack</div>
+<div class="text-[10px] text-on-surface-variant font-label tracking-wide">STACK: $2,450.00</div>
+</div>
+</div>
+<button class="p-2 text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined text-sm">person_remove</span>
+</button>
+</div>
+<div class="p-4 bg-surface-container-high rounded-lg flex items-center justify-between hover:bg-surface-container-highest transition-colors ring-1 ring-error/30">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center font-bold text-error font-label border border-error/20">U4</div>
+<div>
+<div class="text-sm font-bold">User_42</div>
+<div class="text-[10px] text-error font-label tracking-wide">CONNECTION LOW</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="p-2 text-outline hover:text-secondary transition-colors">
+<span class="material-symbols-outlined text-sm">warning</span>
+</button>
+<button class="p-2 text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined text-sm">person_remove</span>
+</button>
+</div>
+</div>
+<div class="p-4 bg-surface-container-high rounded-lg flex items-center justify-between hover:bg-surface-container-highest transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center font-bold text-primary font-label border border-primary/20">AC</div>
+<div>
+<div class="text-sm font-bold">Ace_High_99</div>
+<div class="text-[10px] text-on-surface-variant font-label tracking-wide">STACK: $1,120.00</div>
+</div>
+</div>
+<button class="p-2 text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined text-sm">person_remove</span>
+</button>
+</div>
+<div class="p-4 bg-surface-container-high rounded-lg flex items-center justify-between hover:bg-surface-container-highest transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center font-bold text-primary font-label border border-primary/20">RB</div>
+<div>
+<div class="text-sm font-bold">RiverBoat_Phil</div>
+<div class="text-[10px] text-on-surface-variant font-label tracking-wide">STACK: $890.00</div>
+</div>
+</div>
+<button class="p-2 text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined text-sm">person_remove</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Between Hands Config -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="p-6 bg-surface-container rounded-xl space-y-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">toll</span>
+<h3 class="font-headline font-bold">Blinds &amp; Structure</h3>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-end">
+<span class="text-xs text-on-surface-variant font-label uppercase">Small Blind</span>
+<div class="flex items-center bg-surface-container-highest px-3 py-2 rounded">
+<span class="text-secondary mr-2 text-sm font-label">$</span>
+<input class="bg-transparent border-none p-0 w-12 text-sm font-bold font-label focus:ring-0" type="text" value="10"/>
+</div>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-xs text-on-surface-variant font-label uppercase">Big Blind</span>
+<div class="flex items-center bg-surface-container-highest px-3 py-2 rounded">
+<span class="text-secondary mr-2 text-sm font-label">$</span>
+<input class="bg-transparent border-none p-0 w-12 text-sm font-bold font-label focus:ring-0" type="text" value="20"/>
+</div>
+</div>
+<div class="pt-4">
+<p class="text-[10px] text-on-surface-variant italic mb-3 opacity-60">Changes apply after current hand finishes.</p>
+<button class="w-full py-2 bg-primary-container text-primary text-xs font-bold font-headline rounded hover:bg-primary-container/80 transition-colors">Update Structure</button>
+</div>
+</div>
+</div>
+<div class="p-6 bg-surface-container rounded-xl space-y-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">timer</span>
+<h3 class="font-headline font-bold">Time Limits</h3>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant font-label uppercase">Action Clock</span>
+<div class="flex items-center gap-3">
+<span class="text-sm font-bold font-label text-on-background">30s</span>
+<input class="w-24 accent-primary h-1 bg-surface-container-highest rounded-full appearance-none" type="range"/>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant font-label uppercase">Time Bank</span>
+<div class="flex items-center gap-3">
+<span class="text-sm font-bold font-label text-on-background">60s</span>
+<input class="w-24 accent-primary h-1 bg-surface-container-highest rounded-full appearance-none" type="range"/>
+</div>
+</div>
+<div class="pt-4 flex items-center justify-between">
+<span class="text-xs font-label text-on-surface-variant">Auto-Muck Hand</span>
+<div class="w-10 h-5 bg-primary rounded-full relative p-0.5 cursor-pointer">
+<div class="w-4 h-4 bg-white rounded-full ml-auto"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Side Notifications & Log -->
+<div class="xl:col-span-4 space-y-6">
+<div class="bg-surface-container rounded-xl flex flex-col h-full max-h-[700px]">
+<div class="px-6 py-4 flex items-center justify-between border-b border-outline-variant/10 bg-surface-container-low">
+<h3 class="font-headline font-bold">Live Activity Log</h3>
+<span class="material-symbols-outlined text-sm text-on-surface-variant">history</span>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-4 font-label text-xs">
+<div class="flex gap-3 text-on-surface-variant">
+<span class="opacity-40">14:02:11</span>
+<span>User_42 connection instability detected.</span>
+</div>
+<div class="flex gap-3 text-primary">
+<span class="opacity-40">14:01:55</span>
+<span>Hand #8821 Finished. Pot: $420.00 won by Ace_High_99.</span>
+</div>
+<div class="flex gap-3 text-on-surface-variant">
+<span class="opacity-40">13:59:40</span>
+<span>James_Stack top-up: +$1,000.00.</span>
+</div>
+<div class="flex gap-3 text-secondary">
+<span class="opacity-40">13:55:12</span>
+<span>Host updated blinds structure to $10/$20.</span>
+</div>
+<div class="flex gap-3 text-on-surface-variant">
+<span class="opacity-40">13:50:04</span>
+<span>System broadcast: "Tournament break in 10 minutes."</span>
+</div>
+<div class="flex gap-3 text-error">
+<span class="opacity-40">13:48:22</span>
+<span>Warning: Manual disconnect by Player 'SharkBait'.</span>
+</div>
+<div class="flex gap-3 text-on-surface-variant">
+<span class="opacity-40">13:45:11</span>
+<span>Hand #8820 Started. Blinds $5/$10.</span>
+</div>
+</div>
+<div class="p-4 border-t border-outline-variant/10">
+<div class="bg-surface-container-highest rounded px-3 py-2 flex items-center">
+<input class="bg-transparent border-none p-0 w-full text-xs focus:ring-0" placeholder="Send system notice..." type="text"/>
+<span class="material-symbols-outlined text-sm text-primary cursor-pointer">send</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 h-20 bg-[#101418] border-t border-[#414844]/15 flex justify-around items-center shadow-[0_-4px_20px_rgba(0,0,0,0.4)] pb-safe">
+<a class="flex flex-col items-center justify-center text-[#f0bd8b] font-bold font-label text-[10px] uppercase tracking-widest active:scale-95" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">playing_cards</span>
+                Live Table
+            </a>
+<a class="flex flex-col items-center justify-center text-[#313539] font-label text-[10px] uppercase tracking-widest hover:text-[#95d4b3] transition-colors active:scale-95" href="#">
+<span class="material-symbols-outlined mb-1">history</span>
+                History
+            </a>
+<a class="flex flex-col items-center justify-center text-[#313539] font-label text-[10px] uppercase tracking-widest hover:text-[#95d4b3] transition-colors active:scale-95" href="#">
+<span class="material-symbols-outlined mb-1">chat_bubble</span>
+                Messages
+            </a>
+<a class="flex flex-col items-center justify-center text-[#313539] font-label text-[10px] uppercase tracking-widest hover:text-[#95d4b3] transition-colors active:scale-95" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+                Profile
+            </a>
+</nav>
+</div>
+</body></html>

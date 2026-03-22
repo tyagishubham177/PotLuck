@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-container-low": "#181c20",
+            "surface-dim": "#101418",
+            "background": "#101418",
+            "on-secondary-fixed-variant": "#623f18",
+            "secondary-container": "#65411a",
+            "inverse-primary": "#2c694e",
+            "on-secondary": "#482904",
+            "tertiary-fixed": "#e1e3e4",
+            "on-secondary-container": "#e1af7e",
+            "tertiary-fixed-dim": "#c5c7c8",
+            "primary": "#95d4b3",
+            "on-primary-fixed": "#002114",
+            "on-error": "#690005",
+            "tertiary": "#c5c7c8",
+            "secondary-fixed-dim": "#f0bd8b",
+            "outline": "#8b938d",
+            "on-tertiary-fixed-variant": "#454748",
+            "on-surface": "#e0e3e8",
+            "surface-container-lowest": "#0b0f12",
+            "on-secondary-fixed": "#2c1600",
+            "on-primary-fixed-variant": "#0e5138",
+            "on-background": "#e0e3e8",
+            "surface-bright": "#363a3e",
+            "primary-fixed-dim": "#95d4b3",
+            "on-tertiary": "#2e3132",
+            "surface-container": "#1c2024",
+            "surface-container-highest": "#313539",
+            "outline-variant": "#414844",
+            "inverse-on-surface": "#2d3135",
+            "surface-tint": "#95d4b3",
+            "on-surface-variant": "#c1c8c2",
+            "error-container": "#93000a",
+            "secondary": "#f0bd8b",
+            "secondary-fixed": "#ffdcbd",
+            "on-tertiary-container": "#a5a6a7",
+            "on-primary-container": "#76b394",
+            "tertiary-container": "#393c3d",
+            "surface-variant": "#313539",
+            "on-error-container": "#ffdad6",
+            "primary-container": "#00452e",
+            "error": "#ffb4ab",
+            "primary-fixed": "#b1f0ce",
+            "surface-container-high": "#262a2e",
+            "on-tertiary-fixed": "#191c1d",
+            "on-primary": "#003824",
+            "surface": "#101418",
+            "inverse-surface": "#e0e3e8"
+          },
+          fontFamily: {
+            "headline": ["Manrope"],
+            "body": ["Inter"],
+            "label": ["Space Grotesk"]
+          },
+          borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #101418;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #313539;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background font-body selection:bg-primary/30 min-h-screen flex flex-col">
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#101418] dark:bg-[#101418]">
+<div class="flex items-center gap-4">
+<span class="text-xl font-headline font-bold text-[#95d4b3] tracking-tighter uppercase">PotLuck</span>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-[#313539] font-label text-sm tracking-widest hover:text-[#95d4b3] transition-colors" href="#">Lobby</a>
+<a class="text-[#f0bd8b] font-label text-sm tracking-widest" href="#">Rooms</a>
+<a class="text-[#313539] font-label text-sm tracking-widest hover:text-[#95d4b3] transition-colors" href="#">History</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="p-2 text-[#95d4b3] hover:bg-[#181c20] transition-colors rounded-xl">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</button>
+<button class="p-2 text-[#95d4b3] hover:bg-[#181c20] transition-colors rounded-xl">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden">
+<img alt="Profile" data-alt="User profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCahXT1wM9GpShm2RKX9_eXAPGSWlO1-YN8bUfPnvnKQTAZhr9wsCx9Ou9j3YVur_prcci0BKoLlaZEqRORaaUKmODZGdP5fXoyriGgwLQjk00CrkbMYj5V6OnaRDEsgqvWOxKSj7dQrRfHAyJcqp19iAHVBf2A7FHywVgXVZ_U2FqiXu431ccxinY_2NDu92cIURtoCmSyie6RJONgWAnGPXofrAujlTEuJ9LIUvXokm90edPJA7S1xYBwLvDSEFcs-izRQ--NVBA"/>
+</div>
+</div>
+</header>
+<main class="flex-1 pt-24 pb-32 px-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+<div class="lg:col-span-8 flex flex-col gap-8">
+<div class="flex flex-col gap-2">
+<span class="font-label text-xs tracking-[0.2em] text-primary uppercase">Step 2 of 4</span>
+<h1 class="font-headline font-extrabold text-4xl tracking-tight text-on-surface">Room Rules</h1>
+<p class="text-on-surface-variant max-w-xl">Define the stakes and house rules for your private atelier session. These settings determine the flow and exclusivity of your table.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="p-6 bg-surface-container-low rounded-xl flex flex-col gap-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">payments</span>
+<h3 class="font-headline font-bold text-lg">Buy-in Limits</h3>
+</div>
+<div class="space-y-6">
+<div class="space-y-3">
+<div class="flex justify-between font-label text-xs uppercase tracking-wider text-on-surface-variant">
+<span>Minimum Buy-in</span>
+<span class="text-secondary">2,000 chips</span>
+</div>
+<input class="w-full h-1.5 bg-surface-container-highest rounded-full appearance-none cursor-pointer accent-secondary" max="5000" min="500" step="100" type="range" value="2000"/>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between font-label text-xs uppercase tracking-wider text-on-surface-variant">
+<span>Maximum Buy-in</span>
+<span class="text-secondary">10,000 chips</span>
+</div>
+<input class="w-full h-1.5 bg-surface-container-highest rounded-full appearance-none cursor-pointer accent-secondary" max="50000" min="5000" step="500" type="range" value="10000"/>
+</div>
+</div>
+</div>
+<div class="p-6 bg-surface-container-low rounded-xl flex flex-col gap-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">vpn_key</span>
+<h3 class="font-headline font-bold text-lg">Access Control</h3>
+</div>
+<div class="space-y-4">
+<label class="flex items-center justify-between p-3 bg-surface-container-high/50 rounded-lg cursor-pointer hover:bg-surface-container-high transition-colors group">
+<span class="font-body text-sm text-on-surface">Spectators Allowed</span>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<label class="flex items-center justify-between p-3 bg-surface-container-high/50 rounded-lg cursor-pointer hover:bg-surface-container-high transition-colors group">
+<span class="font-body text-sm text-on-surface">Waiting List Enabled</span>
+<div class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<div class="space-y-2">
+<span class="font-label text-xs uppercase tracking-wider text-on-surface-variant block px-1">Join Code Expiry</span>
+<div class="relative">
+<select class="w-full bg-surface-container-highest border-none rounded-lg font-body text-sm text-on-surface focus:ring-1 focus:ring-primary h-11 px-4 appearance-none">
+<option>24 Hours</option>
+<option selected="">48 Hours</option>
+<option>Never</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+<div class="md:col-span-2 p-6 bg-surface-container-low rounded-xl">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">account_balance</span>
+<h3 class="font-headline font-bold text-lg">Gameplay Options</h3>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex items-start gap-4 p-4 bg-surface-container-high/50 rounded-xl">
+<div class="flex-1">
+<p class="font-body font-semibold text-on-surface mb-1">Straddle Allowed</p>
+<p class="text-xs text-on-surface-variant">Enable the option for the player under the gun to post a blind bet.</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer pt-1">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</div>
+<div class="flex items-start gap-4 p-4 bg-surface-container-high/50 rounded-xl">
+<div class="flex-1">
+<p class="font-body font-semibold text-on-surface mb-1">Auto-Muck Winning Hands</p>
+<p class="text-xs text-on-surface-variant">Automatically hide winning hands unless a showdown is required.</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer pt-1">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-4">
+<button class="px-8 py-3 font-label text-sm uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+          Back
+        </button>
+<button class="px-10 py-3 bg-secondary-container text-on-secondary-container font-label text-sm uppercase tracking-widest rounded-full hover:brightness-110 active:scale-95 transition-all shadow-lg">
+          Continue to Step 3
+        </button>
+</div>
+</div>
+<aside class="lg:col-span-4 flex flex-col gap-6">
+<div class="sticky top-24 p-6 bg-surface-container border border-outline-variant/15 rounded-xl shadow-2xl">
+<h2 class="font-headline font-bold text-xl mb-6 flex items-center gap-2 text-on-surface">
+<span class="material-symbols-outlined text-primary">visibility</span>
+          Rule Summary
+        </h2>
+<div class="space-y-4">
+<div class="aspect-video w-full rounded-lg bg-surface-dim overflow-hidden relative border border-outline-variant/10 shadow-inner">
+<div class="absolute inset-0 opacity-10" data-alt="Subtle green ambient table glow" style="background-image: radial-gradient(circle at 50% 50%, #95d4b3 0%, transparent 70%)"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-32 h-16 border-2 border-primary/20 rounded-full flex items-center justify-center font-label text-[10px] tracking-[0.3em] text-primary/40 uppercase">Table Preview</div>
+</div>
+</div>
+<div class="pt-4 space-y-3">
+<div class="flex justify-between items-center py-2 border-b border-outline-variant/10">
+<span class="text-xs text-on-surface-variant font-label uppercase">Buy-in Range</span>
+<span class="text-sm font-body font-bold text-secondary">2,000 — 10,000</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-outline-variant/10">
+<span class="text-xs text-on-surface-variant font-label uppercase">Spectators</span>
+<span class="text-sm font-body text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-base">check_circle</span>
+                Allowed
+              </span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-outline-variant/10">
+<span class="text-xs text-on-surface-variant font-label uppercase">Straddle</span>
+<span class="text-sm font-body text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-base">check_circle</span>
+                Enabled
+              </span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-outline-variant/10">
+<span class="text-xs text-on-surface-variant font-label uppercase">Waiting List</span>
+<span class="text-sm font-body text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-base">cancel</span>
+                Disabled
+              </span>
+</div>
+<div class="flex justify-between items-center py-2">
+<span class="text-xs text-on-surface-variant font-label uppercase">Code Expiry</span>
+<span class="text-sm font-body text-on-surface">48 Hours</span>
+</div>
+</div>
+<div class="mt-8 p-4 bg-primary-container/20 rounded-lg border border-primary/10">
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary">info</span>
+<p class="text-xs text-on-primary-container leading-relaxed">Changes to these rules will only take effect for new sessions. Active tables will maintain their original configuration.</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-[#101418]/80 backdrop-blur-xl border-t border-[#414844]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.4)] rounded-t-xl">
+<div class="flex flex-col items-center justify-center text-[#313539] px-4 py-1 hover:text-[#95d4b3]">
+<span class="material-symbols-outlined">style</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Lobby</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-[#00452e] text-[#95d4b3] rounded-xl px-4 py-1 scale-90 transition-transform">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Rooms</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#313539] px-4 py-1 hover:text-[#95d4b3]">
+<span class="material-symbols-outlined">history</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#313539] px-4 py-1 hover:text-[#95d4b3]">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Profile</span>
+</div>
+</nav>
+</body></html>
