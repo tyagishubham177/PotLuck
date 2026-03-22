@@ -7,7 +7,7 @@
 | Settlement failure | prevent next hand, inspect DB transaction logs, replay hand in support tool |
 | Optional Redis outage | keep current rooms alive and verify no optional presence features are degraded |
 | Postgres latency spike | slow new room creation, monitor failed writes, consider temporary room cap |
-| OTP mail outage | disable new admin room creation, preserve existing sessions |
+| Admin auth lockout | verify configured credential material, pause new room creation if needed, preserve existing sessions |
 
 ## Manual Recovery
 1. Identify room and active hand id.

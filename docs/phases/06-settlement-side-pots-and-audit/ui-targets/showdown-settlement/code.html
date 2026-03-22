@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotLuck - Hand Settlement</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary-container": "#e1af7e",
+                        "inverse-primary": "#2c694e",
+                        "secondary-fixed-dim": "#f0bd8b",
+                        "on-tertiary-fixed-variant": "#454748",
+                        "on-primary": "#003824",
+                        "tertiary-container": "#393c3d",
+                        "surface": "#101418",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#c5c7c8",
+                        "tertiary-fixed": "#e1e3e4",
+                        "outline-variant": "#414844",
+                        "primary-fixed": "#b1f0ce",
+                        "surface-tint": "#95d4b3",
+                        "surface-container-high": "#262a2e",
+                        "on-background": "#e0e3e8",
+                        "surface-dim": "#101418",
+                        "surface-bright": "#363a3e",
+                        "surface-container-highest": "#313539",
+                        "on-error-container": "#ffdad6",
+                        "outline": "#8b938d",
+                        "inverse-surface": "#e0e3e8",
+                        "surface-container-lowest": "#0b0f12",
+                        "on-secondary-fixed-variant": "#623f18",
+                        "on-primary-fixed-variant": "#0e5138",
+                        "on-tertiary": "#2e3132",
+                        "surface-container": "#1c2024",
+                        "secondary-container": "#65411a",
+                        "on-primary-container": "#76b394",
+                        "primary-fixed-dim": "#95d4b3",
+                        "on-primary-fixed": "#002114",
+                        "primary-container": "#00452e",
+                        "surface-container-low": "#181c20",
+                        "tertiary": "#c5c7c8",
+                        "on-error": "#690005",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#c1c8c2",
+                        "inverse-on-surface": "#2d3135",
+                        "secondary-fixed": "#ffdcbd",
+                        "on-surface": "#e0e3e8",
+                        "on-tertiary-fixed": "#191c1d",
+                        "on-tertiary-container": "#a5a6a7",
+                        "on-secondary": "#482904",
+                        "surface-variant": "#313539",
+                        "on-secondary-fixed": "#2c1600",
+                        "background": "#101418",
+                        "secondary": "#f0bd8b",
+                        "primary": "#95d4b3"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(28, 32, 36, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30">
+<!-- Top Navigation Bar (Shared Component) -->
+<header class="bg-[#181c20] flex justify-between items-center w-full px-6 h-16 sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-black text-[#95d4b3] tracking-wider font-headline">PotLuck</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200 font-headline font-bold tracking-tight" href="#">Lobby</a>
+<a class="text-[#f0bd8b] border-b-2 border-[#f0bd8b] pb-1 font-headline font-bold tracking-tight" href="#">Tables</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200 font-headline font-bold tracking-tight" href="#">History</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors duration-200 font-headline font-bold tracking-tight" href="#">Admin</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#313539] hover:text-[#95d4b3] transition-colors p-2">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="text-[#313539] hover:text-[#95d4b3] transition-colors p-2">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="Host Avatar" class="w-full h-full object-cover" data-alt="User profile avatar of a host" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJObr8gwNgFF0yAu9JsM4znl-jmMzCCU2q6-QTP8xLAc6TaXYMwnYeOhINZfO_j-5iyno--E8lbrlSKXSmAtTh6GVYHUMewYw5Fd3Q2g8spwIcn8uRePvQ9jW2snr9wHmm9jRWguzKFqQCJIwVawn8huYiGeNtg5SqnQsZNW6HsvTDQRJUUpnp7n0ok_dpWv9G1tIXJxuthKJm8MQbfevkpmJ4LQS3cUPAxK3fhRLWRUm37_cC3-bX0low3NBTLE2xfZswTFlp4z0"/>
+</div>
+</div>
+</header>
+<main class="min-h-[calc(100vh-64px-80px)] md:min-h-[calc(100vh-64px)] flex flex-col md:flex-row relative">
+<!-- Sidebar Navigation (Shared Component) -->
+<aside class="hidden md:flex flex-col h-full w-64 bg-[#101418]/80 backdrop-blur-xl py-4 sticky top-16 border-r border-outline-variant/15">
+<div class="px-6 py-4 mb-6">
+<h2 class="text-lg font-bold text-[#f0bd8b] font-headline">Admin Console</h2>
+<p class="text-xs text-on-surface-variant font-label">Table #402 - Active</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 text-[#313539] hover:text-[#95d4b3] mx-2 px-4 py-3 transition-all font-body text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span> Overview
+                </a>
+<a class="flex items-center gap-3 text-[#313539] hover:text-[#95d4b3] mx-2 px-4 py-3 transition-all font-body text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span> Player Management
+                </a>
+<a class="flex items-center gap-3 bg-[#00452e] text-[#95d4b3] rounded-lg mx-2 px-4 py-3 font-body text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="tune">tune</span> Table Controls
+                </a>
+<a class="flex items-center gap-3 text-[#313539] hover:text-[#95d4b3] mx-2 px-4 py-3 transition-all font-body text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="toll">toll</span> Limits &amp; Blinds
+                </a>
+<a class="flex items-center gap-3 text-[#313539] hover:text-[#95d4b3] mx-2 px-4 py-3 transition-all font-body text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="policy">policy</span> Security Log
+                </a>
+</nav>
+<div class="px-4 py-6 mt-auto">
+<button class="w-full bg-secondary-container text-on-secondary-container py-3 rounded-xl font-bold font-headline transition-transform active:translate-x-1">
+                    Pause Session
+                </button>
+</div>
+</aside>
+<!-- Main Settlement Canvas -->
+<section class="flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-[#0b0f12]">
+<!-- Settlement Table Surface -->
+<div class="relative w-full max-w-5xl aspect-[16/9] bg-primary-container/40 rounded-[12rem] border-[12px] border-surface-container-high shadow-2xl flex flex-col items-center justify-center overflow-hidden">
+<!-- Background Texture Emulation -->
+<div class="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
+<!-- Board Cards -->
+<div class="z-10 flex gap-3 mb-12">
+<div class="w-20 h-28 bg-white rounded-lg flex flex-col justify-between p-2 shadow-lg">
+<div class="text-2xl font-bold text-red-600 font-label">A<span class="text-sm block">♦</span></div>
+<div class="text-4xl self-center text-red-600"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">diamond</span></div>
+<div class="text-2xl font-bold text-red-600 font-label rotate-180">A<span class="text-sm block">♦</span></div>
+</div>
+<div class="w-20 h-28 bg-white rounded-lg flex flex-col justify-between p-2 shadow-lg">
+<div class="text-2xl font-bold text-black font-label">K<span class="text-sm block">♣</span></div>
+<div class="text-4xl self-center text-black"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">clover_spark</span></div>
+<div class="text-2xl font-bold text-black font-label rotate-180">K<span class="text-sm block">♣</span></div>
+</div>
+<div class="w-20 h-28 bg-white rounded-lg flex flex-col justify-between p-2 shadow-lg">
+<div class="text-2xl font-bold text-black font-label">A<span class="text-sm block">♠</span></div>
+<div class="text-4xl self-center text-black"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">playing_cards</span></div>
+<div class="text-2xl font-bold text-black font-label rotate-180">A<span class="text-sm block">♠</span></div>
+</div>
+<div class="w-20 h-28 bg-white rounded-lg flex flex-col justify-between p-2 shadow-lg">
+<div class="text-2xl font-bold text-red-600 font-label">8<span class="text-sm block">♥</span></div>
+<div class="text-4xl self-center text-red-600"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">favorite</span></div>
+<div class="text-2xl font-bold text-red-600 font-label rotate-180">8<span class="text-sm block">♥</span></div>
+</div>
+<div class="w-20 h-28 bg-white rounded-lg flex flex-col justify-between p-2 shadow-lg opacity-50">
+<div class="text-2xl font-bold text-black font-label">4<span class="text-sm block">♠</span></div>
+<div class="text-4xl self-center text-black"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">playing_cards</span></div>
+<div class="text-2xl font-bold text-black font-label rotate-180">4<span class="text-sm block">♠</span></div>
+</div>
+</div>
+<!-- Settlement Overlay (The Settlement Phase) -->
+<div class="z-20 glass-panel rounded-3xl p-8 max-w-2xl w-full border border-outline-variant/15 flex flex-col gap-6 shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-xs font-label uppercase tracking-widest text-secondary mb-1 block">Phase: Settlement</span>
+<h1 class="text-3xl font-headline font-extrabold text-on-background">Hand Resolution</h1>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-highest px-3 py-1.5 rounded-full">
+<span class="w-2 h-2 bg-secondary rounded-full animate-pulse"></span>
+<span class="text-xs font-label font-medium uppercase tracking-tighter">Validating Stakes...</span>
+</div>
+</div>
+<!-- Pot Breakdown -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-high/50 p-4 rounded-xl">
+<span class="text-[10px] font-label uppercase text-on-surface-variant block mb-1">Total Pot</span>
+<span class="text-2xl font-label font-bold text-secondary">24,500.00</span>
+</div>
+<div class="bg-surface-container-high/50 p-4 rounded-xl">
+<span class="text-[10px] font-label uppercase text-on-surface-variant block mb-1">House Rake (2%)</span>
+<span class="text-2xl font-label font-bold text-on-surface-variant">490.00</span>
+</div>
+</div>
+<!-- Winners Breakdown -->
+<div class="space-y-3">
+<div class="flex items-center justify-between p-4 bg-primary-container/20 rounded-xl border-l-4 border-primary">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full border-2 border-primary overflow-hidden">
+<img alt="Main Pot Winner" class="w-full h-full object-cover" data-alt="Avatar of the winner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDELq6OV4c69SYeHLjY1hL6pkh8lq5mBsvJhKosc8Z76GdPssJOaq8ZeHm3duQ1fM_lvTU3Cltnr8XNwMqfopvAFMz-94achnjnOTEdqF1Icn5Tpr_tUFMXmuIawHiICno10fTkZiY3RbOYuhKOr19GXCAFYxqB-yKzVfoE57c-LgXM9oWhpjt2CI-fo5YLF4qmMeF63_sICu_rTKJ5-sBhnU-Ngw-7wVcVs6rKM03max-4FDxoP8lrU8d5n6WVZlyjb-1zyIkNKow"/>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-headline font-bold text-on-primary-container">Julian V.</span>
+<span class="text-[10px] bg-primary-container text-primary-fixed-dim px-2 py-0.5 rounded-full font-label uppercase">Main Pot</span>
+</div>
+<p class="text-xs text-on-surface-variant">Full House, Aces over Kings</p>
+</div>
+</div>
+<div class="text-right">
+<span class="text-xl font-label font-bold text-primary-fixed-dim">+22,100</span>
+<p class="text-[10px] font-label text-primary/60">COLLECTED</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full border-2 border-surface-container-highest overflow-hidden">
+<img alt="Side Pot Winner" class="w-full h-full object-cover" data-alt="Avatar of the side pot winner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCl3LPFI3TgE9Nby4Bd8Cu0t4HOyDQ2b1pm9xxxgmPSz1eZDWx93D58Ig459i-xUWvAUGGmby9YcASiaKKJ9QYEfhw9Ic18L3L9bZ0jhNhCUmX61yFkQx8YLSPHg1HbFn0haBeU1Iz8lJ_elAU6mzbvXi3tL7yLrMIjcT-tYclIC_1q4sz2U2CD4Mv9VQmEFcV53xH6mAMrO99dvR75uezaVUkTiUQO4By91_m1eM7hzNmkyWX7cnrB8WSltzIP4O1AUpIETXNJyc"/>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-headline font-bold text-on-surface">Elena S.</span>
+<span class="text-[10px] bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded-full font-label uppercase">Side Pot 1</span>
+</div>
+<p class="text-xs text-on-surface-variant">Two Pair, Kings and Eights</p>
+</div>
+</div>
+<div class="text-right">
+<span class="text-xl font-label font-bold text-secondary-fixed-dim">+1,910</span>
+<p class="text-[10px] font-label text-on-surface-variant">COLLECTED</p>
+</div>
+</div>
+</div>
+<!-- Net Deltas Bento List -->
+<div class="pt-4 border-t border-outline-variant/15">
+<h3 class="text-xs font-label uppercase text-on-surface-variant mb-4 tracking-widest">Global Deltas</h3>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+<div class="bg-surface-container-lowest/50 p-3 rounded-lg flex justify-between items-center">
+<span class="text-xs font-body text-on-surface-variant">Marcus</span>
+<span class="text-xs font-label font-bold text-error">-8,000</span>
+</div>
+<div class="bg-surface-container-lowest/50 p-3 rounded-lg flex justify-between items-center">
+<span class="text-xs font-body text-on-surface-variant">Sofia</span>
+<span class="text-xs font-label font-bold text-error">-12,400</span>
+</div>
+<div class="bg-surface-container-lowest/50 p-3 rounded-lg flex justify-between items-center border border-primary/20">
+<span class="text-xs font-body text-on-surface">Julian</span>
+<span class="text-xs font-label font-bold text-primary">+14,100</span>
+</div>
+<div class="bg-surface-container-lowest/50 p-3 rounded-lg flex justify-between items-center">
+<span class="text-xs font-body text-on-surface-variant">Guest #02</span>
+<span class="text-xs font-label font-bold text-error">-4,100</span>
+</div>
+</div>
+</div>
+<!-- Confirmation Button -->
+<div class="pt-2">
+<button class="w-full h-14 bg-secondary text-on-secondary font-headline font-extrabold text-lg rounded-xl shadow-lg transition-all active:scale-[0.98] hover:brightness-110 flex items-center justify-center gap-3">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+                            Confirm &amp; Next Hand
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Shared Component - Mobile Only) -->
+<footer class="md:hidden fixed bottom-0 w-full z-50 h-20 border-t border-[#414844]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.4)] bg-[#101418] pb-safe flex justify-around items-center">
+<button class="flex flex-col items-center justify-center text-[#f0bd8b] font-bold font-label text-[10px] uppercase tracking-widest scale-95">
+<span class="material-symbols-outlined mb-1" data-icon="playing_cards">playing_cards</span>
+            Live Table
+        </button>
+<button class="flex flex-col items-center justify-center text-[#313539] font-label text-[10px] uppercase tracking-widest hover:text-[#95d4b3] transition-colors">
+<span class="material-symbols-outlined mb-1" data-icon="history">history</span>
+            History
+        </button>
+<button class="flex flex-col items-center justify-center text-[#313539] font-label text-[10px] uppercase tracking-widest hover:text-[#95d4b3] transition-colors">
+<span class="material-symbols-outlined mb-1" data-icon="chat_bubble">chat_bubble</span>
+            Messages
+        </button>
+<button class="flex flex-col items-center justify-center text-[#313539] font-label text-[10px] uppercase tracking-widest hover:text-[#95d4b3] transition-colors">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+            Profile
+        </button>
+</footer>
+</body></html>

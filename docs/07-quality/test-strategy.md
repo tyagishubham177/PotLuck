@@ -7,8 +7,6 @@
 | Property | shuffle uniqueness, chip conservation, deterministic replay, state invariant preservation |
 | Integration | room CRUD, join/seat/buy-in, action legality, reconnect, admin controls |
 | Realtime | duplicate intents, stale sequence rejection, out-of-order packet handling |
-| Soak | synthetic room traffic, reconnect churn, action bursts |
-| Chaos | server restart mid-hand, delayed Postgres responses, graceful shutdown drain |
 | Manual UAT | critical user journeys and dispute flows |
 
 ## Golden Scenarios
@@ -26,3 +24,4 @@
 - Contract tests in `packages/contracts`.
 - Synthetic player harness in `packages/test-kit`.
 - Browser E2E uses Playwright after Phase 07.
+- Restart recovery is verified as a bounded product rule: preserve committed stacks and abandon the interrupted hand safely.

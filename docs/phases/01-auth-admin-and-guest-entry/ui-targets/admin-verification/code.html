@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotLuck | Host Verification</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space_Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "inverse-surface": "#e0e3e8",
+              "on-primary-container": "#76b394",
+              "primary-fixed": "#b1f0ce",
+              "secondary-fixed": "#ffdcbd",
+              "on-error": "#690005",
+              "on-background": "#e0e3e8",
+              "secondary": "#f0bd8b",
+              "on-tertiary": "#2e3132",
+              "on-error-container": "#ffdad6",
+              "surface-variant": "#313539",
+              "on-tertiary-fixed-variant": "#454748",
+              "surface-container-lowest": "#0b0f12",
+              "error-container": "#93000a",
+              "on-surface": "#e0e3e8",
+              "surface-dim": "#101418",
+              "primary-container": "#00452e",
+              "on-surface-variant": "#c1c8c2",
+              "surface-tint": "#95d4b3",
+              "on-tertiary-container": "#a5a6a7",
+              "inverse-on-surface": "#2d3135",
+              "surface-container": "#1c2024",
+              "surface-container-low": "#181c20",
+              "on-primary": "#003824",
+              "on-secondary-container": "#e1af7e",
+              "surface": "#101418",
+              "surface-bright": "#363a3e",
+              "on-secondary-fixed": "#2c1600",
+              "outline": "#8b938d",
+              "primary-fixed-dim": "#95d4b3",
+              "on-primary-fixed": "#002114",
+              "tertiary-fixed-dim": "#c5c7c8",
+              "background": "#101418",
+              "tertiary-container": "#393c3d",
+              "on-primary-fixed-variant": "#0e5138",
+              "on-secondary-fixed-variant": "#623f18",
+              "secondary-fixed-dim": "#f0bd8b",
+              "primary": "#95d4b3",
+              "tertiary": "#c5c7c8",
+              "secondary-container": "#65411a",
+              "surface-container-highest": "#313539",
+              "on-tertiary-fixed": "#191c1d",
+              "inverse-primary": "#2c694e",
+              "tertiary-fixed": "#e1e3e4",
+              "on-secondary": "#482904",
+              "outline-variant": "#414844",
+              "error": "#ffb4ab",
+              "surface-container-high": "#262a2e"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .otp-input:focus {
+            box-shadow: 0 0 0 1px #95d4b3;
+            outline: none;
+        }
+        .glass-panel {
+            background: rgba(28, 32, 36, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-surface-dim text-on-surface font-body selection:bg-primary-container selection:text-primary">
+<!-- Top Navigation Suppression: Linear/Transactional Flow -->
+<!-- As per instructions, the Shell is suppressed for Transactional/Security flows -->
+<main class="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+<!-- Background Ambient "Felt" Glow -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary-container/20 rounded-full blur-[120px] -z-10"></div>
+<div class="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-secondary-container/10 rounded-full blur-[100px] -z-10"></div>
+<div class="w-full max-w-md">
+<!-- Brand Anchor -->
+<div class="flex flex-col items-center mb-10">
+<div class="mb-4 text-primary">
+<span class="material-symbols-outlined !text-4xl" data-icon="lock">lock</span>
+</div>
+<h1 class="font-headline text-3xl font-extrabold tracking-tighter text-on-surface">PotLuck</h1>
+<p class="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant mt-2">Private Atelier Access</p>
+</div>
+<!-- Central Auth Card -->
+<div class="glass-panel border border-outline-variant/15 p-8 md:p-10 rounded-xl shadow-2xl">
+<!-- Verification Step -->
+<div id="step-identity">
+<header class="mb-8">
+<h2 class="text-xl font-headline font-bold text-on-surface tracking-tight">Verify Host Identity</h2>
+<p class="text-on-surface-variant text-sm mt-2 leading-relaxed">Enter your registered email to receive a secure access code for <span class="text-secondary">The Private Atelier</span>.</p>
+</header>
+<form class="space-y-6">
+<div class="space-y-2">
+<label class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant ml-1">Admin Email</label>
+<input class="w-full bg-surface-container-highest border-none py-3 px-4 rounded-lg text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-primary transition-all font-body" placeholder="host@atelier.com" type="email"/>
+</div>
+<!-- 6-Digit OTP Section (State: Visible after email entry) -->
+<div class="space-y-4 pt-4">
+<div class="flex justify-between items-center px-1">
+<label class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">6-Digit Verification Code</label>
+<span class="text-[10px] text-primary flex items-center gap-1">
+<span class="material-symbols-outlined !text-[12px]" data-icon="timer">timer</span>
+                                    01:58
+                                </span>
+</div>
+<div class="flex justify-between gap-2 md:gap-3">
+<input class="otp-input w-full aspect-square text-center bg-surface-container-highest border-none rounded-lg text-xl font-label font-bold text-primary transition-all" maxlength="1" type="text"/>
+<input class="otp-input w-full aspect-square text-center bg-surface-container-highest border-none rounded-lg text-xl font-label font-bold text-primary transition-all" maxlength="1" type="text"/>
+<input class="otp-input w-full aspect-square text-center bg-surface-container-highest border-none rounded-lg text-xl font-label font-bold text-primary transition-all" maxlength="1" type="text"/>
+<input class="otp-input w-full aspect-square text-center bg-surface-container-highest border-none rounded-lg text-xl font-label font-bold text-primary transition-all" maxlength="1" type="text"/>
+<input class="otp-input w-full aspect-square text-center bg-surface-container-highest border-none rounded-lg text-xl font-label font-bold text-primary transition-all" maxlength="1" type="text"/>
+<input class="otp-input w-full aspect-square text-center bg-surface-container-highest border-none rounded-lg text-xl font-label font-bold text-primary transition-all" maxlength="1" type="text"/>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full bg-secondary-container text-on-secondary-container py-4 rounded-lg font-headline font-bold text-sm tracking-wide uppercase hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-secondary-container/10" type="submit">
+                                Verify and Enter Room
+                            </button>
+</div>
+</form>
+<div class="mt-8 flex flex-col items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors font-label text-xs tracking-wider">
+                            Didn't receive a code? <span class="underline underline-offset-4 ml-1">Resend OTP</span>
+</button>
+<!-- Subtle Loading/Status Message -->
+<div class="flex items-center gap-2 text-on-surface-variant/60 font-body text-[11px] italic">
+<span class="material-symbols-outlined !text-sm animate-pulse" data-icon="sync">sync</span>
+                            Encrypting host session for Hand ID: 8829-XJ92
+                        </div>
+</div>
+</div>
+</div>
+<!-- Security Reassurance -->
+<footer class="mt-12 grid grid-cols-2 gap-8 px-4 opacity-60">
+<div class="flex flex-col items-center text-center">
+<span class="material-symbols-outlined !text-xl mb-2 text-on-surface-variant" data-icon="encrypted">encrypted</span>
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">End-to-End Encrypted</p>
+</div>
+<div class="flex flex-col items-center text-center">
+<span class="material-symbols-outlined !text-xl mb-2 text-on-surface-variant" data-icon="policy">policy</span>
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Regulatory Compliance</p>
+</div>
+</footer>
+</div>
+</main>
+<!-- Global Footer (Identity specific strings from JSON) -->
+<footer class="fixed bottom-0 w-full h-8 bg-surface-dim border-t border-outline-variant/15 flex justify-between items-center px-6 z-50">
+<div class="font-label text-[10px] tabular-nums text-on-surface-variant">
+            © 2024 PotLuck Private Atelier. Hand ID: 8829-XJ92
+        </div>
+<div class="flex items-center gap-4 font-label text-[10px] text-on-surface-variant">
+<span class="flex items-center gap-1 text-primary">
+<span class="w-1 h-1 bg-primary rounded-full"></span>
+                Network: Stable
+            </span>
+<span>Latency: 24ms</span>
+<a class="hover:text-on-surface transition-colors" href="#">Terms of Service</a>
+</div>
+</footer>
+</body></html>

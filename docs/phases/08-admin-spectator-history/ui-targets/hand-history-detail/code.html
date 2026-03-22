@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotLuck Atelier - Hand Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Space_Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface-variant": "#c1c8c2",
+                        "error": "#ffb4ab",
+                        "surface-bright": "#393939",
+                        "primary-fixed": "#b1f0ce",
+                        "outline-variant": "#414844",
+                        "on-error-container": "#ffdad6",
+                        "error-container": "#93000a",
+                        "on-tertiary": "#4c2700",
+                        "primary": "#95d4b3",
+                        "tertiary-fixed": "#ffdcc1",
+                        "surface-container-high": "#2a2a2a",
+                        "primary-fixed-dim": "#95d4b3",
+                        "secondary-container": "#29513f",
+                        "secondary-fixed": "#c1ecd4",
+                        "tertiary": "#ffb878",
+                        "outline": "#8b938d",
+                        "on-primary-fixed-variant": "#0e5138",
+                        "on-primary-fixed": "#002114",
+                        "on-background": "#e5e2e1",
+                        "inverse-primary": "#2c694e",
+                        "on-error": "#690005",
+                        "on-primary-container": "#76b394",
+                        "background": "#131313",
+                        "secondary-fixed-dim": "#a5d0b9",
+                        "on-secondary-fixed": "#002114",
+                        "on-secondary-container": "#97c2ab",
+                        "surface-container-highest": "#353534",
+                        "inverse-on-surface": "#313030",
+                        "surface-container": "#201f1f",
+                        "on-tertiary-fixed-variant": "#6c3a00",
+                        "on-secondary": "#0e3727",
+                        "surface-dim": "#131313",
+                        "surface-tint": "#95d4b3",
+                        "on-secondary-fixed-variant": "#274e3d",
+                        "secondary": "#a5d0b9",
+                        "inverse-surface": "#e5e2e1",
+                        "tertiary-fixed-dim": "#ffb878",
+                        "on-tertiary-fixed": "#2e1500",
+                        "primary-container": "#00452e",
+                        "on-tertiary-container": "#e1954d",
+                        "surface-variant": "#353534",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-container-low": "#1c1b1b",
+                        "surface": "#131313",
+                        "on-surface": "#e5e2e1",
+                        "on-primary": "#003824",
+                        "tertiary-container": "#5c3100"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Manrope"],
+                        "label": ["Space Grotesk"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1C1B1B;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #353534;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30">
+<!-- TopNavBar -->
+<nav class="w-full sticky top-0 z-50 bg-[#131313] flex items-center justify-between px-10 py-4 max-w-full">
+<div class="text-xl font-black tracking-tighter text-[#95D4B3]">PotLuck Atelier</div>
+<div class="hidden md:flex items-center space-x-8 font-['Manrope'] tracking-tight font-bold text-[#E5E2E1]">
+<a class="text-[#95D4B3] border-b-2 border-[#95D4B3] pb-1" href="#">Hand History</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#E5E2E1] transition-colors duration-200" href="#">Live Tables</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#E5E2E1] transition-colors duration-200" href="#">Analytics</a>
+<a class="text-[#E5E2E1]/60 hover:text-[#E5E2E1] transition-colors duration-200" href="#">Bankroll</a>
+</div>
+<div class="flex items-center space-x-4">
+<button class="p-2 text-[#E5E2E1]/60 hover:bg-[#2A2A2A] rounded-full transition-all active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-[#E5E2E1]/60 hover:bg-[#2A2A2A] rounded-full transition-all active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="User profile avatar" data-alt="Geometric avatar pattern in green tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBokmpU5a1FUFoGutdNmJDjUS9BcA1SAIVGumCb0slKN5DWIIiu_NaTV2YGf21dCFsaoxlCDCJ2f9D2CtRFhUc8E1dcyhuv8R9n-NrJiDQAhslPzv9UP_SWN3Ol8LJLq3jE0Y-k75PNLUQDP_rl7dLxZKMASLkPMn52SkVUprFO3rX4Ni9LVh6ca_VGI0SdINmbBE612sru-_VRatEK4iFPCP9cvXGtQaJfJUCp2WVzz3RCnUgnG-KHP9HHvz2w_CeOOg19eolB-pU"/>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="hidden lg:flex h-screen w-64 fixed left-0 top-0 pt-20 bg-[#1C1B1B] flex-col space-y-2 border-r border-outline-variant/10">
+<div class="px-6 py-4 mb-4">
+<div class="flex items-center space-x-3 mb-2">
+<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">diamond</span>
+</div>
+<div>
+<div class="font-['Space_Grotesk'] uppercase tracking-widest text-[10px] text-on-surface-variant">Archives</div>
+<div class="text-xs font-bold text-on-surface">Hand Registry</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center space-x-3 px-4 py-3 bg-[#95D4B3]/10 text-[#95D4B3] border-r-4 border-[#95D4B3] transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg">history</span>
+<span class="font-['Space_Grotesk'] uppercase tracking-widest text-xs">All Hands</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-[#E5E2E1]/40 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg">diamond</span>
+<span class="font-['Space_Grotesk'] uppercase tracking-widest text-xs">High Stakes</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-[#E5E2E1]/40 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg">emoji_events</span>
+<span class="font-['Space_Grotesk'] uppercase tracking-widest text-xs">Tournaments</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-[#E5E2E1]/40 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg">flag</span>
+<span class="font-['Space_Grotesk'] uppercase tracking-widest text-xs">Flagged</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-[#E5E2E1]/40 hover:bg-[#2A2A2A] hover:text-[#E5E2E1] transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg">ios_share</span>
+<span class="font-['Space_Grotesk'] uppercase tracking-widest text-xs">Export Logs</span>
+</a>
+</nav>
+<div class="p-6 mt-auto">
+<button class="w-full py-3 px-4 bg-primary-container text-primary text-xs font-bold rounded-xl font-label uppercase tracking-widest hover:bg-primary-container/80 transition-colors">
+                Download CSV
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:pl-64 min-h-screen">
+<div class="max-w-7xl mx-auto px-10 pt-8 pb-20">
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+<div>
+<div class="flex items-center space-x-4 mb-2">
+<span class="px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold uppercase tracking-widest font-label">No Limit Hold'em</span>
+<span class="text-on-surface-variant/60 font-label text-xs">ID: #882-991-A2</span>
+</div>
+<h1 class="text-4xl md:text-5xl font-extrabold tracking-tighter text-on-surface leading-none">The Obsidian Room</h1>
+<p class="text-on-surface-variant mt-3 text-lg">October 24, 2023 • 02:44 AM</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center space-x-2 px-5 py-3 rounded-xl bg-surface-container-high hover:bg-surface-container-highest transition-colors font-label text-xs uppercase tracking-widest font-bold">
+<span class="material-symbols-outlined text-lg">text_snippet</span>
+<span>Copy Text</span>
+</button>
+<button class="flex items-center space-x-2 px-5 py-3 rounded-xl bg-primary text-on-primary hover:opacity-90 transition-opacity font-label text-xs uppercase tracking-widest font-bold">
+<span class="material-symbols-outlined text-lg">download</span>
+<span>Export JSON</span>
+</button>
+</div>
+</header>
+<!-- Bento Grid Hand Overview -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-12">
+<!-- Main Board Display (Glassmorphism) -->
+<div class="md:col-span-8 bg-surface-container-low rounded-[2rem] p-10 relative overflow-hidden flex flex-col justify-between min-h-[400px]">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[100px] -mr-32 -mt-32"></div>
+<div class="relative z-10">
+<div class="font-label text-xs uppercase tracking-widest text-primary mb-8 font-bold">The Board</div>
+<div class="flex flex-wrap gap-4 items-center">
+<!-- Cards -->
+<div class="w-20 h-28 rounded-xl bg-white flex flex-col justify-between p-3 shadow-lg transform -rotate-1">
+<span class="text-background font-bold text-2xl font-label">A</span>
+<span class="material-symbols-outlined text-error self-end text-3xl" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<div class="w-20 h-28 rounded-xl bg-white flex flex-col justify-between p-3 shadow-lg transform rotate-2">
+<span class="text-background font-bold text-2xl font-label">K</span>
+<span class="material-symbols-outlined text-error self-end text-3xl" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<div class="w-20 h-28 rounded-xl bg-white flex flex-col justify-between p-3 shadow-lg transform -rotate-2">
+<span class="text-background font-bold text-2xl font-label">J</span>
+<span class="material-symbols-outlined text-background self-end text-3xl" style="font-variation-settings: 'FILL' 1;">poker_chip</span>
+</div>
+<div class="w-12"></div> <!-- Spacer for Turn -->
+<div class="w-20 h-28 rounded-xl bg-white flex flex-col justify-between p-3 shadow-lg transform rotate-1">
+<span class="text-background font-bold text-2xl font-label">10</span>
+<span class="material-symbols-outlined text-error self-end text-3xl" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<div class="w-12"></div> <!-- Spacer for River -->
+<div class="w-20 h-28 rounded-xl bg-surface-container-highest border-2 border-dashed border-outline-variant/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant/20 text-4xl">question_mark</span>
+</div>
+</div>
+</div>
+<div class="relative z-10 flex items-end justify-between">
+<div>
+<div class="text-on-surface-variant font-label text-xs uppercase tracking-widest mb-1">Total Pot</div>
+<div class="text-5xl font-black text-on-surface font-headline tracking-tighter">$14,240.00</div>
+</div>
+<div class="bg-surface-variant/40 backdrop-blur-xl px-6 py-4 rounded-2xl border border-white/5 flex items-center space-x-4">
+<div class="text-right">
+<div class="text-on-surface-variant font-label text-[10px] uppercase tracking-widest">Winning Hand</div>
+<div class="text-primary font-bold font-headline">Royal Flush (High)</div>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">military_tech</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Stats/Quick Info -->
+<div class="md:col-span-4 flex flex-col gap-6">
+<div class="flex-1 bg-surface-container-high rounded-[2rem] p-8 flex flex-col justify-center">
+<div class="text-on-surface-variant font-label text-xs uppercase tracking-widest mb-4">Players involved</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<img alt="Player 1" class="w-8 h-8 rounded-full" data-alt="Abstract player profile icon 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCr3pszLhY0FXPBRHDaG8whB0jmIRTtFZ50-X_nyALXZDtJIjwmSxY7JqlfHP0BS6zEEfEB12UVmoGLcMMXsQxl4i1gTD7Voxu0SG6pMOungYvg4iL96DQDW-_MEhnBrBQhd_3CTEg0PL56rfCt6mFOEpigH1ZEu3-os6kFH1nItKj143K40TC9NcLyKWlY9Hbsb0AGWbPjlw3-nkvzD30vIodvufajum14QzYJ90ng-Hs05Mr13kMWmJpB6W0k2n54RvfgXbGs3ho"/>
+<span class="font-bold text-sm">V. Romanov</span>
+</div>
+<span class="text-primary font-label text-sm font-bold">+$9,400</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<img alt="Player 2" class="w-8 h-8 rounded-full" data-alt="Abstract player profile icon 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwRSTmoHGzolyJ3CxRfepA4RPz0lLAJqBihRuFZbbBbpjVOCTVJF6It0ZR8g2FQsyvOfbTepobBoiaLCq-UXjBvEmTgdkbhFsasmDC_bIT4BBxkUMKBB-0HdSfr0CUlKyvHoy1Cai0A6ogo8PP2c5ZvEP-8wa1cHgXegy5xC9rYf_oK-5qmavmsG29v4m0xPID8axLcGfPFnkPcmdi9DVwSvw5lgnHwMMYzsHIC8zYfxiWd5AZlTIdcN5GX_yZmsdytMblVaTDxso"/>
+<span class="font-bold text-sm">The Architect</span>
+</div>
+<span class="text-error font-label text-sm font-bold">-$4,840</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<img alt="Player 3" class="w-8 h-8 rounded-full opacity-40" data-alt="Abstract player profile icon 3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABC3D7-tKFBa38c2H0id_qSkN5jQw7TjU-4D02GJkn3tT4fAzSpgneN1EtF8EwvO8Svv4QYSZTNCc-aWzLanlsDu_7FhjsMNftw3bTqx6MC90AxnCz5GO5vP6i41eBZ5AnpSVn9CeZPxJKsscDqSqkEK6VFA99zigTJg1ftKWoJLelg9tovIEfNC7mt7Xrcz5ktDiZ5II3uiXaXwgnQACyl90g_DHiDhUmkt49Zm7qqk6beaXRYPQNFrIvwLY9LCIrHJHSseCH-zE"/>
+<span class="font-bold text-sm text-on-surface-variant/40">Silas_99</span>
+</div>
+<span class="text-on-surface-variant/40 font-label text-sm">Folded</span>
+</div>
+</div>
+</div>
+<div class="bg-tertiary-container rounded-[2rem] p-8 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-8xl">warning</span>
+</div>
+<div class="relative z-10">
+<div class="text-on-tertiary-container font-label text-xs uppercase tracking-widest mb-2 font-bold">System Note</div>
+<p class="text-on-tertiary-container text-sm leading-relaxed font-medium">This hand was flagged for high volatility. Reviewing bet sizing patterns against historical play.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Detailed Transcript -->
+<section class="space-y-8">
+<div class="flex items-center justify-between mb-8">
+<h2 class="text-2xl font-bold tracking-tight">Audit Log</h2>
+<div class="flex bg-surface-container-low p-1 rounded-xl">
+<button class="px-4 py-2 rounded-lg bg-surface-container-highest text-xs font-bold font-label uppercase tracking-widest shadow-sm">Street View</button>
+<button class="px-4 py-2 rounded-lg text-on-surface-variant/60 hover:text-on-surface text-xs font-bold font-label uppercase tracking-widest transition-colors">Raw Log</button>
+</div>
+</div>
+<!-- Pre-Flop -->
+<div class="bg-surface-container-low rounded-[1.5rem] overflow-hidden">
+<div class="px-8 py-5 bg-surface-container-high/50 border-b border-outline-variant/10 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-on-surface-variant">playing_cards</span>
+</span>
+<span class="font-bold tracking-tight">Pre-Flop</span>
+</div>
+<span class="font-label text-xs text-on-surface-variant/60">Pot: $600.00</span>
+</div>
+<div class="p-4 space-y-1">
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-6">
+<span class="text-[10px] font-label text-on-surface-variant/40 w-12">02:44:01</span>
+<span class="text-sm font-medium"><span class="font-bold">Silas_99</span> posted small blind</span>
+</div>
+<span class="font-label text-sm text-on-surface-variant">$200.00</span>
+</div>
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-6">
+<span class="text-[10px] font-label text-on-surface-variant/40 w-12">02:44:02</span>
+<span class="text-sm font-medium"><span class="font-bold">V. Romanov</span> posted big blind</span>
+</div>
+<span class="font-label text-sm text-on-surface-variant">$400.00</span>
+</div>
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-6">
+<span class="text-[10px] font-label text-on-surface-variant/40 w-12">02:44:15</span>
+<span class="text-sm font-medium"><span class="font-bold">The Architect</span> raised to</span>
+</div>
+<span class="font-label text-sm font-bold text-primary">$1,200.00</span>
+</div>
+</div>
+</div>
+<!-- Flop -->
+<div class="bg-surface-container-low rounded-[1.5rem] overflow-hidden">
+<div class="px-8 py-5 bg-surface-container-high/50 border-b border-outline-variant/10 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary">style</span>
+</span>
+<span class="font-bold tracking-tight">The Flop</span>
+<div class="flex items-center gap-1 ml-4 opacity-60 scale-75">
+<div class="w-8 h-10 rounded bg-white flex items-center justify-center text-background font-bold text-xs">A♥</div>
+<div class="w-8 h-10 rounded bg-white flex items-center justify-center text-background font-bold text-xs">K♥</div>
+<div class="w-8 h-10 rounded bg-white flex items-center justify-center text-background font-bold text-xs">J♠</div>
+</div>
+</div>
+<span class="font-label text-xs text-on-surface-variant/60">Pot: $3,200.00</span>
+</div>
+<div class="p-4 space-y-1">
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-6">
+<span class="text-[10px] font-label text-on-surface-variant/40 w-12">02:44:45</span>
+<span class="text-sm font-medium"><span class="font-bold">V. Romanov</span> checks</span>
+</div>
+<span class="font-label text-sm text-on-surface-variant/40">—</span>
+</div>
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-6">
+<span class="text-[10px] font-label text-on-surface-variant/40 w-12">02:44:52</span>
+<span class="text-sm font-medium"><span class="font-bold">The Architect</span> bets</span>
+</div>
+<span class="font-label text-sm font-bold text-primary">$2,400.00</span>
+</div>
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-high transition-colors bg-primary/5">
+<div class="flex items-center gap-6">
+<span class="text-[10px] font-label text-on-surface-variant/40 w-12">02:45:10</span>
+<span class="text-sm font-medium"><span class="font-bold">V. Romanov</span> calls</span>
+</div>
+<span class="font-label text-sm font-bold text-on-surface">$2,400.00</span>
+</div>
+</div>
+</div>
+<!-- Turn -->
+<div class="bg-surface-container-low rounded-[1.5rem] overflow-hidden">
+<div class="px-8 py-5 bg-surface-container-high/50 border-b border-outline-variant/10 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-on-secondary-container">dynamic_feed</span>
+</span>
+<span class="font-bold tracking-tight">The Turn</span>
+<div class="flex items-center gap-1 ml-4 opacity-60 scale-75">
+<div class="w-8 h-10 rounded bg-white flex items-center justify-center text-background font-bold text-xs">10♥</div>
+</div>
+</div>
+<span class="font-label text-xs text-on-surface-variant/60">Pot: $8,000.00</span>
+</div>
+<div class="p-8 flex flex-col items-center justify-center text-center opacity-40">
+<span class="material-symbols-outlined text-4xl mb-2">hourglass_empty</span>
+<p class="text-xs font-label uppercase tracking-widest font-bold">All-in sequence initiated</p>
+</div>
+<div class="p-4 bg-surface-container-highest/30">
+<div class="flex items-center justify-between p-4 rounded-xl bg-primary/10 border border-primary/20">
+<div class="flex items-center gap-6">
+<span class="text-[10px] font-label text-on-surface-variant/40 w-12">02:46:22</span>
+<span class="text-sm font-bold text-primary">V. Romanov goes ALL-IN</span>
+</div>
+<span class="font-label text-sm font-bold text-primary">$5,800.00</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Floating Action Button for Support/Flagging -->
+<div class="fixed bottom-10 right-10 flex flex-col items-end gap-4 z-50">
+<button class="w-14 h-14 rounded-full bg-surface-container-highest shadow-2xl flex items-center justify-center hover:bg-surface-bright transition-colors active:scale-95">
+<span class="material-symbols-outlined text-on-surface">flag</span>
+</button>
+<button class="h-14 px-8 rounded-full bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-2xl flex items-center gap-3 hover:opacity-90 transition-all active:scale-95">
+<span class="material-symbols-outlined text-lg">videocam</span>
+<span class="font-bold font-label text-xs uppercase tracking-widest">Replay Hand</span>
+</button>
+</div>
+</body></html>

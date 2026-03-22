@@ -4,12 +4,13 @@
 - PotLuck is a room-based realtime poker web app for private friend groups.
 - Primary game: Texas Hold'em, no-limit, 2 to 9 seats.
 - v1 is play-money only with room-scoped chips and no global wallet.
-- Mobile-first UI is required; desktop is an enhancement of the same information architecture.
+- Mobile and desktop are equal primary targets, sharing the same product scope and information architecture.
 
 ## Goals
 - Make table creation and joining friction-light.
 - Keep all game authority, randomness, timers, and settlement on the server.
 - Produce deterministic, auditable hand outcomes with correct side pots and odd-chip handling.
+- Close each room with a clear session summary and optional settle-up derived from a chip-to-dollar ratio.
 - Keep the architecture legible enough that future AI agents can implement phase by phase without product drift.
 
 ## Non-Goals
@@ -19,15 +20,18 @@
 - Hand replay viewer in v1
 - Multi-variant support beyond Texas Hold'em
 - Global matchmaking or discovery
+- Spectator system in v1
+- Waiting list in v1
 
 ## Launch Defaults
 | Area | Default |
 | --- | --- |
 | Audience | Private friend groups |
-| Auth | Verified admins, guest players |
-| Spectators | Off by default |
+| Auth | Password-protected admin, guest players |
+| Spectators | Deferred to post-v1 |
 | Odd chip rule | Left of button |
-| Rake | Off |
+| Session max duration | 10 hours by default |
+| Session summary and settle-up | Enabled at room close |
 | Region | Single primary region |
 | Hosting | Vercel + Fly.io + Neon + optional Redis later |
 
@@ -36,7 +40,6 @@
 | --- | --- |
 | Admin | Create room, edit config between hands, pause/resume, remove disruptive players, export history |
 | Player | Join by code, seat, buy in, act in hand, top up between hands |
-| Spectator | Subscribe to public table state only, no hidden cards before showdown |
 | Moderator | Same as admin for the room in v1 |
 
 ## Core Invariants
@@ -58,14 +61,13 @@
 | Shared validation | Zod | Runtime validation and inferred types |
 | Persistence | Drizzle + Neon Postgres | Typed schema control with low-cost managed Postgres |
 | Coordination | In-process room actors, optional Redis later | Single-process v1 is sufficient for 1 to 2 concurrent rooms |
-| Mail | Resend | Simple admin OTP |
-| Observability | Sentry + OpenTelemetry + Grafana Cloud | Error tracking plus traces and metrics |
+| Observability | Sentry + structured JSON logging | Error tracking with lightweight operational visibility |
 
 ## Document Map
 - `glossary.md`: shared project terminology and cross-doc vocabulary
 - `01-product/`: room rules, player lifecycle, feature boundaries, journey specs
 - `02-architecture/`: topology, actors, state machines, data model, ADRs
-- `03-contracts/`: REST, realtime, errors, versioning
+- `03-contracts/`: REST, realtime, errors
 - `04-game/`: rules, settlement, RNG, audit behavior
 - `05-experience/`: design system, screens, accessibility, copy
 - `06-ops/`: environments, deployment, observability, incidents

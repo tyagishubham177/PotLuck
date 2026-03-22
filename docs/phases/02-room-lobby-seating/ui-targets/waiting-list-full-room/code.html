@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space_Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary": "#f0bd8b",
+              "on-background": "#e0e3e8",
+              "secondary-fixed": "#ffdcbd",
+              "primary-fixed": "#b1f0ce",
+              "on-error": "#690005",
+              "on-primary-container": "#76b394",
+              "inverse-surface": "#e0e3e8",
+              "on-tertiary-fixed-variant": "#454748",
+              "surface-variant": "#313539",
+              "on-error-container": "#ffdad6",
+              "on-tertiary": "#2e3132",
+              "on-surface": "#e0e3e8",
+              "error-container": "#93000a",
+              "surface-container-lowest": "#0b0f12",
+              "on-tertiary-container": "#a5a6a7",
+              "inverse-on-surface": "#2d3135",
+              "surface-tint": "#95d4b3",
+              "on-surface-variant": "#c1c8c2",
+              "surface-dim": "#101418",
+              "primary-container": "#00452e",
+              "surface-bright": "#363a3e",
+              "surface": "#101418",
+              "on-secondary-fixed": "#2c1600",
+              "on-secondary-container": "#e1af7e",
+              "on-primary": "#003824",
+              "surface-container-low": "#181c20",
+              "surface-container": "#1c2024",
+              "secondary-fixed-dim": "#f0bd8b",
+              "on-secondary-fixed-variant": "#623f18",
+              "tertiary-container": "#393c3d",
+              "on-primary-fixed-variant": "#0e5138",
+              "background": "#101418",
+              "tertiary-fixed-dim": "#c5c7c8",
+              "primary-fixed-dim": "#95d4b3",
+              "outline": "#8b938d",
+              "on-primary-fixed": "#002114",
+              "inverse-primary": "#2c694e",
+              "on-tertiary-fixed": "#191c1d",
+              "surface-container-highest": "#313539",
+              "secondary-container": "#65411a",
+              "tertiary": "#c5c7c8",
+              "primary": "#95d4b3",
+              "surface-container-high": "#262a2e",
+              "outline-variant": "#414844",
+              "on-secondary": "#482904",
+              "error": "#ffb4ab",
+              "tertiary-fixed": "#e1e3e4"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-royal-felt {
+            background: radial-gradient(circle at center, #1a2c24 0%, #101418 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased">
+<!-- TopAppBar -->
+<header class="bg-[#101418] dark:bg-[#101418] font-['Manrope'] font-bold text-sm tracking-tight docked full-width top-0 flex justify-between items-center w-full px-6 h-16 z-50">
+<div class="text-2xl font-black text-[#95d4b3] tracking-tighter">PotLuck</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Lobby</a>
+<a class="text-[#95d4b3] border-b-2 border-[#95d4b3] pb-1" href="#">Tables</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Tournaments</a>
+<a class="text-[#313539] hover:text-[#95d4b3] transition-colors" href="#">Cashier</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-[#181c20] rounded-md transition-all scale-95 active:duration-100">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="settings">settings</span>
+</button>
+<button class="p-2 hover:bg-[#181c20] rounded-md transition-all scale-95 active:duration-100">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant/20 overflow-hidden">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="User profile avatar illustration" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBB5Lxk-IlmSGs3QarT9AjU77pFHhp0qXfxZTFSfjbuc1Sx1zEOX8jNvxO7P1TLSY1NSKuD5JGs_Wb9cLBuM5LDMkmqPE1d80ZdkqSGj2SwaWT9fIKizgP0fHHCs69AJ91a84P9dqNpgm7ZjFQ_qTEWYab5fZeDd715nvlglvEah0KfmGOIhmJekG4FX7IChgjTwNZN0waQ1lmiVv9xPuDiiZI6zAAsxAVWlP-6i2BxGnRuKRFdmwVE0Rgqtjp8N3XGLR8Z09ArYAU"/>
+</div>
+</div>
+</header>
+<main class="relative min-h-[calc(100vh-64px)] w-full bg-royal-felt flex items-center justify-center p-6 overflow-hidden">
+<!-- Blurred Background Content (The Full Room) -->
+<div class="absolute inset-0 opacity-20 grayscale pointer-events-none overflow-hidden blur-md">
+<!-- Table Representation -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary-container rounded-[200px] border-[12px] border-surface-container-high shadow-2xl"></div>
+<!-- Dimmed Player Pods -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-4xl max-h-[500px]">
+<!-- Player Positions -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 bg-surface-container-high rounded-lg"></div>
+<div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-24 bg-surface-container-high rounded-lg"></div>
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-24 h-24 bg-surface-container-high rounded-lg"></div>
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-24 h-24 bg-surface-container-high rounded-lg"></div>
+</div>
+</div>
+<!-- Waiting List Overlay -->
+<div class="relative z-10 w-full max-w-xl bg-surface-container-low/80 backdrop-blur-2xl p-10 rounded-xl border border-outline-variant/10 shadow-2xl flex flex-col items-center text-center">
+<div class="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-full bg-secondary-container/30 text-secondary">
+<span class="material-symbols-outlined text-4xl" data-icon="group">group</span>
+</div>
+<h1 class="font-headline text-4xl font-extrabold text-on-surface tracking-tight mb-3">Room is Full</h1>
+<p class="font-body text-on-surface-variant text-lg mb-8 max-w-md">
+                This table is currently at maximum capacity. Join the queue to secure your seat or observe the action as a spectator.
+            </p>
+<!-- Status Indicator Card -->
+<div class="w-full bg-surface-container-high p-6 rounded-lg mb-10 flex flex-col items-center gap-2">
+<span class="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">Current Queue Position</span>
+<div class="font-label text-3xl font-bold text-secondary tracking-tighter">Position #3 in Line</div>
+<div class="flex items-center gap-2 mt-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="text-sm font-medium text-on-primary-container">Estimated Wait: ~8 mins</span>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex flex-col sm:flex-row gap-4 w-full">
+<button class="flex-1 bg-secondary-container hover:bg-secondary-container/80 text-on-secondary-container font-headline font-bold py-4 px-6 rounded-lg transition-all transform active:scale-95 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="person_add">person_add</span>
+                    Join Waiting List
+                </button>
+<button class="flex-1 bg-surface-container-highest hover:bg-surface-bright text-on-surface font-headline font-bold py-4 px-6 rounded-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 border border-outline-variant/10">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+                    Spectate Only
+                </button>
+</div>
+<!-- Secondary Footer Action -->
+<button class="mt-8 text-on-surface-variant hover:text-secondary text-sm font-medium underline underline-offset-4 transition-colors">
+                Return to Lobby
+            </button>
+</div>
+</main>
+<!-- SideNavBar (Contextual Table Info) -->
+<aside class="bg-[#181c20]/80 backdrop-blur-xl dark:bg-[#181c20]/80 fixed right-0 top-16 h-[calc(100vh-64px)] flex flex-col border-l border-[#313539]/10 docked right-0 h-full w-72 shadow-2xl shadow-black/50 z-40">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center border border-secondary/20">
+<span class="material-symbols-outlined text-[#f0bd8b]" data-icon="poker_chip">poker_chip</span>
+</div>
+<div>
+<h3 class="font-['Space_Grotesk'] font-bold text-[#f0bd8b]">Table #402</h3>
+<p class="font-['Inter'] text-[10px] uppercase tracking-widest text-[#313539]">High Stakes NLH</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<div class="flex items-center gap-4 px-4 py-3 text-[#313539] hover:bg-[#262a2e]/50 cursor-not-allowed group transition-all duration-300">
+<span class="material-symbols-outlined text-sm" data-icon="add_card">add_card</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Buy-in</span>
+</div>
+<div class="flex items-center gap-4 px-4 py-3 text-[#313539] hover:bg-[#262a2e]/50 cursor-not-allowed group transition-all duration-300">
+<span class="material-symbols-outlined text-sm" data-icon="history">history</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Hand History</span>
+</div>
+<div class="flex items-center gap-4 px-4 py-3 text-[#313539] hover:bg-[#262a2e]/50 cursor-not-allowed group transition-all duration-300">
+<span class="material-symbols-outlined text-sm" data-icon="query_stats">query_stats</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Statistics</span>
+</div>
+<div class="flex items-center gap-4 px-4 py-3 text-[#f0bd8b] bg-[#262a2e] rounded-l-lg border-r-2 border-[#f0bd8b]">
+<span class="material-symbols-outlined text-sm" data-icon="chat">chat</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Table Chat</span>
+</div>
+<div class="flex items-center gap-4 px-4 py-3 text-[#313539] hover:bg-[#262a2e]/50 cursor-not-allowed group transition-all duration-300">
+<span class="material-symbols-outlined text-sm" data-icon="edit_note">edit_note</span>
+<span class="font-['Inter'] text-xs font-medium uppercase tracking-widest">Notes</span>
+</div>
+</nav>
+</div>
+<div class="mt-auto p-6 space-y-4">
+<button class="w-full py-3 bg-secondary-container text-on-secondary-container font-headline font-bold text-xs tracking-widest rounded-lg opacity-50 cursor-not-allowed">
+                RELOAD CHIPS
+            </button>
+<div class="flex justify-between items-center px-2 py-2 border-t border-outline-variant/10">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xs" data-icon="signal_cellular_alt">signal_cellular_alt</span>
+<span class="font-label text-[10px] text-on-surface-variant">Connection</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-xs" data-icon="fingerprint">fingerprint</span>
+<span class="font-label text-[10px] text-on-surface-variant">Hand #8821</span>
+</div>
+</div>
+</div>
+</aside>
+</body></html>

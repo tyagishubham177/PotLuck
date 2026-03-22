@@ -5,7 +5,7 @@
 - Serialize intents into a single ordered event stream.
 - Invoke pure game-engine functions for legal actions, dealing, and settlement.
 - Persist committed transitions and emit diffs to clients.
-- Manage timers, reconnect grace, queue auto-seating, and between-hand admin edits.
+- Manage timers, reconnect grace, and between-hand admin edits.
 
 ## Actor Lifecycle
 - Create the room actor immediately after room creation succeeds.
@@ -42,8 +42,8 @@
 - Settlement, ledger writes, and hand finalization happen in one transaction.
 
 ## Recovery Strategy
-1. Load room config, seats, last completed hand, and latest active hand events.
-2. Rebuild room state by replaying pure engine transitions.
-3. Compare derived hash against stored hand hash if present.
-4. Resume live play only if reconstruction is deterministic.
-5. Otherwise place room in `PAUSED_RECOVERY_REQUIRED` and notify admin.
+1. Load room config, seats, last completed hand, and the latest committed ledger balances.
+2. If no hand was in progress, resume normal room operation from the persisted between-hands state.
+3. If a hand was in progress at failure time, mark that hand as abandoned for v1 recovery rather than attempting full event replay.
+4. Preserve the last committed player stacks, emit an audit event, and return the room to a safe paused or between-hands state for admin review.
+5. Resume live play only after the room actor confirms stacks and seat ownership are coherent.

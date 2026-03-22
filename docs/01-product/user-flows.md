@@ -2,8 +2,8 @@
 
 ## Admin Creates A Room
 1. Admin lands on create-room screen.
-2. Admin authenticates with email OTP if not already verified.
-3. Admin sets table name, seat count, blinds, ante, buy-in rules, spectator, and straddle settings.
+2. Admin authenticates with the configured password or PIN if not already signed in.
+3. Admin sets table name, seat count, blinds, ante, buy-in rules, chip-to-dollar ratio, and straddle settings.
 4. Server validates config and creates room, room code, audit entry, and initial room state.
 5. Admin sees share screen with code, QR-friendly view, and room settings summary.
 
@@ -29,11 +29,12 @@
 3. Player chooses top-up amount up to max table buy-in.
 4. Server applies ledger entry and updates next-hand stack.
 
-## Spectator Join
-1. User enters room code as spectator.
-2. Server checks spectator setting and room availability.
-3. Spectator receives public room state, board, pot, timer, and showdown visibility only.
-4. Spectator never receives hidden cards unless open training mode is enabled.
+## Session Ends And Settle-Up
+1. Admin closes the room manually or the room reaches its max duration.
+2. Server finalizes the room, blocks new joins and new hands, and derives a session summary from the room ledger.
+3. PotLuck shows each player's total buy-ins, final stack, and net chip gain or loss.
+4. PotLuck applies the configured chip-to-dollar ratio to derive settle-up amounts for the private friend group.
+5. Admin can export the final summary for follow-up outside the app.
 
 ## Reconnect During Hand
 1. Player loses socket during an active hand.

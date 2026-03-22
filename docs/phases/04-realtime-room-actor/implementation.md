@@ -5,7 +5,12 @@
 2. Implement room actor registry and consistent routing strategy.
 3. Add monotonic event numbering, hand-local sequence handling, and idempotency checks.
 4. Implement timer service with stale-token rejection.
-5. Render reconnect banners and room diff application in the web shell.
+5. Render the reconnect target from `ui-targets/reconnect-overlay/`, keeping the table visible beneath the overlay and stating the impact on the current hand.
+6. Apply room diffs in the web shell without forcing a full-screen fallback on transient disconnects.
+
+## UI Integration Target
+- Reconnect messaging should explain the current seat state, hand outcome, and next step in plain language.
+- Recovery UI should feel like a glass layer over the room, not a separate error app.
 
 ## Keys and Inputs
 ### File Targets

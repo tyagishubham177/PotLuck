@@ -19,6 +19,7 @@
 | any active | admin pause or recovery fault | `ROOM_PAUSED` | no new actions accepted |
 | `ROOM_PAUSED` | admin resume | prior state | restore the persisted turn deadline by adding only the unconsumed timer remainder |
 | any | admin close room or max-duration reached | `ROOM_CLOSED` | no new joins |
+| `ROOM_CLOSED` | session summary derived | `SESSION_SUMMARY` | settle-up is now available |
 
 ## Player Connection State
 ```mermaid
@@ -26,7 +27,6 @@ stateDiagram-v2
   [*] --> Disconnected
   Disconnected --> Connecting: session accepted
   Connecting --> Lobby: join snapshot sent
-  Connecting --> Spectating: spectator snapshot sent
   Lobby --> Reserved: seat selected
   Reserved --> Seated: buy-in committed
   Seated --> Active: hand starts
@@ -61,6 +61,6 @@ stateDiagram-v2
 | `UNSTARTED` | betting not yet complete |
 | `POTS_BUILT` | contributions frozen and pots constructed |
 | `WINNERS_RESOLVED` | winning sets computed per pot |
-| `LEDGER_COMMITTED` | payouts and rake written transactionally |
+| `LEDGER_COMMITTED` | payouts written transactionally |
 | `AUDIT_EMITTED` | transcripts and public results emitted |
 | `FINAL` | hand immutable except compensating admin adjustment |
