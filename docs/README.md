@@ -61,7 +61,7 @@ flowchart TD
 - Current implementation starting point: `phases/00-foundation/`.
 - Branch naming convention: `codex/<task-name>`.
 
-## UI References
-- Imported UI kits live in `ui-references/`.
-- Use `ui-references/README.md` as the index before implementing or reshaping screen-level UI.
-- Phase-specific UI notes can live beside the phase pack as `ui.md` when visual references materially affect execution.
+## Phase-Owned UI Targets
+- Screen targets now live inside each owning phase pack under `ui-targets/`.
+- Keep durable design rationale in `05-experience/design.md`.
+- Keep concrete screen and HTML artifacts beside the phase that must implement them.

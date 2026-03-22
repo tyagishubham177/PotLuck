@@ -4,9 +4,10 @@
 1. Initialize `pnpm-workspace.yaml`, root `package.json`, and Turborepo pipeline.
 2. Scaffold `apps/web` with Next.js and `apps/server` with Fastify.
 3. Create empty but buildable shared packages with TS project references.
-4. Add ESLint, Prettier if used, TypeScript config, Vitest, and CI workflow.
-5. Create env schemas in `packages/config` and wire them into both apps.
-6. Document local setup, scripts, and directory ownership in root README updates.
+4. Seed `packages/ui` with Private Atelier tokens, font hooks, dark surfaces, bottom-sheet primitives, and glass overlay utilities.
+5. Add ESLint, Prettier if used, TypeScript config, Vitest, and CI workflow.
+6. Create env schemas in `packages/config` and wire them into both apps.
+7. Document local setup, scripts, directory ownership, and UI foundation expectations in root README updates.
 
 ## Keys and Inputs
 ### File Targets

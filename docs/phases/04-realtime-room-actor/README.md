@@ -13,7 +13,7 @@ The authoritative room loop must be in place before the game engine can safely d
 ## Prerequisites
 - Phase 03 complete.
 - Read `docs/02-architecture/room-actor-model.md` and `docs/03-contracts/realtime-events.md`.
-- Review `docs/phases/04-realtime-room-actor/ui.md` for reconnect and disconnect state references.
+- Review the phase-owned target assets under `docs/phases/04-realtime-room-actor/ui-targets/`.
 
 ## Touched Packages
 - apps/server
@@ -24,6 +24,11 @@ The authoritative room loop must be in place before the game engine can safely d
 ## Explicit Non-Goals
 - Do not implement full Hold'em betting rules yet.
 - Do not expose spectator training mode.
+
+## UI Targets
+| Screen | Assets | Target To Reach |
+| --- | --- | --- |
+| Reconnect overlay | `ui-targets/reconnect-overlay/` | Connection-loss overlay that preserves the table underneath, explains current hand impact, and exposes the next safe recovery actions. |
 
 ## Exit Criteria
 - Clients can subscribe to room snapshots and receive ordered diffs.

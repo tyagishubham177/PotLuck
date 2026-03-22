@@ -4,8 +4,15 @@
 1. Design ledger tables and balance derivation queries.
 2. Implement buy-in, rebuy, and top-up APIs with table-stakes timing checks.
 3. Add server-side rules for min/max buy-in and between-hand-only top-up.
-4. Emit audit logs for every chip movement.
-5. Create ledger unit tests and reconciliation checks.
+4. Build the seat-commit target from `ui-targets/seat-reservation-buy-in/` so chip funding feels attached to seat reservation rather than a detached wallet screen.
+5. Build the between-hands restock target from `ui-targets/between-hands-top-up/`, keeping stack and hand context visible during the decision.
+6. Emit audit logs for every chip movement.
+7. Create ledger unit tests and reconciliation checks.
+
+## UI Integration Target
+- Financial decisions must keep blinds, table rules, and current stack context visible.
+- Top-up and rebuy surfaces should feel like calm overlays on the table, not page transitions.
+- Confirmation actions should use the warm clay emphasis reserved for commitment moments.
 
 ## Keys and Inputs
 ### File Targets

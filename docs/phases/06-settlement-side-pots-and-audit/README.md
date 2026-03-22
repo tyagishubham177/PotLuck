@@ -13,7 +13,7 @@ Fairness and correctness live or die here; this phase completes the money math.
 ## Prerequisites
 - Phase 05 complete.
 - Read `docs/04-game/settlement-spec.md` end to end.
-- Review `docs/phases/06-settlement-side-pots-and-audit/ui.md` for the settlement reference screen.
+- Review the phase-owned target assets under `docs/phases/06-settlement-side-pots-and-audit/ui-targets/`.
 
 ## Touched Packages
 - packages/game-engine
@@ -24,6 +24,11 @@ Fairness and correctness live or die here; this phase completes the money math.
 ## Explicit Non-Goals
 - Do not build replay UI.
 - Do not add real-money settlement or external payments.
+
+## UI Targets
+| Screen | Assets | Target To Reach |
+| --- | --- | --- |
+| Showdown settlement | `ui-targets/showdown-settlement/` | Total pot first, then clear main-pot and side-pot breakdowns, winner labeling, and net delta presentation without heavy separators. |
 
 ## Exit Criteria
 - Side pots resolve deterministically across multi-way all-ins.

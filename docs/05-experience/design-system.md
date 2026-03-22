@@ -2,7 +2,7 @@
 
 ## Strategy Link
 - Creative direction and durable style rationale live in [design.md](design.md).
-- Imported visual references live in [../ui-references/README.md](../ui-references/README.md).
+- Concrete screen targets live beside the owning phase in `docs/phases/*/ui-targets/`.
 
 ## Visual Direction
 - Mood: private club, calm and trustworthy rather than flashy casino noise.
@@ -39,9 +39,11 @@
 ## Interaction Principles
 - Primary actions stay within thumb reach on mobile.
 - Numeric amounts always show chips and optional BB equivalents using `Space Grotesk`.
+- Blinds, seat context, or table structure should remain visible near the action that depends on them.
 - Timers must remain visible without covering cards or action controls.
 - Cosmetic motion never delays a legal poker action.
 - Floating overlays should use glass treatment so table context remains visible.
+- History should stay easy to reach from persistent navigation when it does not interfere with in-hand actions.
 
 ## Sound Design
 - Card deal: soft felt snap on initial dealing only.

@@ -72,3 +72,14 @@ A bespoke toggle for `Auto-Post Blinds`, `Sit Out`, or seat preferences. It uses
 - No red for `Fold`. Red triggers panic. Use `tertiary`, `outline`, or neutral text treatment for folding. Only use `error` (`#ffb4ab`) for critical system failures or all-in warnings that genuinely need alarm.
 - No skeuomorphism. Do not use textures that look like real wood or real felt. Use color to suggest those materials while keeping the forms modern and flat.
 - No high-contrast borders. Never use white or light gray strokes around containers. It breaks the immersion of the "Private Atelier."
+
+## 7. Phase-Owned UI Targets
+Concrete UI targets belong inside the phase packs that own them.
+
+- Use `docs/phases/01-auth-admin-and-guest-entry/ui-targets/` for landing and admin verification.
+- Use `docs/phases/02-room-lobby-seating/ui-targets/` for room creation, sharing, seating, and waitlist flows.
+- Use `docs/phases/03-wallet-buyin-and-ledger/ui-targets/` for buy-in and top-up surfaces.
+- Use `docs/phases/04-realtime-room-actor/ui-targets/` for reconnect and disconnect presentation.
+- Use `docs/phases/06-settlement-side-pots-and-audit/ui-targets/` for settlement presentation.
+- Use `docs/phases/07-player-table-ui/ui-targets/` for the live player table shell.
+- Use `docs/phases/08-admin-spectator-history/ui-targets/` for admin, spectator, and history surfaces.
