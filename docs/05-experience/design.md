@@ -1,85 +1,114 @@
-# Design System Strategy: The Private Atelier
+# Design: The Private Atelier v2
 
-## 1. Overview And Creative North Star
-The Creative North Star for this design system is **"The Private Atelier."**
+## 1. Quiet Luxury Thesis
+PotLuck should feel like a precision instrument in a members-only room, not a loud casino app. The interface must read as calm, exact, and materially rich, with the restraint of a watch face rather than the hype of a gaming dashboard.
 
-Unlike the chaotic, neon-soaked environments of commercial gambling apps, this system draws inspiration from high-end private clubs and bespoke tailoring. We are moving away from the "mobile game" aesthetic toward a "precision instrument" feel. The interface does not shout; it whispers with authority.
+The product promise is not spectacle. It is confidence. Every screen should suggest that the game state is carefully measured, the room is private, and the visuals are expensive because they are controlled.
 
-We break the "standard template" look by utilizing **intentional asymmetry** and **tonal depth**. By rejecting traditional borders and embracing "The Layering Principle," we create an environment that feels stable, expensive, and calm, allowing the user's focus to remain entirely on the high-stakes logic of the game.
+## 2. Design Principles
+- Quiet luxury over gamer theatrics.
+- Mechanical clarity over neon excitement.
+- Tonal layering over visible boxes.
+- Material cues over skeuomorphic props.
+- Calm authority over marketing energy.
 
-## 2. Colors: The Palette Of Trust
-The palette is rooted in the "Deep Felt" experience, utilizing a sophisticated dark-mode architecture that prioritizes long-form visual comfort.
+## 3. The Depth Stack
+| Layer | Name | Purpose | Visual Rule |
+| --- | --- | --- | --- |
+| 0 | Full-bleed background | Establish the room atmosphere | Barely-there radial gradient, never flat black |
+| 1 | Room surface | Hold navigation and structural rails | Subtle graphite plane with `2%` noise texture |
+| 2 | Table felt | Anchor live play | Radial green gradient with vignette, never flat fill |
+| 3 | Player pods | Express occupancy and turn state | Elevated tonal blocks with ambient shadow |
+| 4 | Floating glass panels | Show transient controls and info | Blurred, tinted glass with restrained edge light |
+| 5 | Modal and critical dialogs | Interrupt with certainty | Full dim scrim and centered, denser card |
 
-### Core Tones
-- **Primary (The Felt):** `#95d4b3` (Primary) to `#00452e` (Primary Container). This is our anchor. Use these for success states and key active players.
-- **Secondary (The Clay):** `#f0bd8b` (Secondary) to `#65411a` (Secondary Container). This warm gold evokes the physical weight of high-value clay chips. Reserved for high-priority actions like `Call`, `Confirm`, and all-in emphasis plus pot totals.
-- **Surface (The Graphite):** `#101418` (Surface) to `#313539` (Surface Variant). These neutrals provide the "stable room" environment.
+## 4. Color System
+### Core Palette
+| Token | Hex | HSL | Role |
+| --- | --- | --- | --- |
+| `ink-950` | `#0b0d10` | `216 18% 5%` | full-bleed background shadow |
+| `graphite-900` | `#101418` | `210 22% 8%` | room surface |
+| `graphite-800` | `#181c20` | `210 14% 11%` | rails and secondary surface |
+| `graphite-700` | `#262a2e` | `210 10% 16%` | player pod and high surface |
+| `graphite-600` | `#313539` | `210 8% 21%` | elevated inactive control |
+| `felt-500` | `#0a6b42` | `151 83% 23%` | felt center |
+| `felt-700` | `#003322` | `160 100% 10%` | felt rim |
+| `felt-glow` | `#95d4b3` | `149 41% 70%` | active felt edge glow |
+| `clay-400` | `#f0bd8b` | `30 77% 74%` | premium accent |
+| `clay-700` | `#65411a` | `31 59% 25%` | accent container |
+| `ivory-50` | `#f7f3eb` | `40 43% 95%` | premium card face |
+| `signal-red` | `#c85c53` | `5 51% 55%` | disconnected and critical |
+| `signal-amber` | `#d6a449` | `39 63% 56%` | warning state |
+| `signal-green` | `#5fbf8f` | `150 43% 56%` | connected and stable |
+| `signal-teal` | `#7fd8c6` | `169 54% 67%` | active turn glow |
 
-### The "No-Line" Rule
-**Strict mandate:** Designers are prohibited from using `1px` solid borders to define sections or cards.
+### Status Palette
+| State | Color | Behavior |
+| --- | --- | --- |
+| Connected | `signal-green` | static dot with faint outer glow |
+| Unstable | `signal-amber` | soft pulse, never strobe |
+| Disconnected | `signal-red` | static indicator, no dramatic flash |
+| Active turn | `signal-teal` | halo and controlled glow |
+| Folded | `graphite-600` | desaturated, dimmed state |
+| Sat out | `graphite-700` + muted label | visibly inactive without alarm |
 
-Boundaries must be defined through background color shifts or subtle tonal transitions. A player's seat (`surface_container_high`) should sit directly on the table (`surface`) without a stroke. Separation is achieved through the contrast between `#262a2e` and `#101418`.
+## 5. The Felt Gradient
+The poker table is never a flat fill.
 
-### Signature Textures And Glass
-To avoid a "flat-file" appearance, use glassmorphism for floating overlays like bet sliders or menu drawers. Use `surface_container` tokens with `60-80%` opacity and a `backdrop-blur` of `20px`. This allows the felt green of the table to bleed through while preserving a sense of place.
+```css
+background:
+  radial-gradient(circle at 50% 42%, #0a6b42 0%, #085b39 38%, #04412c 68%, #003322 100%);
+box-shadow:
+  inset 0 0 0 2px hsla(149, 41%, 70%, 0.08),
+  inset 0 28px 60px hsla(0, 0%, 0%, 0.20),
+  inset 0 -36px 60px hsla(0, 0%, 0%, 0.24);
+```
 
-## 3. Typography: Editorial Precision
-The typography is a dialogue between the character-rich **Manrope** and the industrial clarity of **Inter** and **Space Grotesk**.
+Add a restrained vignette so the board and pot read as the brightest part of the felt without looking theatrical.
 
-- **Display and headlines (Manrope):** Used for tournament titles, big wins, and screen headers. It should feel premium and curated.
-- **Body and titles (Inter):** The workhorse. Inter's tall x-height keeps card suits and player names legible even at smaller mobile sizes.
-- **Data and labels (Space Grotesk):** Used for all numeric values including pot size, stack sizes, blinds, timers, and chip counts. Its tabular feel prevents values from "jumping" when they update quickly.
+## 6. Glass Treatment Spec
+Glass is reserved for overlays, drawers, reconnect banners, settlement panels, and floating control groups. It is the one intentional exception to the no-line rule.
 
-**Hierarchy as identity:** Use `display-md` for the pot total to give it weight, while using `label-sm` in `on_surface_variant` for administrative metadata such as `Muck`, `Dealer`, or reconnect states.
+```css
+background: hsla(200, 10%, 12%, 0.65);
+backdrop-filter: blur(20px) saturate(1.2);
+-webkit-backdrop-filter: blur(20px) saturate(1.2);
+border: 1px solid hsla(0, 0%, 100%, 0.06);
+box-shadow:
+  0 24px 80px hsla(210, 30%, 3%, 0.42),
+  inset 0 1px 0 hsla(0, 0%, 100%, 0.04);
+```
 
-## 4. Elevation And Depth: Tonal Layering
-We reject the standard Material Design shadow-heavy approach in favor of **Ambient Depth**.
+Opaque containers should be treated as a design bug when the panel is meant to float over live table state.
 
-- **The Layering Principle:** Stacking determines importance.
-- *Level 0:* `surface_dim` (`#101418`) for the room and the full-screen background.
-- *Level 1:* `surface_container_low` (`#181c20`) for the table surface and persistent rails.
-- *Level 2:* `surface_container_high` (`#262a2e`) for individual player pods and focused controls.
-- **Ghost border fallback:** If a container requires a boundary, use `outline_variant` (`#414844`) at `15%` opacity. It should be felt, not seen.
-- **Ambient shadows:** For floating elements like the bet radial, use a shadow with `32px` blur, `0px` offset, and `8%` opacity of the `on_background` color.
+## 7. State Color Language
+- Teal-green glow means it is your turn.
+- Amber pulse means time is running low or connectivity is unstable.
+- Dimmed neutral surfaces mean folded or inactive.
+- Brighter chip clusters and labels mean actively involved in the current hand.
+- Muted graphite surfaces mean waiting, sat out, or passive context.
 
-## 5. Components: The Instrument Set
+No state should rely on color alone. Shape, label, icon, and motion must reinforce the meaning.
 
-### Buttons
-- **Primary (Secondary/Gold):** Reserved for `Call`, `Confirm`, and high-commitment actions. Uses `secondary_container` with `on_secondary_container` text.
-- **Action (Primary/Green):** Reserved for `Check`, `Bet`, or positive progress actions. Uses `primary_container`.
-- **Tertiary (Ghost):** For `Fold`, `Close`, or low-emphasis exits. No background, strictly `on_surface_variant` text.
+## 8. Card Material Direction
+Playing cards should feel like premium printed stock, not blank white rectangles.
 
-### Chips And Badges
-Chips are never literal images. They are stylized circular components using the `secondary` token with `label-md` typography. Use `rounded-full` for all status indicators to contrast against the `md` (`0.375rem`) corners of the main containers.
+- Card face tone: `ivory-50`, not pure white.
+- Corner radius: small but visible, with crisp edge control.
+- Subtle inner shadow and edge highlight to imply thickness.
+- Suit color coding should stay premium, slightly desaturated, and highly legible.
+- Hover or deal motion may introduce slight rotation or parallax, but never cartoon bounce.
+- Finish should suggest matte laminate, not glossy plastic.
 
-### Input Fields
-Avoid the boxed input look. Use a single `surface_container_highest` block. The focus state is indicated by a shift to `primary_fixed_dim` text color rather than a border change.
+## 9. Chips And Badges
+- Gameplay surfaces use `chips` or `CR` for display units, never currency symbols.
+- Chip stacks should look layered and weighted, with count badges rendered in `Space Grotesk`.
+- Pot totals and action amounts should feel precise and measured, never noisy or oversized.
+- Status badges should look pressed and integrated into the surface, not like third-party pills.
 
-### The "No-Divider" List
-For hand histories or player lists, do not use horizontal lines. Use vertical white space at spacing scale `4` or `5` to create separation. Content is grouped by proximity, not by a cage.
+## 10. Navigation Tone
+The top bar should feel permanent and restrained:
 
-### Signature Component: The Stable-Toggle
-A bespoke toggle for `Auto-Post Blinds`, `Sit Out`, or seat preferences. It uses a subtle `surface_container_highest` track with a `primary` thumb. It must feel mechanical and deliberate, not bouncy.
+`PotLuck` brand mark | `Lobby · Tables · History` | utility icons
 
-## 6. Do's And Don'ts
-
-### Do
-- Prioritize scannability. Use `Space Grotesk` for every dollar amount, chip count, blind value, and timer.
-- Use asymmetry. Place the dealer button in an offset position relative to the player pod so the table feels organic rather than grid-locked.
-- Embrace the dark. Keep `90%` of the UI in the `surface` and `surface_container` range to protect the user's eyes during long sessions.
-
-### Don't
-- No red for `Fold`. Red triggers panic. Use `tertiary`, `outline`, or neutral text treatment for folding. Only use `error` (`#ffb4ab`) for critical system failures or all-in warnings that genuinely need alarm.
-- No skeuomorphism. Do not use textures that look like real wood or real felt. Use color to suggest those materials while keeping the forms modern and flat.
-- No high-contrast borders. Never use white or light gray strokes around containers. It breaks the immersion of the "Private Atelier."
-
-## 7. Phase-Owned UI Targets
-Concrete UI targets belong inside the phase packs that own them.
-
-- Use `docs/phases/01-auth-admin-and-guest-entry/ui-targets/` for landing and admin verification.
-- Use `docs/phases/02-room-lobby-seating/ui-targets/` for room creation, sharing, seating, and waitlist flows.
-- Use `docs/phases/03-wallet-buyin-and-ledger/ui-targets/` for buy-in and top-up surfaces.
-- Use `docs/phases/04-realtime-room-actor/ui-targets/` for reconnect and disconnect presentation.
-- Use `docs/phases/06-settlement-side-pots-and-audit/ui-targets/` for settlement presentation.
-- Use `docs/phases/07-player-table-ui/ui-targets/` for the live player table shell.
-- Use `docs/phases/08-admin-spectator-history/ui-targets/` for admin, spectator, and history surfaces.
+Phase-specific context belongs in a breadcrumb or secondary label below the top bar. The main navigation must never swap in unrelated labels such as tournaments, cashier, or vault.

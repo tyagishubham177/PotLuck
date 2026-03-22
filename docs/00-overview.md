@@ -56,7 +56,7 @@
 | Package manager | pnpm | Fast workspace installs and predictable monorepo behavior |
 | Task runner | Turborepo | Clear package graphs and cached CI steps |
 | Web | Next.js 15 | Mature web app framework and easy Vercel deploy |
-| UI | Tailwind CSS 4 + Radix + Framer Motion | Accessible primitives with controlled motion |
+| UI | Tailwind CSS 4 + Radix + Framer Motion, optional Rive later | Framer Motion covers layout and UI transitions; Rive can be added later if table-state animation needs a dedicated vector runtime |
 | Realtime server | Fastify + native WebSocket (`ws`) | Thin transport, browser-native clients, and straightforward room-event ordering in single-process v1 |
 | Shared validation | Zod | Runtime validation and inferred types |
 | Persistence | Drizzle + Neon Postgres | Typed schema control with low-cost managed Postgres |
