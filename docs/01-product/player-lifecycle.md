@@ -4,8 +4,8 @@
 | State | Meaning | Entered By | Exits To |
 | --- | --- | --- | --- |
 | Disconnected | No live session or socket | Network loss, leave, initial state | Connecting |
-| Connecting | Session valid, realtime not ready | Socket handshake | Lobby, Spectating |
-| Lobby | In room, not seated | Join success | Reserved, Spectating, Disconnected |
+| Connecting | Session valid, realtime not ready | Socket handshake | Lobby |
+| Lobby | In room, not seated | Join success | Reserved, Disconnected |
 | Reserved | Seat selected, buy-in pending | Seat reservation, rebuy intent | Seated, Lobby, Disconnected |
 | Seated | At table, not in current hand | Buy-in complete or hand ended | Active, Sitting Out, Lobby |
 | Sitting Out | Seated but skipped for dealing | User/admin action | Seated, Active, Disconnected |
@@ -13,7 +13,6 @@
 | Folded | In current hand but ineligible to win | Fold action, timeout auto-fold | Seated |
 | All-In | No further action possible | All-in action or short call | Seated |
 | Busted | Zero room chips and no immediate rebuy taken | Settlement | Reserved, Lobby, Disconnected |
-| Spectating | Watching public table state only | Spectator join | Lobby, Disconnected |
 
 ## Timers
 | Timer | Default | Behavior |
@@ -31,7 +30,7 @@
 
 ## Reconnect Rules
 - Guest session persistence survives browser close through a signed cookie-backed session until expiry or explicit leave.
-- Session rejoin restores room role, seat, chip stack, and current public/private view.
+- Session rejoin restores room membership, seat, chip stack, and current public/private view.
 - Hole cards are re-sent only to the owning player after re-authenticated reconnect.
 - Duplicate live sockets for one player cause the older socket to be retired.
 - If reconnect occurs after auto-fold, the player remains folded for that hand.
@@ -44,7 +43,7 @@
 ## Busted And Re-Buy Path
 - A busted player may choose `Rebuy` between hands and move from `Busted` to `Reserved` while keeping room membership.
 - If rebuy is not completed before the reservation timer expires, the player returns to `Lobby`.
-- A busted player who declines rebuy remains in the room as a lobby player and may spectate if enabled.
+- A busted player who declines rebuy remains in the room as a lobby player.
 
 ## Admin Interventions
 - Admin can kick a lobby player immediately.

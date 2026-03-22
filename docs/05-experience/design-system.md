@@ -4,7 +4,7 @@
 - Mood: premium card room, calm and trustworthy rather than flashy casino noise.
 - Theme anchors: deep felt green, graphite surfaces, warm chip accents, bright readable typography.
 - Table views use an always-dark presentation so cards, chips, and timers remain visually stable across sessions.
-- Mobile-first layout with one-handed action zones and desktop expansion panels.
+- Mobile and desktop are both first-class layouts; the system should not treat desktop as a late enhancement.
 
 ## Design Tokens
 | Token Group | Direction |
@@ -43,4 +43,5 @@
 ## Responsive Rules
 - Mobile: single-column table with bottom action tray and slide-up drawers.
 - Tablet: preserve bottom tray, move history and admin panels to side sheets.
-- Desktop: use left rail for players 8/9 and right rail for history/admin panels.
+- Desktop: use left rail for players 8/9 and right rail for history/admin panels without dropping any core controls.
+- Both `375px` mobile and desktop widths are primary targets and must be designed intentionally.

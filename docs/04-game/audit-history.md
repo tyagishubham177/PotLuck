@@ -9,8 +9,7 @@
 - Contribution totals and per-street contributions
 - Pot construction details and eligible winner sets
 - Hand ranks at showdown
-- Settlement records, odd-chip recipients, rake, and resulting stacks
-- Deck commitment hash and reveal artifact references
+- Settlement records, odd-chip recipients, and resulting stacks
 
 ## Export Formats
 | Format | Audience | Notes |
@@ -33,8 +32,7 @@
 
 ## Access Control And Retention
 - Hand history is visible only to room admins and participants in that room.
-- Production retention target is `12` months.
-- Staging retention target is `30` days.
+- Retention target is the current active session plus `30` days after room close.
 
 ## Finality Rules
 - A hand becomes final only after settlement, ledger commit, and audit emission succeed.

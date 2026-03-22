@@ -1,7 +1,7 @@
 ﻿# UAT Scripts
 
 ## UAT-01 Create And Share Room
-- Admin requests OTP, creates room, copies room code, reopens room summary.
+- Admin signs in with password or PIN, creates room, copies room code, reopens room summary.
 - Pass if config persists and code works for a fresh guest join.
 
 ## UAT-02 Join Seat Buy-In
@@ -17,12 +17,12 @@
 - Pass if auto-action occurs correctly and room state remains coherent.
 
 ## UAT-05 Admin Between-Hands Edit
-- Change blinds and spectator setting between hands.
+- Change blinds and chip-to-dollar ratio between hands.
 - Pass if current hand is unaffected and next hand uses updated rules.
 
-## UAT-06 Spectator Restrictions
-- Join as spectator during live hand.
-- Pass if public state renders and no hidden cards leak.
+## UAT-06 Session Summary And Settle-Up
+- Close a room after multiple buy-ins, rebuys, and top-ups.
+- Pass if the session summary shows final stacks and net chips correctly, and the settle-up view reflects the configured ratio.
 
 ## UAT-07 Session Isolation And Stale-State Cleanup
 - Join a room in one tab as a player, then join the same room from another tab or browser context as a different guest and also try an invalid room lookup afterwards.

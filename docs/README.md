@@ -52,7 +52,7 @@ flowchart TD
 | 05 | Holdem Engine and Hand State | Build the authoritative hand state machine | `xtra hi` | `xtra hi`; betting legality and street transitions have many edge cases |
 | 06 | Settlement Side Pots and Audit | Finalize pot splitting, side pots, and auditable payouts | `xtra hi` | `xtra hi`, and stay there; this is the highest-risk correctness phase |
 | 07 | Player Table UI | Ship the mobile-first player interface | `hi` | `hi`, leaning `med`; UI work is lighter than engine work, but contract accuracy still matters |
-| 08 | Admin Spectator History | Add moderation, spectating, and hand history | `hi` | `hi`, leaning `med`; permission edges and privacy rules make `hi` safer |
+| 08 | Admin And History | Add moderation and hand history; spectator work is now future scope | `hi` | `hi`, leaning `med`; permission edges and export safety still make `hi` safer |
 | 09 | Hardening Load Release | Prove reliability, accessibility, and release readiness | `hi` | `hi`, leaning `xtra hi`; release, soak, and observability decisions are operationally risky |
 
 ## Current Status
